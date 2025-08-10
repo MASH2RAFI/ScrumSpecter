@@ -33,7 +33,11 @@ export const CreateWorkspaceForm = ({ onCancel }: CreateWorkspaceFormProps) => {
     });
 
     const onSubmit = (values: z.infer<typeof createWorkspaceSchema>) => {
-        mutate({ json: values });
+        mutate({ form: values }, {
+            onSuccess: () => {
+                form.reset();
+            }
+        });
     };
 
     return (
@@ -56,7 +60,7 @@ export const CreateWorkspaceForm = ({ onCancel }: CreateWorkspaceFormProps) => {
                                 render={({ field }) => 
                                     <FormItem> 
                                         <FormLabel> 
-                                        | Workspace 
+                                            Workspace 
                                         </FormLabel> 
                                         <FormControl>
                                             <Input 
