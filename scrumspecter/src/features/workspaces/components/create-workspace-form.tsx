@@ -18,12 +18,14 @@ import { DottedSeparator } from "@/components/dotted-separator";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useCreateWorkspace } from "../api/use-create-workspace";
+import { useRouter } from "next/navigation";
 
 interface CreateWorkspaceFormProps {
     onCancel?: () => void;
 };
 
 export const CreateWorkspaceForm = ({ onCancel }: CreateWorkspaceFormProps) => {
+    const router = useRouter();
     const { mutate, isPending } = useCreateWorkspace();
     const form = useForm<z.infer<typeof createWorkspaceSchema>>({
         resolver: zodResolver(createWorkspaceSchema),
@@ -34,8 +36,9 @@ export const CreateWorkspaceForm = ({ onCancel }: CreateWorkspaceFormProps) => {
 
     const onSubmit = (values: z.infer<typeof createWorkspaceSchema>) => {
         mutate({ form: values }, {
-            onSuccess: () => {
+            onSuccess: ({ data }) => {
                 form.reset();
+                router.push(`/workspaces/${data.$id}`);
             }
         });
     };
