@@ -6,10 +6,8 @@ import { Workspace } from "./types";
 import { createSessionClient } from "@/lib/appwrite";
 
 export const getWorkspaces = async () => {
-    try{
 
     const { databases, account } = await createSessionClient();
-
     const user = await account.get();
     const members = await databases.listDocuments (
             DATABASE_ID,
@@ -33,11 +31,7 @@ export const getWorkspaces = async () => {
         );
 
         return workspaces;
-    }
 
-    catch {
-        return {  documents: [], total: 0  };
-    }
 };
 
 interface GetWorkspaceProps{
@@ -46,8 +40,6 @@ interface GetWorkspaceProps{
 
 
 export const getWorkspace = async ({ workspaceId } : GetWorkspaceProps ) => {
-    try{
-    
     const { databases, account } = await createSessionClient();
     const user = await account.get();
   
@@ -58,7 +50,7 @@ export const getWorkspace = async ({ workspaceId } : GetWorkspaceProps ) => {
     });
 
     if (!member) {
-        return null;
+        throw new Error("You are not a member of this workspace");
     }
 
     const workspace = await databases.getDocument<Workspace>(
@@ -68,10 +60,6 @@ export const getWorkspace = async ({ workspaceId } : GetWorkspaceProps ) => {
     );
 
     return workspace;
-}
-    catch {
-        return null;
-    }
 };
 
 interface GetWorkspaceInfoProps{
@@ -80,20 +68,15 @@ interface GetWorkspaceInfoProps{
 
 
 export const getWorkspaceInfo = async ({ workspaceId } : GetWorkspaceInfoProps ) => {
-    try{
-        const { databases } = await createSessionClient();
+    const { databases } = await createSessionClient();
 
-        const workspace = await databases.getDocument<Workspace>(
-            DATABASE_ID,
-            WORKSPACES_ID,
-            workspaceId,
-        );
+    const workspace = await databases.getDocument<Workspace>(
+        DATABASE_ID,
+        WORKSPACES_ID,
+        workspaceId,
+    );
 
-        return {
-            name: workspace.name
-        };
-    }
-    catch {
-        return null;
-    }
+    return {
+        name: workspace.name
+    };
 };
