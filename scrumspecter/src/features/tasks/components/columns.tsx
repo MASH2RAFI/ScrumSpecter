@@ -52,8 +52,8 @@ export const columns: ColumnDef<Task>[] = [
             return (
                 <div className="flex items-center gap-x-2 text-sm font-medium">
                     <ProjectAvatar
-                    className="size-6"
-                    name={project.name}
+                        className="size-6"
+                        name={project.name}
                     />
                     <p className="line-clamp-1">{project.name}</p>
                 </div>
