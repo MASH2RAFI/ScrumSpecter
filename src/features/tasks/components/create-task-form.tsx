@@ -71,7 +71,7 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
             assigneeId: "",
             description: "",
             storyPoints: 1,
-            dueDate: new Date(),
+            dueDate: new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate(), 0, 0, 0, 0)),
         },
     });
 

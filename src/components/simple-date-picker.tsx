@@ -24,16 +24,23 @@ export const SimpleDatePicker = ({
     hasError = false
 }: SimpleDatePickerProps) => {
     
-    // Convert Date to YYYY-MM-DD format for input
+    // Convert Date to YYYY-MM-DD format for input (display in local timezone)
     const formatDateForInput = (date: Date | undefined): string => {
         if (!date) return '';
-        return date.toISOString().split('T')[0];
+        // Convert UTC date to local timezone for display
+        const localDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+        const year = localDate.getFullYear();
+        const month = (localDate.getMonth() + 1).toString().padStart(2, '0');
+        const day = localDate.getDate().toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
     };
 
-    // Convert YYYY-MM-DD to Date
+    // Convert YYYY-MM-DD to Date (store as UTC at 00:00)
     const parseDateFromInput = (dateString: string): Date | undefined => {
         if (!dateString) return undefined;
-        return new Date(dateString + 'T00:00:00');
+        // Parse the date string and create UTC date at midnight
+        const [year, month, day] = dateString.split('-').map(Number);
+        return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

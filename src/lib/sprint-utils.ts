@@ -45,13 +45,15 @@ export const getTodayDateString = (): string => {
 };
 
 /**
- * Format date to DD/MM/YYYY format
+ * Format date to DD/MM/YYYY format (display in local timezone)
  */
 export const formatDateDDMMYYYY = (date: Date | string): string => {
     const d = new Date(date);
-    const day = d.getDate().toString().padStart(2, '0');
-    const month = (d.getMonth() + 1).toString().padStart(2, '0');
-    const year = d.getFullYear();
+    // Convert UTC date to local timezone for display
+    const localDate = new Date(d.getTime() + (d.getTimezoneOffset() * 60000));
+    const day = localDate.getDate().toString().padStart(2, '0');
+    const month = (localDate.getMonth() + 1).toString().padStart(2, '0');
+    const year = localDate.getFullYear();
     return `${day}/${month}/${year}`;
 };
 
@@ -72,19 +74,21 @@ export const convertYYYYMMDDToDDMMYYYY = (dateString: string): string => {
 };
 
 /**
- * Convert DD/MM/YYYY format to Date object
+ * Convert DD/MM/YYYY format to Date object (UTC at midnight)
  */
 export const convertDDMMYYYYToDate = (dateString: string): Date => {
     const [day, month, year] = dateString.split('/');
-    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 0, 0, 0, 0));
 };
 
 /**
- * Convert Date object to DD/MM/YYYY format
+ * Convert Date object to DD/MM/YYYY format (display in local timezone)
  */
 export const convertDateToDDMMYYYY = (date: Date): string => {
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
+    // Convert UTC date to local timezone for display
+    const localDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+    const day = localDate.getDate().toString().padStart(2, '0');
+    const month = (localDate.getMonth() + 1).toString().padStart(2, '0');
+    const year = localDate.getFullYear();
     return `${day}/${month}/${year}`;
 };
