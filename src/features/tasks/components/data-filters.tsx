@@ -68,7 +68,7 @@ export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
                 onValueChange={(value) => {onStatusChange(value)}} 
             >
                 <SelectTrigger className="w-full lg:w-auto h-8"> 
-                    <div className="flex items-center pr-2"> 
+                    <div className="flex items—center pr-2'"> 
                         <ListChecksIcon className="size-4 mr-2" /> 
                         <SelectValue placeholder="All statuses" /> 
                     </div> 
@@ -89,7 +89,7 @@ export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
                 onValueChange={(value) => {onAssigneeChange(value)}} 
             >
                 <SelectTrigger className="w-full lg:w-auto h-8"> 
-                    <div className="flex items-center pr-2"> 
+                    <div className="flex items—center pr-2'"> 
                         <UserIcon className="size-4 mr-2" /> 
                         <SelectValue placeholder="All assignees" /> 
                     </div> 
@@ -111,7 +111,7 @@ export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
                     onValueChange={(value) => {onProjectChange(value)}} 
                 >
                     <SelectTrigger className="w-full lg:w-auto h-8"> 
-                        <div className="flex items-center pr-2"> 
+                        <div className="flex items—center pr-2'"> 
                             <FolderIcon className="size-4 mr-2" /> 
                             <SelectValue placeholder="All projects" /> 
                         </div> 

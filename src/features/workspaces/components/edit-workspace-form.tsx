@@ -113,12 +113,12 @@ export const EditWorkspaceForm = ({ onCancel,initialValues }: EditWorkspaceFormP
             <Card className="w-full h-full border-none shadow-none">
                 <CardHeader className="flex flex-row items-center gap-x-4 p-7 space-y-0">
 
-                    <Button size="sm" variant="secondary" onClick={onCancel ? onCancel: () => router.push(`/workspaces/${initialValues.$id}`)}>
+                    <Button size="sm" variant="secondary" onClick={onCancel ? onCancel: () => router.push(`/workspaces/${initialValues. $id}`)}>
                         <ArrowLeftIcon className="size-4 mr-2" /> 
                             Back
                     </Button>
 
-                    <CardTitle className="text-xl font-bold">
+                    <CardTitle className="text-x1 font-bold">
                         {initialValues.name}
                     </CardTitle>
                 </CardHeader>
@@ -151,7 +151,7 @@ export const EditWorkspaceForm = ({ onCancel,initialValues }: EditWorkspaceFormP
                                 />                
                             </div>
                             <DottedSeparator className="py-7" />
-                            <div className="flex items-center justify-between">
+                            <div className="flex items—center justify-between">
                                 <Button
                                     type="button"
                                     size="lg"

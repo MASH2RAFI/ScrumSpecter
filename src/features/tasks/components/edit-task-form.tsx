@@ -84,7 +84,7 @@ export const EditTaskForm = ({ onCancel, projectOptions, memberOptions, initialV
     return (
         <Card className="w-full h-full border-none shadow-none">
             <CardHeader className="flex p-7">
-                <CardTitle className="text-xl font-bold">
+                <CardTitle className="text-x1 font-bold">
                     Edit a task
                 </CardTitle>
             </CardHeader>

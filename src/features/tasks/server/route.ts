@@ -315,7 +315,7 @@ const app = new Hono()
                     dueDate,
                     assigneeId,
                     description,
-                    storyPoints: Number(storyPoints),
+                    storyPoints: storyPoints ? Number(storyPoints) : undefined,
                     position: newPosition,
                 }
             );

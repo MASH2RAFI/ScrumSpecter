@@ -36,7 +36,7 @@ import { SimpleDatePicker } from "@/components/simple-date-picker";
 import { MemberAvatar } from "@/features/members/components/member-avatar";
 import { TaskStatus } from "../types";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
-import { TargetIcon, AlertCircle, CheckCircle2 } from "lucide-react";
+import { TargetIcon, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 
 interface CreateTaskFormProps {
     onCancel?: () => void;
@@ -52,10 +52,10 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
     const { mutate, isPending, error: mutationError } = useCreateTask();
     const formSchema = z.object({
         name: z.string().trim().min(1, "Task name is required"),
-        status: z.nativeEnum(TaskStatus, { message: "Status is required" }),
-        projectId: z.string().trim().min(1, "Project is required"),
+        status: z.nativeEnum(TaskStatus, { errorMap: () => ({ message: "Please select a status" }) }),
+        projectId: z.string().trim().min(1, "Please select a project"),
         dueDate: z.date().optional(),
-        assigneeId: z.string().trim().min(1, "Assignee is required"),
+        assigneeId: z.string().trim().min(1, "Please select an assignee"),
         description: z.string().optional(),
         storyPoints: z.number()
             .min(1, "Story points must be at least 1")
@@ -84,6 +84,19 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
 
     const onSubmit = (values: z.infer<typeof formSchema>) => {
         setSubmitAttempted(true);
+        
+        // Focus on first error field if validation fails
+        const errors = form.formState.errors;
+        if (Object.keys(errors).length > 0) {
+            const firstErrorField = Object.keys(errors)[0];
+            const errorElement = document.querySelector(`[name="${firstErrorField}"]`) as HTMLInputElement | HTMLSelectElement;
+            if (errorElement) {
+                errorElement.focus();
+                errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return;
+        }
+        
         mutate({ json: { ...values, workspaceId } }, {
             onSuccess: () => {
                 form.reset();
@@ -114,12 +127,56 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
         return submitAttempted && (hasError || isEmpty);
     };
 
+    // Check if field should be highlighted as empty (even before submit)
+    const shouldHighlightEmpty = (fieldName: keyof z.infer<typeof formSchema>) => {
+        const isEmpty = isFieldEmpty(fieldName);
+        const isRequired = ['name', 'status', 'projectId', 'assigneeId', 'storyPoints'].includes(fieldName);
+        return isRequired && isEmpty && form.formState.isDirty;
+    };
+
+    // Check if field is valid
+    const isFieldValid = (fieldName: keyof z.infer<typeof formSchema>) => {
+        const hasError = getFieldError(fieldName);
+        const isEmpty = isFieldEmpty(fieldName);
+        return !hasError && !isEmpty && form.formState.isDirty;
+    };
+
+    // Calculate form completion percentage
+    const getFormCompletion = () => {
+        const requiredFields = ['name', 'status', 'projectId', 'assigneeId', 'storyPoints'];
+        const completedFields = requiredFields.filter(field => {
+            const value = form.getValues(field as keyof z.infer<typeof formSchema>);
+            return value && (typeof value !== 'string' || value.trim() !== '');
+        });
+        return Math.round((completedFields.length / requiredFields.length) * 100);
+    };
+
+    // Check if form is ready to submit
+    const isFormReady = () => {
+        const errors = form.formState.errors;
+        const requiredFields = ['name', 'status', 'projectId', 'assigneeId', 'storyPoints'];
+        const hasRequiredErrors = requiredFields.some(field => errors[field as keyof typeof errors]);
+        return !hasRequiredErrors && getFormCompletion() === 100;
+    };
+
     return (
         <Card className="w-full h-full border-none shadow-none">
-            <CardHeader className="flex p-7">
-                <CardTitle className="text-xl font-bold">
-                    Create a new task
-                </CardTitle>
+            <CardHeader className="flex flex-col p-7 space-y-3">
+                <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl font-bold">
+                        Create a new task
+                    </CardTitle>
+                    <div className="text-sm text-muted-foreground">
+                        {getFormCompletion()}% complete
+                    </div>
+                </div>
+                {/* Progress bar */}
+                <div className="w-full bg-muted rounded-full h-2">
+                    <div 
+                        className="bg-primary h-2 rounded-full transition-all duration-300 ease-in-out"
+                        style={{ width: `${getFormCompletion()}%` }}
+                    />
+                </div>
             </CardHeader>
             <div className="px-7">
                 <DottedSeparator />
@@ -130,7 +187,7 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                         {/* Global Error Display */}
                         {mutationError && (
                             <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md flex items-center gap-2 text-destructive">
-                                <AlertCircle className="h-4 w-4" />
+                                <XCircle className="h-4 w-4" />
                                 <span className="text-sm font-medium">
                                     Failed to create task. Please try again.
                                 </span>
@@ -155,25 +212,43 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                             </div>
                         )}
 
+                        {/* Form completion hint */}
+                        {!submitAttempted && getFormCompletion() < 100 && (
+                            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md dark:bg-blue-950/20 dark:border-blue-800">
+                                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <span className="text-sm font-medium">
+                                        Complete the required fields marked with * to create your task
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex flex-col gap-y-4">
                             <FormField
                                 control={form.control} 
                                 name="name" 
                                 render={({ field }) => {
                                     const hasError = shouldHighlightError("name");
+                                    const isEmpty = shouldHighlightEmpty("name");
+                                    const isValid = isFieldValid("name");
                                     return (
                                         <FormItem> 
                                             <FormLabel className="flex items-center gap-2">
                                                 Task Name
                                                 <span className="text-destructive">*</span>
                                                 {hasError && <AlertCircle className="h-4 w-4 text-destructive" />}
+                                                {isEmpty && !hasError && <AlertCircle className="h-4 w-4 text-amber-500" />}
+                                                {isValid && <CheckCircle2 className="h-4 w-4 text-green-600" />}
                                             </FormLabel> 
                                             <FormControl>
                                                 <Input 
                                                     {...field}                                        
                                                     placeholder="Enter task name"
                                                     className={cn(
-                                                        hasError && "border-destructive focus:border-destructive focus:ring-destructive/20"
+                                                        hasError && "border-destructive focus:border-destructive focus:ring-destructive/20",
+                                                        isEmpty && !hasError && "border-amber-400 focus:border-amber-400 focus:ring-amber-400/20",
+                                                        isValid && "border-green-500 focus:border-green-500 focus:ring-green-500/20"
                                                     )}
                                                 />
                                             </FormControl>
@@ -210,12 +285,14 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                                 name="assigneeId" 
                                 render={({ field }) => {
                                     const hasError = shouldHighlightError("assigneeId");
+                                    const isValid = isFieldValid("assigneeId");
                                     return (
                                         <FormItem> 
                                             <FormLabel className="flex items-center gap-2">
                                                 Assignee
                                                 <span className="text-destructive">*</span>
                                                 {hasError && <AlertCircle className="h-4 w-4 text-destructive" />}
+                                                {isValid && <CheckCircle2 className="h-4 w-4 text-green-600" />}
                                             </FormLabel> 
 
                                             <Select
@@ -224,7 +301,8 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                                             >
                                                 <FormControl>
                                                     <SelectTrigger className={cn(
-                                                        hasError && "border-destructive focus:border-destructive focus:ring-destructive/20"
+                                                        hasError && "border-destructive focus:border-destructive focus:ring-destructive/20",
+                                                        isValid && "border-green-500 focus:border-green-500 focus:ring-green-500/20"
                                                     )}>
                                                         <SelectValue placeholder="Select assignee" />
                                                     </SelectTrigger>
@@ -254,12 +332,14 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                                 name="status" 
                                 render={({ field }) => {
                                     const hasError = shouldHighlightError("status");
+                                    const isValid = isFieldValid("status");
                                     return (
                                         <FormItem> 
                                             <FormLabel className="flex items-center gap-2">
                                                 Status
                                                 <span className="text-destructive">*</span>
                                                 {hasError && <AlertCircle className="h-4 w-4 text-destructive" />}
+                                                {isValid && <CheckCircle2 className="h-4 w-4 text-green-600" />}
                                             </FormLabel> 
 
                                             <Select
@@ -268,7 +348,8 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                                             >
                                                 <FormControl>
                                                     <SelectTrigger className={cn(
-                                                        hasError && "border-destructive focus:border-destructive focus:ring-destructive/20"
+                                                        hasError && "border-destructive focus:border-destructive focus:ring-destructive/20",
+                                                        isValid && "border-green-500 focus:border-green-500 focus:ring-green-500/20"
                                                     )}>
                                                         <SelectValue placeholder="Select status" />
                                                     </SelectTrigger>
@@ -303,12 +384,14 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                                 name="projectId" 
                                 render={({ field }) => {
                                     const hasError = shouldHighlightError("projectId");
+                                    const isValid = isFieldValid("projectId");
                                     return (
                                         <FormItem> 
                                             <FormLabel className="flex items-center gap-2">
                                                 Project
                                                 <span className="text-destructive">*</span>
                                                 {hasError && <AlertCircle className="h-4 w-4 text-destructive" />}
+                                                {isValid && <CheckCircle2 className="h-4 w-4 text-green-600" />}
                                             </FormLabel> 
 
                                             <Select
@@ -317,7 +400,8 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                                             >
                                                 <FormControl>
                                                     <SelectTrigger className={cn(
-                                                        hasError && "border-destructive focus:border-destructive focus:ring-destructive/20"
+                                                        hasError && "border-destructive focus:border-destructive focus:ring-destructive/20",
+                                                        isValid && "border-green-500 focus:border-green-500 focus:ring-green-500/20"
                                                     )}>
                                                         <SelectValue placeholder="Select project" />
                                                     </SelectTrigger>
@@ -367,6 +451,8 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                                 name="storyPoints" 
                                 render={({ field }) => {
                                     const hasError = shouldHighlightError("storyPoints");
+                                    const isEmpty = shouldHighlightEmpty("storyPoints");
+                                    const isValid = isFieldValid("storyPoints");
                                     return (
                                         <FormItem> 
                                             <FormLabel className="flex items-center gap-2">
@@ -374,6 +460,8 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                                                 Story Points
                                                 <span className="text-destructive">*</span>
                                                 {hasError && <AlertCircle className="h-4 w-4 text-destructive" />}
+                                                {isEmpty && !hasError && <AlertCircle className="h-4 w-4 text-amber-500" />}
+                                                {isValid && <CheckCircle2 className="h-4 w-4 text-green-600" />}
                                             </FormLabel> 
                                             <FormControl>
                                                 <Input 
@@ -383,7 +471,9 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                                                     max="100"
                                                     placeholder="Enter story points"
                                                     className={cn(
-                                                        hasError && "border-destructive focus:border-destructive focus:ring-destructive/20"
+                                                        hasError && "border-destructive focus:border-destructive focus:ring-destructive/20",
+                                                        isEmpty && !hasError && "border-amber-400 focus:border-amber-400 focus:ring-amber-400/20",
+                                                        isValid && "border-green-500 focus:border-green-500 focus:ring-green-500/20"
                                                     )}
                                                     onChange={(e) => {
                                                         const value = e.target.value;
@@ -413,17 +503,26 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                             </Button>
                             <div className="flex items-center gap-3">
                                 {/* Form validation status indicator */}
-                                {submitAttempted && Object.keys(form.formState.errors).length === 0 && (
+                                {submitAttempted && isFormReady() && (
                                     <div className="flex items-center gap-2 text-green-600 text-sm">
                                         <CheckCircle2 className="h-4 w-4" />
-                                        <span>All fields valid</span>
+                                        <span>Ready to create</span>
+                                    </div>
+                                )}
+                                {submitAttempted && !isFormReady() && (
+                                    <div className="flex items-center gap-2 text-amber-600 text-sm">
+                                        <AlertCircle className="h-4 w-4" />
+                                        <span>Complete required fields</span>
                                     </div>
                                 )}
                                 <Button
                                     type="submit"
                                     size="lg"
                                     disabled={isPending}
-                                    className="min-w-[120px]"
+                                    className={cn(
+                                        "min-w-[120px] transition-all duration-200",
+                                        isFormReady() && "bg-green-600 hover:bg-green-700"
+                                    )}
                                 >
                                     {isPending ? "Creating..." : "Create Task"}
                                 </Button>

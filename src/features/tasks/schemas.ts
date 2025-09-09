@@ -10,5 +10,5 @@ export const createTaskSchema = z.object({
     dueDate: z.coerce.date().optional(),
     assigneeId: z.string().trim().min(1, "Required"),
     description: z.string().optional(),
-    storyPoints: z.number().min(1, "Story points must be at least 1").max(100, "Story points cannot exceed 100"),
+    storyPoints: z.number().min(0, "Story points cannot be negative").max(100, "Story points cannot exceed 100").optional(),
 });

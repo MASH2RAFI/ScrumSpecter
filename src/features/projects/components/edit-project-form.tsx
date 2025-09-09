@@ -101,7 +101,7 @@ export const EditProjectForm = ({ onCancel,initialValues }: EditProjectFormProps
                             Back
                     </Button>
 
-                    <CardTitle className="text-xl font-bold">
+                    <CardTitle className="text-x1 font-bold">
                         {initialValues.name}
                     </CardTitle>
                 </CardHeader>
@@ -169,7 +169,7 @@ export const EditProjectForm = ({ onCancel,initialValues }: EditProjectFormProps
                                 </div>
                             </div>
                             <DottedSeparator className="py-7" />
-                            <div className="flex items-center justify-between">
+                            <div className="flex items—center justify-between">
                                 <Button
                                     type="button"
                                     size="lg"
