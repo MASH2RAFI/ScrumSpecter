@@ -52,9 +52,9 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
     const { mutate, isPending, error: mutationError } = useCreateTask();
     const formSchema = z.object({
         name: z.string().trim().min(1, "Task name is required"),
-        status: z.nativeEnum(TaskStatus, { errorMap: () => ({ message: "Please select a status" }) }),
+        status: z.nativeEnum(TaskStatus, { message: "Please select a status" }),
         projectId: z.string().trim().min(1, "Please select a project"),
-        dueDate: z.date().optional(),
+        dueDate: z.date({ message: "Due date is required" }),
         assigneeId: z.string().trim().min(1, "Please select an assignee"),
         description: z.string().optional(),
         storyPoints: z.number()
@@ -71,7 +71,7 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
             assigneeId: "",
             description: "",
             storyPoints: 1,
-            dueDate: undefined,
+            dueDate: new Date(),
         },
     });
 
@@ -130,7 +130,7 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
     // Check if field should be highlighted as empty (even before submit)
     const shouldHighlightEmpty = (fieldName: keyof z.infer<typeof formSchema>) => {
         const isEmpty = isFieldEmpty(fieldName);
-        const isRequired = ['name', 'status', 'projectId', 'assigneeId', 'storyPoints'].includes(fieldName);
+        const isRequired = ['name', 'status', 'projectId', 'assigneeId', 'storyPoints', 'dueDate'].includes(fieldName);
         return isRequired && isEmpty && form.formState.isDirty;
     };
 
@@ -143,7 +143,7 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
 
     // Calculate form completion percentage
     const getFormCompletion = () => {
-        const requiredFields = ['name', 'status', 'projectId', 'assigneeId', 'storyPoints'];
+        const requiredFields = ['name', 'status', 'projectId', 'assigneeId', 'storyPoints', 'dueDate'];
         const completedFields = requiredFields.filter(field => {
             const value = form.getValues(field as keyof z.infer<typeof formSchema>);
             return value && (typeof value !== 'string' || value.trim() !== '');
@@ -154,7 +154,7 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
     // Check if form is ready to submit
     const isFormReady = () => {
         const errors = form.formState.errors;
-        const requiredFields = ['name', 'status', 'projectId', 'assigneeId', 'storyPoints'];
+        const requiredFields = ['name', 'status', 'projectId', 'assigneeId', 'storyPoints', 'dueDate'];
         const hasRequiredErrors = requiredFields.some(field => errors[field as keyof typeof errors]);
         return !hasRequiredErrors && getFormCompletion() === 100;
     };
@@ -262,14 +262,22 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                                 control={form.control} 
                                 name="dueDate" 
                                 render={({ field }) => {
-                                    const hasError = getFieldError("dueDate");
+                                    const hasError = shouldHighlightError("dueDate");
+                                    const isEmpty = shouldHighlightEmpty("dueDate");
+                                    const isValid = isFieldValid("dueDate");
                                     return (
                                         <FormItem> 
+                                            <FormLabel className="flex items-center gap-2">
+                                                Due Date
+                                                <span className="text-destructive">*</span>
+                                                {hasError && <AlertCircle className="h-4 w-4 text-destructive" />}
+                                                {isEmpty && !hasError && <AlertCircle className="h-4 w-4 text-amber-500" />}
+                                                {isValid && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                                            </FormLabel>
                                             <FormControl>
                                                 <SimpleDatePicker 
                                                     value={field.value}
                                                     onChange={field.onChange}
-                                                    label="Due Date"
                                                     placeholder="Select due date"
                                                     hasError={!!hasError}
                                                 />
