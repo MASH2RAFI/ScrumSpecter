@@ -1,7 +1,6 @@
 "use client";
 
 import { z } from "zod";
-import { FcGoogle } from "react-icons/fc";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -110,27 +109,6 @@ export const SignInCard = () => {
                     </form>
                 </Form>
                 
-            </CardContent>
-            <div className="px-8">
-                <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t border-border/50" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-                    </div>
-                </div>
-            </div>
-            <CardContent className="p-8 pt-4">
-                <Button
-                    disabled={isPending}
-                    variant="outline"
-                    size="lg"
-                    className="w-full border-2 hover:bg-muted/50 transition-all duration-200"
-                >
-                    <FcGoogle className="mr-2 size-5" />
-                    Google    (WIP Need a Credit Card ;) 
-                </Button>
             </CardContent>
         </Card>
     );

@@ -65,7 +65,7 @@ export const EditTaskForm = ({ onCancel, projectOptions, memberOptions, initialV
             status: initialValues.status,
             projectId: initialValues.projectId,
             dueDate: initialValues.dueDate ? new Date(initialValues.dueDate) : undefined,
-            assigneeId: initialValues.assigneeId,
+            assigneeId: initialValues.assigneeId || "",
             description: initialValues.description || "",
             storyPoints: initialValues.storyPoints,
         },

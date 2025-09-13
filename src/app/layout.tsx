@@ -8,6 +8,7 @@ import { PerformanceMonitor } from "@/components/performance-monitor";
 import { ThemeProvider } from "@/components/theme-provider";
 import { NeuralBackground } from "@/components/neural-background";
 import { AuthGuard } from "@/components/auth-guard";
+import { PersonalTodoWidget } from "@/components/personal-todo-list";
 
 import "./globals.css";
 
@@ -65,6 +66,7 @@ export default function RootLayout({
               <PerformanceMonitor />
               <Toaster />
               {children}
+              <PersonalTodoWidget />
             </AuthGuard>
           </QueryProvider>
         </ThemeProvider>

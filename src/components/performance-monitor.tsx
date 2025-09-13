@@ -4,6 +4,11 @@ import { useEffect } from "react";
 
 export const PerformanceMonitor = () => {
   useEffect(() => {
+    // Only run in production or when explicitly enabled
+    if (process.env.NODE_ENV !== 'production' && !process.env.NEXT_PUBLIC_ENABLE_PERFORMANCE_MONITOR) {
+      return;
+    }
+
     // Monitor Core Web Vitals
     if (typeof window !== "undefined" && "PerformanceObserver" in window) {
       // Monitor Largest Contentful Paint (LCP)

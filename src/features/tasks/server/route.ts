@@ -195,7 +195,9 @@ const app = new Hono()
 
             const projectIds = tasks.documents.map( (task) => task.projectId);
 
-            const assigneeIds = tasks.documents.map( (task) => task.assigneeId )
+            const assigneeIds = tasks.documents
+                .map( (task) => task.assigneeId )
+                .filter((id): id is string => id !== null);
 
             const projects = await databases.listDocuments<Project>(
                 DATABASE_ID,
@@ -225,9 +227,9 @@ const app = new Hono()
                     (project) => project.$id === task.projectId,
                 );
 
-                const assignee = assignees.find(
+                const assignee = task.assigneeId ? assignees.find(
                     (assignee) => assignee.$id === task.assigneeId,
-                );
+                ) : null;
 
                 return { 
                     ...task,
@@ -355,18 +357,22 @@ const app = new Hono()
                 task.projectId
             );
 
-            const member = await databases.getDocument(
-                DATABASE_ID,
-                MEMBERS_ID,
-                task.assigneeId
-            );
+            let assignee = null;
+            
+            if (task.assigneeId) {
+                const member = await databases.getDocument(
+                    DATABASE_ID,
+                    MEMBERS_ID,
+                    task.assigneeId
+                );
 
-            const user = await users.get(member.userId);
+                const user = await users.get(member.userId);
 
-            const assignee = {
-                ...member,
-                name: user.name,
-                email: user.email,
+                assignee = {
+                    ...member,
+                    name: user.name,
+                    email: user.email,
+                };
             }
 
             return c.json({
@@ -443,6 +449,92 @@ const app = new Hono()
             );
 
             return c.json({ data: updatedTasks });
+        }
+    )
+    .post(
+        "/reassign-unassigned",
+        sessionMiddleware,
+        zValidator("json", z.object({ workspaceId: z.string() })),
+        async (c) => {
+            const { workspaceId } = c.req.valid("json");
+            const user = c.get("user");
+            const databases = c.get("databases");
+
+            // Check if user is admin
+            const member = await getMember({
+                databases,
+                workspaceId,
+                userId: user.$id,
+            });
+
+            if (!member) {
+                return c.json({ error: "Unauthorized" }, 401);
+            }
+
+            if (member.role !== "ADMIN") {
+                return c.json({ error: "Only admins can reassign tasks" }, 403);
+            }
+
+            // Find all unassigned tasks in the workspace
+            const unassignedTasks = await databases.listDocuments<Task>(
+                DATABASE_ID,
+                TASKS_ID,
+                [
+                    Query.equal("workspaceId", workspaceId),
+                    Query.isNull("assigneeId")
+                ]
+            );
+
+            if (unassignedTasks.documents.length === 0) {
+                return c.json({ 
+                    data: { 
+                        message: "No unassigned tasks found",
+                        reassignedCount: 0 
+                    } 
+                });
+            }
+
+            // Get all admins in the workspace
+            const allMembers = await databases.listDocuments(
+                DATABASE_ID,
+                MEMBERS_ID,
+                [Query.equal("workspaceId", workspaceId)]
+            );
+
+            const adminMembers = allMembers.documents.filter(
+                m => m.role === "ADMIN"
+            );
+
+            if (adminMembers.length === 0) {
+                return c.json({ 
+                    error: "No admin members found to reassign tasks to" 
+                }, 400);
+            }
+
+            // Use the current user as the assignee (they're an admin)
+            const assigneeId = member.userId;
+
+            // Reassign all unassigned tasks to the current admin
+            const reassignPromises = unassignedTasks.documents.map(task =>
+                databases.updateDocument(
+                    DATABASE_ID,
+                    TASKS_ID,
+                    task.$id,
+                    {
+                        assigneeId: assigneeId,
+                    }
+                )
+            );
+
+            await Promise.all(reassignPromises);
+
+            return c.json({ 
+                data: { 
+                    message: "Successfully reassigned unassigned tasks",
+                    reassignedCount: unassignedTasks.documents.length,
+                    assigneeId: assigneeId
+                } 
+            });
         }
     );
 

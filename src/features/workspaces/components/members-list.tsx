@@ -25,18 +25,36 @@ import { MemberAvatar } from "@/features/members/components/member-avatar";
 import { Separator } from "@/components/ui/separator";
 import { useDeleteMember } from "@/features/members/api/use-delete-member";
 import { useUpdateMember } from "@/features/members/api/use-update-member";
+import { useLeaveWorkspace } from "@/features/members/api/use-leave-workspace";
 import { MemberRole } from "@/features/members/types";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useCurrent } from "@/features/auth/api/use-current";
+import React from "react";
 
 export const MembersList = () => {
 
     const workspaceId = useWorkspaceId();
     const { isAdmin } = useIsAdmin({ workspaceId }); 
     const { data } = useGetMembers({ workspaceId });
+    const { data: currentUser } = useCurrent();
+
+    // Check if current user is the last admin
+    const isLastAdmin = React.useMemo(() => {
+        if (!data?.documents || !currentUser) return false;
+        const adminMembers = data.documents.filter(member => member.role === "ADMIN");
+        const currentUserMember = data.documents.find(member => member.userId === currentUser.$id);
+        return adminMembers.length === 1 && currentUserMember?.role === "ADMIN";
+    }, [data?.documents, currentUser]);
 
     const [ ConfirmDialog, confirm ] = useConfirm(
         "Remove member",
         "This member will be removed from the workspace",
+        "destructive"
+    );
+
+    const [ LeaveConfirmDialog, leaveConfirm ] = useConfirm(
+        "Leave Workspace",
+        "Are you sure you want to leave this workspace? All your assigned tasks will be reassigned to an admin.",
         "destructive"
     );
 
@@ -49,6 +67,11 @@ export const MembersList = () => {
         mutate: updateMember,
         isPending: isUpdatingMember
     } = useUpdateMember();
+
+    const {
+        mutate: leaveWorkspace,
+        isPending: isLeavingWorkspace
+    } = useLeaveWorkspace();
 
     const handleUpdateMember = (memberId: string, role: MemberRole) => {
         updateMember({
@@ -68,9 +91,19 @@ export const MembersList = () => {
             },
         });
     };
+
+    const handleLeaveWorkspace = async () => {
+        const ok = await leaveConfirm();
+        if (!ok) return;
+
+        leaveWorkspace({
+            json: { workspaceId }
+        });
+    };
     return (
         <Card className="w—full h-full border-none shadow-none">
             <ConfirmDialog />
+            <LeaveConfirmDialog />
             <CardHeader className="flex flex-row items-center gap-x-4 p—7 space-y-0">
                 <Button asChild variant="secondary" size="sm">
                 <Link href={ `/workspaces/${workspaceId}`}>
@@ -102,46 +135,63 @@ export const MembersList = () => {
                                 <p className="text-sm font-medium">{member.name}</p>
                                 <p className="text-xs text-muted-foreground">{member.email}</p>
                             </div>
-                            {isAdmin && (
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            className="ml-auto"
-                                            variant="secondary"
-                                            size="icon"
-                                        >
-                                            <MoreVerticalIcon className="size-4 text-muted-foreground"/>
-                                        </Button>                                          
-                                    </DropdownMenuTrigger>
-
-                                <DropdownMenuContent side="bottom" align="end">
-                                    <DropdownMenuItem
-                                        className="font-medium"
-                                        onClick={() => handleUpdateMember(member.$id, MemberRole.ADMIN)}
-                                        disabled={isUpdatingMember}
+                            <div className="ml-auto flex gap-2">
+                                {/* Leave Workspace button for current user */}
+                                {currentUser && member.userId === currentUser.$id && (
+                                    <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={handleLeaveWorkspace}
+                                        disabled={isLeavingWorkspace || isLastAdmin}
+                                        className="text-xs"
+                                        title={isLastAdmin ? "Cannot leave as the only admin. Promote another member to admin first." : ""}
                                     >
-                                        Set as Administrator
-                                    </DropdownMenuItem>
+                                        {isLastAdmin ? "Cannot Leave (Last Admin)" : "Leave Workspace"}
+                                    </Button>
+                                )}
+                                
+                                {/* Admin controls for other members */}
+                                {isAdmin && member.userId !== currentUser?.$id && (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant="secondary"
+                                                size="icon"
+                                            >
+                                                <MoreVerticalIcon className="size-4 text-muted-foreground"/>
+                                            </Button>                                          
+                                        </DropdownMenuTrigger>
 
-                                    <DropdownMenuItem
-                                        className="font-medium"
-                                        onClick={() => handleUpdateMember(member.$id, MemberRole.MEMBER)}
-                                        disabled={isUpdatingMember}
-                                    >
-                                        Set as Member
-                                    </DropdownMenuItem>
+                                        <DropdownMenuContent side="bottom" align="end">
+                                            <DropdownMenuItem
+                                                className="font-medium"
+                                                onClick={() => handleUpdateMember(member.$id, MemberRole.ADMIN)}
+                                                disabled={isUpdatingMember}
+                                            >
+                                                Set as Administrator
+                                            </DropdownMenuItem>
 
-                                    <DropdownMenuItem
-                                        className="font-medium text-amber-700"
-                                        onClick={() => handleDeleteMember( member.$id )}
-                                        disabled={isDeletingMember}
-                                    >
-                                        Remove {member.name}
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
+                                            <DropdownMenuItem
+                                                className="font-medium"
+                                                onClick={() => handleUpdateMember(member.$id, MemberRole.MEMBER)}
+                                                disabled={isUpdatingMember || (member.role === "ADMIN" && isLastAdmin)}
+                                                title={member.role === "ADMIN" && isLastAdmin ? "Cannot downgrade the only admin" : ""}
+                                            >
+                                                Set as Member
+                                            </DropdownMenuItem>
 
-                                </DropdownMenu>
-                            )}
+                                            <DropdownMenuItem
+                                                className="font-medium text-amber-700"
+                                                onClick={() => handleDeleteMember( member.$id )}
+                                                disabled={isDeletingMember || (member.role === "ADMIN" && isLastAdmin)}
+                                                title={member.role === "ADMIN" && isLastAdmin ? "Cannot remove the only admin" : ""}
+                                            >
+                                                Remove {member.name}
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                )}
+                            </div>
 
                         </div>
 

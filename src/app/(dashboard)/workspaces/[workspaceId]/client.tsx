@@ -265,27 +265,39 @@ export const MembersList = ({ data, total }: MembersListProps) => {
                 </div>
                 <DottedSeparator className="my-4" /> 
                 <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"> 
-                    {data.map( (member) => (
-                        <li key={member.$id}> 
-                            <Card className="shadow-none rounded-lg overflow-hidden"> 
-                                <CardContent className="p-3 flex flex-col items-center gap-x-2"> 
-                                    <MemberAvatar
-                                        className="size-12" 
-                                        fallbackClassName="text-lg" 
-                                        name={member.name} 
-                                    /> 
-                                    <div className="flex flex-col items-center overflow-hidden">
-                                        <p className="text-lg font-medium line-clamp-1">
-                                            {member.name}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground line-clamp-1">
-                                            {member.email}
-                                        </p>
-                                    </div>
-                                </CardContent> 
-                            </Card> 
-                        </li> 
-                    ))}
+                    {data.map( (member) => {
+                        // Calculate text length to determine appropriate styling
+                        const nameLength = member.name?.length || 0;
+                        const emailLength = member.email?.length || 0;
+                        const isLongName = nameLength > 20;
+                        const isLongEmail = emailLength > 30;
+                        
+                        return (
+                            <li key={member.$id}> 
+                                <Card className="shadow-none rounded-lg overflow-hidden h-full"> 
+                                    <CardContent className="p-4 flex flex-col items-center gap-3 min-h-[120px]"> 
+                                        <MemberAvatar
+                                            className="size-12 flex-shrink-0" 
+                                            fallbackClassName="text-lg" 
+                                            name={member.name} 
+                                        /> 
+                                        <div className="flex flex-col items-center text-center w-full space-y-1">
+                                            <p className={`font-medium break-words w-full ${
+                                                isLongName ? 'text-sm' : 'text-base'
+                                            }`}>
+                                                {member.name}
+                                            </p>
+                                            <p className={`text-muted-foreground break-words w-full ${
+                                                isLongEmail ? 'text-xs' : 'text-sm'
+                                            }`}>
+                                                {member.email}
+                                            </p>
+                                        </div>
+                                    </CardContent> 
+                                </Card> 
+                            </li>
+                        );
+                    })}
                     <li className="text-sm text-muted-foreground text-center hidden first-of-type:block">
                         No members found
                     </li>

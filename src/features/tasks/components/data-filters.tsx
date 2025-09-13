@@ -13,7 +13,7 @@ import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { FolderIcon, ListChecksIcon, UserIcon } from "lucide-react";
 import { TaskStatus } from "../types";
 import { useTaskFilters } from "../hooks/use-task-filters";
-import { DatePicker } from "@/components/date-picker";
+import { SimpleDatePicker } from "@/components/simple-date-picker";
 
 
 interface DataFiltersProps {
@@ -128,14 +128,13 @@ export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
                 </Select>
             )}
 
-            <DatePicker
+            <SimpleDatePicker
                 placeholder="Due date"
                 className="h-8 w-full lg:w-auto"
                 value={dueDate ? new Date(dueDate) : undefined}
                 onChange={ (date) => {
                 setFilters ({ dueDate: date ? date.toISOString() : null })
                 }}
-
             />
         </div>
 

@@ -190,6 +190,19 @@ const app = new Hono()
             if (!member) {
                 return c.json({ error : "Unauthorized" }, 401 );
             }
+
+            // Check if user is admin for startingSprintDate updates
+            if (startingSprintDate !== undefined) {
+                const userIsAdmin = await isAdmin({
+                    databases,
+                    workspaceId: existingProject.workspaceId,
+                    userId: user.$id
+                });
+
+                if (!userIsAdmin) {
+                    return c.json({ error: "Only admins can update the starting sprint date" }, 403);
+                }
+            }
             
             const project = await databases.updateDocument(
                 DATABASE_ID,

@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { getMember, isAdmin } from "../utils";
-import { DATABASE_ID, MEMBERS_ID } from "@/config";
+import { DATABASE_ID, MEMBERS_ID, TASKS_ID } from "@/config";
 import { Query } from "node-appwrite";
 import { Member, MemberRole } from "../types";
 
@@ -93,6 +93,50 @@ const app = new Hono()
                 return c.json({ error: "Cannot delete the only member"}, 400);
             }
 
+            // Check if trying to delete the last admin
+            const adminMembers = allMembersInWorkspace.documents.filter(
+                m => m.role === MemberRole.ADMIN
+            );
+
+            if (memberToDelete.role === MemberRole.ADMIN && adminMembers.length === 1) {
+                return c.json({ 
+                    error: "Cannot delete the only admin. Please transfer admin role to another member first." 
+                }, 400);
+            }
+
+            // Find an admin to reassign tasks to
+            const adminMember = allMembersInWorkspace.documents.find(
+                m => m.role === MemberRole.ADMIN && m.$id !== memberToDelete.$id
+            );
+
+            if (adminMember) {
+                // Get all tasks assigned to the member being deleted
+                const userTasks = await databases.listDocuments(
+                    DATABASE_ID,
+                    TASKS_ID,
+                    [
+                        Query.equal("workspaceId", memberToDelete.workspaceId),
+                        Query.equal("assigneeId", memberToDelete.userId)
+                    ]
+                );
+
+                // Reassign all tasks to the admin
+                if (userTasks.documents.length > 0) {
+                    const reassignPromises = userTasks.documents.map(task =>
+                        databases.updateDocument(
+                            DATABASE_ID,
+                            TASKS_ID,
+                            task.$id,
+                            {
+                                assigneeId: adminMember.userId,
+                            }
+                        )
+                    );
+
+                    await Promise.all(reassignPromises);
+                }
+            }
+
             await databases.deleteDocument(
                 DATABASE_ID, 
                 MEMBERS_ID,
@@ -142,6 +186,17 @@ const app = new Hono()
                 return c.json({ error: "Cannot Downgrade the only member"}, 400);
             }
 
+            // Check if trying to downgrade the last admin
+            const adminMembers = allMembersInWorkspace.documents.filter(
+                m => m.role === MemberRole.ADMIN
+            );
+
+            if (memberToUpdate.role === MemberRole.ADMIN && role === MemberRole.MEMBER && adminMembers.length === 1) {
+                return c.json({ 
+                    error: "Cannot downgrade the only admin. Please promote another member to admin first." 
+                }, 400);
+            }
+
             await databases.updateDocument(
                 DATABASE_ID, 
                 MEMBERS_ID,
@@ -171,6 +226,97 @@ const app = new Hono()
             });
 
             return c.json({ data: userIsAdmin });
+        }
+    )
+    .post(
+        "/leave-workspace",
+        sessionMiddleware,
+        zValidator("json", z.object({ workspaceId: z.string() })),
+        async (c) => {
+            const { workspaceId } = c.req.valid("json");
+            const user = c.get("user");
+            const databases = c.get("databases");
+
+            // Get the current member
+            const member = await getMember({
+                databases,
+                workspaceId,
+                userId: user.$id,
+            });
+
+            if (!member) {
+                return c.json({ error: "Not a member of this workspace" }, 400);
+            }
+
+            // Check if this is the only admin
+            const allMembersInWorkspace = await databases.listDocuments(
+                DATABASE_ID,
+                MEMBERS_ID,
+                [Query.equal("workspaceId", workspaceId)]
+            );
+
+            const adminMembers = allMembersInWorkspace.documents.filter(
+                m => m.role === MemberRole.ADMIN
+            );
+
+            if (member.role === MemberRole.ADMIN && adminMembers.length === 1) {
+                return c.json({ 
+                    error: "Cannot leave workspace as the only admin. Please transfer admin role to another member first." 
+                }, 400);
+            }
+
+            // Find an admin to reassign tasks to
+            // If the leaving member is not an admin, we can use any admin
+            // If the leaving member is an admin, we need a different admin
+            const adminMember = allMembersInWorkspace.documents.find(
+                m => m.role === MemberRole.ADMIN && 
+                     (member.role !== MemberRole.ADMIN || m.$id !== member.$id)
+            );
+
+            if (!adminMember) {
+                return c.json({ 
+                    error: "No admin found to reassign tasks to" 
+                }, 400);
+            }
+
+            // Get all tasks assigned to the leaving member
+            const userTasks = await databases.listDocuments(
+                DATABASE_ID,
+                TASKS_ID,
+                [
+                    Query.equal("workspaceId", workspaceId),
+                    Query.equal("assigneeId", user.$id)
+                ]
+            );
+
+            // Reassign all tasks to the admin
+            const reassignPromises = userTasks.documents.map(task =>
+                databases.updateDocument(
+                    DATABASE_ID,
+                    TASKS_ID,
+                    task.$id,
+                    {
+                        assigneeId: adminMember.userId,
+                    }
+                )
+            );
+
+            await Promise.all(reassignPromises);
+
+            // Remove the member from the workspace
+            await databases.deleteDocument(
+                DATABASE_ID,
+                MEMBERS_ID,
+                member.$id
+            );
+
+            return c.json({ 
+                data: { 
+                    message: "Successfully left workspace",
+                    reassignedTasks: userTasks.documents.length,
+                    newAssignee: adminMember.userId
+                } 
+            });
         }
     );
 

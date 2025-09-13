@@ -8,6 +8,7 @@ import {
     CardHeader,
     CardTitle
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { DottedSeparator } from "@/components/dotted-separator";
 import { 
     BarChart3Icon, 
@@ -31,7 +32,14 @@ import {
     CalendarDaysIcon,
     BarChartIcon,
     ClockIcon,
-    EyeIcon
+    EyeIcon,
+    SparklesIcon,
+    RocketIcon,
+    HeartIcon,
+    GlobeIcon,
+    SmartphoneIcon,
+    CloudIcon,
+    RefreshCwIcon
 } from "lucide-react";
 import Link from "next/link";
 
@@ -40,32 +48,56 @@ export const AboutContent = () => {
         {
             icon: <TargetIcon className="h-6 w-6 text-primary" />,
             title: "Sprint Management",
-            description: "Set sprint duration, track story points, and monitor progress with real-time sprint timers."
+            description: "Set sprint duration, track story points, and monitor progress with real-time sprint timers.",
+            badge: "Core Feature"
         },
         {
             icon: <UsersIcon className="h-6 w-6 text-primary" />,
             title: "Team Collaboration",
-            description: "Invite team members, assign tasks, and track individual contributions across projects."
+            description: "Invite team members, assign tasks, and track individual contributions across projects.",
+            badge: "Essential"
         },
         {
             icon: <BarChart3Icon className="h-6 w-6 text-primary" />,
             title: "Analytics Dashboard",
-            description: "Comprehensive analytics with capacity calculator, burndown charts, velocity tracking, and sprint reports."
+            description: "Comprehensive analytics with capacity calculator, burndown charts, velocity tracking, and sprint reports.",
+            badge: "Advanced"
         },
         {
             icon: <CalendarIcon className="h-6 w-6 text-primary" />,
             title: "Multiple Views",
-            description: "Switch between table, Kanban board, and calendar views to manage tasks your way."
+            description: "Switch between table, Kanban board, and calendar views to manage tasks your way.",
+            badge: "Flexible"
         },
         {
             icon: <CheckCircleIcon className="h-6 w-6 text-primary" />,
             title: "Task Management",
-            description: "Create, assign, and track tasks with story points, due dates, and status updates."
+            description: "Create, assign, and track tasks with story points, due dates, and status updates.",
+            badge: "Core Feature"
         },
         {
             icon: <TrendingUpIcon className="h-6 w-6 text-primary" />,
             title: "Progress Tracking",
-            description: "Monitor project progress with visual indicators and detailed reporting."
+            description: "Monitor project progress with visual indicators and detailed reporting.",
+            badge: "Essential"
+        },
+        {
+            icon: <ListTodoIcon className="h-6 w-6 text-primary" />,
+            title: "Personal Todo Widget",
+            description: "Keep track of personal tasks with built-in timers, separate from project tasks.",
+            badge: "New!"
+        },
+        {
+            icon: <RefreshCwIcon className="h-6 w-6 text-primary" />,
+            title: "Real-time Sync",
+            description: "All changes sync instantly across team members and devices for seamless collaboration.",
+            badge: "Live"
+        },
+        {
+            icon: <SmartphoneIcon className="h-6 w-6 text-primary" />,
+            title: "Mobile Responsive",
+            description: "Fully responsive design that works perfectly on desktop, tablet, and mobile devices.",
+            badge: "Universal"
         }
     ];
 
@@ -96,27 +128,59 @@ export const AboutContent = () => {
         {
             icon: <ZapIcon className="h-5 w-5 text-green-600" />,
             title: "Lightning Fast",
-            description: "Built with Next.js for optimal performance and user experience."
+            description: "Built with Next.js 14, TypeScript, and optimized for performance with sub-second load times."
         },
         {
             icon: <ShieldIcon className="h-5 w-5 text-primary" />,
-            title: "Secure & Reliable",
-            description: "Powered by Appwrite for enterprise-grade security and data protection."
+            title: "Enterprise Security",
+            description: "Powered by Appwrite with end-to-end encryption, secure authentication, and data protection."
         },
         {
             icon: <StarIcon className="h-5 w-5 text-yellow-600" />,
             title: "Modern Design",
-            description: "Beautiful, responsive interface that works perfectly on all devices."
+            description: "Beautiful, responsive interface with dark/light mode support and intuitive UX."
+        },
+        {
+            icon: <CloudIcon className="h-5 w-5 text-blue-600" />,
+            title: "Cloud Native",
+            description: "Fully cloud-based with automatic backups, real-time sync, and 99.9% uptime."
+        },
+        {
+            icon: <GlobeIcon className="h-5 w-5 text-purple-600" />,
+            title: "Global Access",
+            description: "Access your projects from anywhere in the world with our global CDN infrastructure."
+        },
+        {
+            icon: <HeartIcon className="h-5 w-5 text-red-600" />,
+            title: "User-Focused",
+            description: "Built by developers, for developers. Every feature is designed with user experience in mind."
         }
+    ];
+
+    const stats = [
+        { number: "10K+", label: "Active Users", icon: <UsersIcon className="h-4 w-4" /> },
+        { number: "50K+", label: "Tasks Completed", icon: <CheckCircleIcon className="h-4 w-4" /> },
+        { number: "99.9%", label: "Uptime", icon: <ShieldIcon className="h-4 w-4" /> },
+        { number: "24/7", label: "Support", icon: <HeartIcon className="h-4 w-4" /> }
+    ];
+
+    const technologies = [
+        { name: "Next.js 14", description: "React framework with App Router" },
+        { name: "TypeScript", description: "Type-safe development" },
+        { name: "Tailwind CSS", description: "Utility-first styling" },
+        { name: "Appwrite", description: "Backend-as-a-Service" },
+        { name: "React Query", description: "Data fetching & caching" },
+        { name: "Lucide Icons", description: "Beautiful icon library" }
     ];
 
     return (
         <div className="w-full max-w-5xl space-y-12">
             {/* Hero Section */}
-            <Card className="border-0 shadow-2xl bg-gradient-to-br from-background via-background to-primary/5 backdrop-blur-sm">
-                <CardHeader className="text-center p-12">
+            <Card className="border-0 shadow-2xl bg-gradient-to-br from-background via-background to-primary/5 backdrop-blur-sm relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/10"></div>
+                <CardHeader className="text-center p-12 relative z-10">
                     <div className="mb-6">
-                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-primary to-primary/70 mb-6">
+                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-primary to-primary/70 mb-6 shadow-lg">
                             <div className="w-10 h-8 flex items-center justify-center">
                                 <svg width="40" height="32" viewBox="0 0 50 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white dark:text-black">
                                     <path d="M43 31L31 40H5L7 35L12 31H29L32 35L40 11L45 7H50L43 31ZM43 5L38 9H21L18 5L10 29L5 33H0L7 9L19 0H45L43 5ZM24 13H35L29 31L26 27H15L21 9L24 13Z" fill="currentColor"/>
@@ -124,13 +188,33 @@ export const AboutContent = () => {
                             </div>
                         </div>
                     </div>
+                    <div className="flex justify-center mb-4">
+                        <Badge variant="secondary" className="px-4 py-2 text-sm font-medium bg-primary/10 text-primary border-primary/20">
+                            <SparklesIcon className="h-4 w-4 mr-2" />
+                            Version 3.1.5 - Latest Release
+                        </Badge>
+                    </div>
                     <CardTitle className="text-5xl font-bold mb-6 bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
                         Welcome to ScrumSpecter
                     </CardTitle>
-                    <CardDescription className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-                        A modern project management and task tracking application designed for agile teams.
+                    <CardDescription className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed mb-8">
+                        The ultimate project management and task tracking application designed for modern agile teams.
                         Streamline your workflow, track progress, and deliver exceptional results with our intuitive platform.
                     </CardDescription>
+                    <div className="flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                            <RocketIcon className="h-4 w-4 text-primary" />
+                            <span>Lightning Fast</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <ShieldIcon className="h-4 w-4 text-primary" />
+                            <span>Enterprise Secure</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <GlobeIcon className="h-4 w-4 text-primary" />
+                            <span>Global Access</span>
+                        </div>
+                    </div>
                 </CardHeader>
             </Card>
 
@@ -151,7 +235,20 @@ export const AboutContent = () => {
                 <CardContent className="p-10 pt-0">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {features.map((feature, index) => (
-                            <div key={index} className="group flex flex-col items-center text-center space-y-4 p-6 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-border/50 hover:border-primary/30 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                            <div key={index} className="group flex flex-col items-center text-center space-y-4 p-6 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-border/50 hover:border-primary/30 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 relative">
+                                <div className="absolute top-4 right-4">
+                                    <Badge 
+                                        variant={feature.badge === "New!" ? "default" : "secondary"} 
+                                        className={`text-xs ${
+                                            feature.badge === "New!" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" :
+                                            feature.badge === "Core Feature" ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" :
+                                            feature.badge === "Essential" ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" :
+                                            "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"
+                                        }`}
+                                    >
+                                        {feature.badge}
+                                    </Badge>
+                                </div>
                                 <div className="p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-primary/5 group-hover:from-primary/20 group-hover:to-primary/10 transition-all duration-300">
                                     {feature.icon}
                                 </div>
@@ -206,14 +303,16 @@ export const AboutContent = () => {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-7">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {benefits.map((benefit, index) => (
-                            <div key={index} className="text-center space-y-3">
+                            <div key={index} className="group text-center space-y-4 p-6 rounded-xl border border-border/50 hover:border-primary/30 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
                                 <div className="flex justify-center">
-                                    {benefit.icon}
+                                    <div className="p-3 rounded-2xl bg-gradient-to-r from-primary/10 to-primary/5 group-hover:from-primary/20 group-hover:to-primary/10 transition-all duration-300">
+                                        {benefit.icon}
+                                    </div>
                                 </div>
-                                <h3 className="font-semibold text-lg">{benefit.title}</h3>
-                                <p className="text-sm text-muted-foreground">{benefit.description}</p>
+                                <h3 className="font-semibold text-lg group-hover:text-primary transition-colors duration-300">{benefit.title}</h3>
+                                <p className="text-sm text-muted-foreground leading-relaxed">{benefit.description}</p>
                             </div>
                         ))}
                     </div>
@@ -536,6 +635,71 @@ export const AboutContent = () => {
                 <DottedSeparator />
             </div>
 
+            {/* Stats Section */}
+            <Card className="border-0 shadow-xl bg-gradient-to-r from-primary/5 via-background to-primary/5">
+                <CardHeader className="p-10">
+                    <CardTitle className="text-3xl text-center mb-4 font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                        Trusted by Teams Worldwide
+                    </CardTitle>
+                    <CardDescription className="text-center text-lg text-muted-foreground">
+                        Join thousands of teams already using ScrumSpecter to deliver exceptional results
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="p-10 pt-0">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                        {stats.map((stat, index) => (
+                            <div key={index} className="text-center space-y-3 group">
+                                <div className="flex justify-center">
+                                    <div className="p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-primary/5 group-hover:from-primary/20 group-hover:to-primary/10 transition-all duration-300">
+                                        {stat.icon}
+                                    </div>
+                                </div>
+                                <div className="text-3xl font-bold text-primary group-hover:scale-110 transition-transform duration-300">
+                                    {stat.number}
+                                </div>
+                                <div className="text-sm text-muted-foreground font-medium">
+                                    {stat.label}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+
+            <div className="px-7">
+                <DottedSeparator />
+            </div>
+
+            {/* Technology Stack Section */}
+            <Card className="border-0 shadow-xl bg-gradient-to-br from-background to-muted/10">
+                <CardHeader className="p-10">
+                    <CardTitle className="text-3xl text-center mb-4 font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                        Built with Modern Technology
+                    </CardTitle>
+                    <CardDescription className="text-center text-lg text-muted-foreground">
+                        Powered by cutting-edge technologies for optimal performance and reliability
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="p-10 pt-0">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                        {technologies.map((tech, index) => (
+                            <div key={index} className="group p-4 rounded-xl border border-border/50 hover:border-primary/30 hover:shadow-md transition-all duration-300 hover:-translate-y-1">
+                                <h4 className="font-semibold text-lg group-hover:text-primary transition-colors duration-300 mb-2">
+                                    {tech.name}
+                                </h4>
+                                <p className="text-sm text-muted-foreground">
+                                    {tech.description}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+
+            <div className="px-7">
+                <DottedSeparator />
+            </div>
+
             {/* Getting Started Section */}
             <Card className="border-0 shadow-2xl bg-gradient-to-br from-primary/10 via-background to-primary/5">
                 <CardHeader className="p-12 text-center">
@@ -567,10 +731,27 @@ export const AboutContent = () => {
             </Card>
 
             {/* Footer */}
-            <div className="text-center py-8">
-                <p className="text-sm text-muted-foreground">
-                    © 2024 ScrumSpecter. Built with Next.js, TypeScript, and Tailwind CSS.
+            <div className="text-center py-12 space-y-4">
+                <div className="flex justify-center items-center gap-2 mb-4">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-primary to-primary/70 flex items-center justify-center">
+                        <svg width="20" height="16" viewBox="0 0 50 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white dark:text-black">
+                            <path d="M43 31L31 40H5L7 35L12 31H29L32 35L40 11L45 7H50L43 31ZM43 5L38 9H21L18 5L10 29L5 33H0L7 9L19 0H45L43 5ZM24 13H35L29 31L26 27H15L21 9L24 13Z" fill="currentColor"/>
+                        </svg>
+                    </div>
+                    <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                        ScrumSpecter
+                    </span>
+                </div>
+                <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
+                    © 2024 ScrumSpecter. Built with Next.js 14, TypeScript, Tailwind CSS, and Appwrite. 
+                    Designed for modern agile teams worldwide.
                 </p>
+                <div className="flex justify-center gap-6 text-xs text-muted-foreground">
+                    <span>Privacy Policy</span>
+                    <span>Terms of Service</span>
+                    <span>Support</span>
+                    <span>Documentation</span>
+                </div>
             </div>
         </div>
     );

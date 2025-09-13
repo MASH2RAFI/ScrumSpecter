@@ -17,15 +17,17 @@ import {
 import { DottedSeparator } from "@/components/dotted-separator";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { SimpleDatePicker } from "@/components/simple-date-picker";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Project } from "../types";
-import { ArrowLeftIcon, TargetIcon } from "lucide-react";
+import { ArrowLeftIcon, TargetIcon, CalendarIcon } from "lucide-react";
 import { useUpdateProject } from "../api/use-update-project";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useDeleteProject } from "../api/use-delete-project";
 import { toast } from "sonner";
 import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
+import { convertDDMMYYYYToDate, convertDateToDDMMYYYY } from "@/lib/sprint-utils";
 
 interface EditProjectFormProps {
     onCancel?: () => void;
@@ -51,9 +53,11 @@ export const EditProjectForm = ({ onCancel,initialValues }: EditProjectFormProps
     const form = useForm<z.infer<typeof updateProjectSchema>>({
         resolver: zodResolver(updateProjectSchema),
         defaultValues: {
-            ...initialValues    
+            ...initialValues,
+            startingSprintDate: initialValues.startingSprintDate || '',    
         },
     });
+
 
     const handleDelete = async () => {
         const ok = await confirmDelete();
@@ -75,6 +79,7 @@ export const EditProjectForm = ({ onCancel,initialValues }: EditProjectFormProps
             workspaceId: initialValues.workspaceId, // Include workspaceId
             sprintDuration: values.sprintDuration?.toString(),
             sprintNumber: initialValues.sprintNumber?.toString() || "1",
+            startingSprintDate: values.startingSprintDate || undefined,
         }
         
         mutate({ 
@@ -101,7 +106,7 @@ export const EditProjectForm = ({ onCancel,initialValues }: EditProjectFormProps
                             Back
                     </Button>
 
-                    <CardTitle className="text-x1 font-bold">
+                    <CardTitle className="text-xl font-bold">
                         {initialValues.name}
                     </CardTitle>
                 </CardHeader>
@@ -164,6 +169,42 @@ export const EditProjectForm = ({ onCancel,initialValues }: EditProjectFormProps
                                                 </FormItem> 
                                             }
                                         />
+                                        
+                                        {isAdmin && (
+                                            <FormField
+                                                control={form.control} 
+                                                name="startingSprintDate" 
+                                                render={({ field }) => 
+                                                    <FormItem> 
+                                                        <FormLabel className="flex items-center gap-2">
+                                                            <CalendarIcon className="h-4 w-4" />
+                                                            Starting Sprint Date
+                                                        </FormLabel> 
+                                                        <FormControl>
+                                                            <SimpleDatePicker 
+                                                                value={field.value && field.value.trim() !== '' ? convertDDMMYYYYToDate(field.value) : undefined}
+                                                                onChange={(date) => {
+                                                                    if (date) {
+                                                                        const formattedDate = convertDateToDDMMYYYY(date);
+                                                                        field.onChange(formattedDate);
+                                                                    } else {
+                                                                        field.onChange('');
+                                                                    }
+                                                                }}
+                                                                label=""
+                                                                placeholder="Select starting date"
+                                                            />
+                                                        </FormControl>
+                                                        {field.value && field.value.trim() !== '' && (
+                                                            <p className="text-sm text-muted-foreground mt-1">
+                                                                Current starting date: {field.value}
+                                                            </p>
+                                                        )}
+                                                        <FormMessage />
+                                                    </FormItem> 
+                                                }
+                                            />
+                                        )}
                                         
                                     </div>
                                 </div>
