@@ -8,6 +8,26 @@ export enum TaskStatus {
     DONE = "DONE"
 };
 
+// Type for populated assignee data from server
+export type PopulatedAssignee = Models.Document & {
+    name: string;
+    email: string;
+    userId?: string;
+    workspaceId?: string;
+    role?: string;
+};
+
+// Type for populated project data from server
+export type PopulatedProject = Models.Document & {
+    name: string;
+    workspaceId?: string;
+    sprintDuration?: number;
+    sprintNumber?: number;
+    startingSprintDate?: string;
+    currentSprintStartDate?: string;
+    currentSprintEndDate?: string;
+};
+
 export type Task = Models.Document & {
     name: string;
     status: TaskStatus;
@@ -19,7 +39,7 @@ export type Task = Models.Document & {
     description?: string;
     storyPoints: number;
     sprintId?: string;
-    // Populated fields from server - using flexible types to match actual server response
-    assignee?: any | null;
-    project?: any | null;
+    // Populated fields from server - using proper types to match actual server response
+    assignee?: PopulatedAssignee | null;
+    project?: PopulatedProject | null;
 };

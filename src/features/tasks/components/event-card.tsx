@@ -1,5 +1,4 @@
-import { Project } from "@/features/projects/types";
-import { TaskStatus } from "../types";
+import { TaskStatus, PopulatedAssignee, PopulatedProject } from "../types";
 import { cn } from "@/lib/utils";
 import { MemberAvatar } from "@/features/members/components/member-avatar";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
@@ -8,34 +7,8 @@ import { useRouter } from "next/navigation";
 
 interface EventCardProps{
     title: string;
-    assignee: {
-        name: string;
-        email: string;
-        $id: string;
-        $collectionId: string;
-        $databaseId: string;
-        $createdAt: string;
-        $updatedAt: string;
-        $permissions: string[];
-        userId: string;
-        workspaceId: string;
-        role: string;
-    } | null;
-    project: {
-        name: string;
-        $id: string;
-        $collectionId: string;
-        $databaseId: string;
-        $createdAt: string;
-        $updatedAt: string;
-        $permissions: string[];
-        workspaceId: string;
-        sprintDuration: number;
-        sprintNumber: number;
-        startingSprintDate: string;
-        currentSprintStartDate: string;
-        currentSprintEndDate: string;
-    } | null;
+    assignee: PopulatedAssignee | null;
+    project: PopulatedProject | null;
     status: TaskStatus;
     id: string;
 }
