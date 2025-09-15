@@ -132,7 +132,9 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
                             <Datakanban onChange={onKanbanChange} data={tasks?.documents??[]}/>
                         </TabsContent>
                         <TabsContent value="calendar" className="mt-0 h-full pb-4">
-                            <DataCalendar data={tasks?.documents ?? []} />
+                            <div className="h-full min-h-[600px]">
+                                <DataCalendar data={tasks?.documents ?? []} />
+                            </div>
                         </TabsContent>
                     </>                    
                 )

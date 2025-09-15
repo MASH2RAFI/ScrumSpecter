@@ -223,7 +223,7 @@ export const CreateWorkspaceWithProjectForm = ({ onCancel }: CreateWorkspaceWith
                                                                 }}
                                                                 label="Starting Sprint Date"
                                                                 placeholder="Select starting date"
-                                                                className="h-12 border-2 focus:border-primary/50 transition-colors duration-200"
+                                                                size="lg"
                                                             />
                                                         </FormControl>
                                                         <FormMessage />

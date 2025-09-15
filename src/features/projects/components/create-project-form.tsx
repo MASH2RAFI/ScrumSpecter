@@ -146,6 +146,7 @@ export const CreateProjectForm = ({ onCancel }: CreateProjectFormProps) => {
                                                         }}
                                                         label="Starting Sprint Date"
                                                         placeholder="Select starting date"
+                                                        size="lg"
                                                     />
                                                 </FormControl>
                                                 <FormMessage />

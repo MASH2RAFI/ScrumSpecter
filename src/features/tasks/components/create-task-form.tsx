@@ -280,6 +280,7 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                                                     onChange={field.onChange}
                                                     placeholder="Select due date"
                                                     hasError={!!hasError}
+                                                    size="lg"
                                                 />
                                             </FormControl>
                                             <FormMessage />

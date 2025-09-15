@@ -238,7 +238,7 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
         "w-80 shadow-lg transition-all duration-300 ease-in-out",
         isExpanded ? "h-[600px]" : "h-16"
       )}>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-1 pt-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ListTodo className="h-5 w-5 text-primary" />

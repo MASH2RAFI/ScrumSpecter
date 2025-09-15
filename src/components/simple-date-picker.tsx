@@ -12,6 +12,7 @@ interface SimpleDatePickerProps {
     disabled?: boolean;
     label?: string;
     hasError?: boolean;
+    size?: "sm" | "md" | "lg";
 };
 
 export const SimpleDatePicker = ({ 
@@ -21,7 +22,8 @@ export const SimpleDatePicker = ({
     placeholder = "Select date", 
     disabled = false,
     label,
-    hasError = false
+    hasError = false,
+    size = "md"
 }: SimpleDatePickerProps) => {
     const [isMobile, setIsMobile] = React.useState(false);
 
@@ -81,11 +83,21 @@ export const SimpleDatePicker = ({
                 onFocus={handleFocus}
                 disabled={disabled}
                 className={cn(
-                    "h-12 border-2 focus:border-primary/50 transition-colors duration-200",
+                    "w-full lg:w-auto",
+                    "border border-input bg-background",
+                    "text-sm ring-offset-background",
+                    "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+                    "placeholder:text-muted-foreground",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    "disabled:cursor-not-allowed disabled:opacity-50",
                     "text-base", // Prevent zoom on iOS
                     "touch-manipulation", // Improve touch responsiveness
                     isMobile && "text-base", // Ensure proper mobile sizing
-                    hasError && "border-destructive focus:border-destructive focus:ring-destructive/20",
+                    hasError && "border-destructive focus-visible:ring-destructive",
+                    // Size variants
+                    size === "sm" && "h-8",
+                    size === "md" && "h-10",
+                    size === "lg" && "h-12",
                     className
                 )}
                 placeholder={placeholder}
@@ -95,7 +107,7 @@ export const SimpleDatePicker = ({
                     MozAppearance: 'textfield',
                     // Improve mobile date picker behavior
                     fontSize: isMobile ? '16px' : '14px', // Prevent zoom on iOS
-                    minHeight: '48px', // Ensure proper touch target
+                    minHeight: size === "sm" ? '32px' : size === "md" ? '40px' : '48px', // Match size variants
                     // Ensure proper mobile date picker display
                     ...(isMobile && {
                         colorScheme: 'light', // Ensure proper contrast

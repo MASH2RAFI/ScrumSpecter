@@ -130,7 +130,7 @@ export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
 
             <SimpleDatePicker
                 placeholder="Due date"
-                className="h-8 w-full lg:w-auto"
+                size="sm"
                 value={dueDate ? new Date(dueDate) : undefined}
                 onChange={ (date) => {
                 setFilters ({ dueDate: date ? date.toISOString() : null })

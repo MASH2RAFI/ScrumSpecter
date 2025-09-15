@@ -19,4 +19,7 @@ export type Task = Models.Document & {
     description?: string;
     storyPoints: number;
     sprintId?: string;
+    // Populated fields from server - using flexible types to match actual server response
+    assignee?: any | null;
+    project?: any | null;
 };

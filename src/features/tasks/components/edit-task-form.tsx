@@ -147,6 +147,7 @@ export const EditTaskForm = ({ onCancel, projectOptions, memberOptions, initialV
                                                 label="Due Date"
                                                 placeholder="Select due date"
                                                 disabled={!isAdmin}
+                                                size="lg"
                                             />
                                         </FormControl>
                                         <FormMessage />

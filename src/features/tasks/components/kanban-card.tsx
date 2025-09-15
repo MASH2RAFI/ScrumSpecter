@@ -21,20 +21,32 @@ export const KanbanCard = ({ task }: KanbanCardProps) => {
             </div>
             <DottedSeparator />
             <div className="flex items-center gap-x-1.5">
-                <MemberAvatar
-                name={task.assignee.name}
-                fallbackClassName="text-[10px]"
-            />
+                {task.assignee ? (
+                    <MemberAvatar
+                        name={task.assignee.name}
+                        fallbackClassName="text-[10px]"
+                    />
+                ) : (
+                    <div className="size-6 rounded-full bg-muted flex items-center justify-center">
+                        <span className="text-[10px] text-muted-foreground">?</span>
+                    </div>
+                )}
                 <div className="size-1 rounded-full bg-border" />
                 <TaskDate value={task.dueDate} className="text-xs" />
             </div>
 
             <div className="flex items-center gap-x-1.5">
-                <ProjectAvatar
-                    name={task.project.name} 
-                    fallbackClassName="text-[10px]"
-                /> 
-                <span className="text-xs font-medium text-muted-foreground">{task.project.name}</span>
+                {task.project ? (
+                    <>
+                        <ProjectAvatar
+                            name={task.project.name} 
+                            fallbackClassName="text-[10px]"
+                        /> 
+                        <span className="text-xs font-medium text-muted-foreground">{task.project.name}</span>
+                    </>
+                ) : (
+                    <span className="text-xs font-medium text-muted-foreground">No project</span>
+                )}
             </div>
         </div>        
     );

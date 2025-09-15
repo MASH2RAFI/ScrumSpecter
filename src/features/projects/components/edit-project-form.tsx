@@ -193,6 +193,7 @@ export const EditProjectForm = ({ onCancel,initialValues }: EditProjectFormProps
                                                                 }}
                                                                 label=""
                                                                 placeholder="Select starting date"
+                                                                size="lg"
                                                             />
                                                         </FormControl>
                                                         {field.value && field.value.trim() !== '' && (
