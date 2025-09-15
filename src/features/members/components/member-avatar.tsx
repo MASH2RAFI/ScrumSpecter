@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 
 interface MemberAvatarProps {
-    name?: string;
+    name: string;
     className?: string;
     fallbackClassName?: string;
 };
@@ -24,7 +24,7 @@ export const MemberAvatar = ({
                 "bg-neutral-200 font-medium text-neutral-500 flex items-center justify-center", 
                 fallbackClassName)
             }>
-                {name?.[0]?.toUpperCase() || "?"}
+                {name.charAt(0).toUpperCase()}
             </AvatarFallback>
         </Avatar>
     ) 
