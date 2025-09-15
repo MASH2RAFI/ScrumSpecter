@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { usePathname } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,14 +36,23 @@ interface PersonalTodo {
 }
 
 export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
+  const pathname = usePathname();
   const [todos, setTodos] = useState<PersonalTodo[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [newTodoText, setNewTodoText] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [isClient, setIsClient] = useState(false);
 
-  // Load todos from localStorage on mount
+  // Set client flag on mount
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Load todos from localStorage on mount (only on client)
+  useEffect(() => {
+    if (!isClient) return;
+    
     const savedTodos = localStorage.getItem("personal-todos");
     if (savedTodos) {
       try {
@@ -55,12 +65,13 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
         console.error("Error loading todos:", error);
       }
     }
-  }, []);
+  }, [isClient]);
 
-  // Save todos to localStorage whenever todos change
+  // Save todos to localStorage whenever todos change (only on client)
   useEffect(() => {
+    if (!isClient) return;
     localStorage.setItem("personal-todos", JSON.stringify(todos));
-  }, [todos]);
+  }, [todos, isClient]);
 
   // Timer effect
   useEffect(() => {
@@ -207,6 +218,19 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
     
     return { totalTimeSpent, activeTodos, completedTodos };
   }, [todos]);
+
+  // Don't render until client-side mounted to prevent hydration mismatch
+  if (!isClient) {
+    return null;
+  }
+
+  // Only show personal todos in workspace pages (not on public pages)
+  const isWorkspacePage = pathname.startsWith('/workspaces/');
+  
+  // Don't render on public pages
+  if (!isWorkspacePage) {
+    return null;
+  }
 
   return (
     <div className="fixed right-4 bottom-4 z-50">

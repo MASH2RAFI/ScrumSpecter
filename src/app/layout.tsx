@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 
 import { cn } from "@/lib/utils";
@@ -24,7 +24,6 @@ export const metadata: Metadata = {
   description: "A modern project management and task tracking application",
   keywords: ["project management", "task tracking", "scrum", "kanban"],
   authors: [{ name: "ScrumSpecter Team" }],
-  viewport: "width=device-width, initial-scale=1",
   robots: "index, follow",
   openGraph: {
     type: "website",
@@ -39,6 +38,11 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.ico",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

@@ -21,7 +21,6 @@ import { getColumns } from "./columns";
 import { Datakanban } from "./data-kanban";
 import { useCallback } from "react";
 import { useBulkUpdateTasks } from "../api/use-bulk-update-tasks";
-import { useReassignUnassignedTasks } from "../api/use-reassign-unassigned-tasks";
 import { DataCalendar } from "./data-calendar";
 import { useProjectId } from "@/features/projects/hooks/use-project-id";
 import { TaskStatus } from "../types";
@@ -50,7 +49,6 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
     const { open } = useCreateTaskModal();    
 
     const { mutate: bulkUpdate } = useBulkUpdateTasks();
-    const { mutate: reassignUnassigned, isPending: isReassigning } = useReassignUnassignedTasks();
 
     const {
         data: tasks,
@@ -72,11 +70,6 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
         });;
     }, [bulkUpdate]);
 
-    const handleReassignUnassigned = useCallback(() => {
-        reassignUnassigned({
-            json: { workspaceId }
-        });
-    }, [reassignUnassigned, workspaceId]); 
 
     return (
         <Tabs 
@@ -110,15 +103,6 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
                     </TabsList>
                     {isAdmin && (
                         <div className="flex gap-2">
-                            <Button
-                                onClick={handleReassignUnassigned}
-                                disabled={isReassigning}
-                                variant="outline"
-                                size="sm"
-                                className="w-full lg:w-auto"
-                            >
-                                {isReassigning ? "Reassigning..." : "Reassign Unassigned"}
-                            </Button>
                             <Button
                                 onClick={() => open()}
                                 size="sm"

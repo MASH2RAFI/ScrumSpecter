@@ -31,12 +31,12 @@ export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
 
     const projectOptions = projects?.documents.map( (project) => ({
         value: project.$id,
-        label: project.name,
+        label: project?.name || "Unknown Project",
     }));
 
     const memberOptions = members?.documents.map( (member) => ({
         value: member.$id,
-        label: member.name,
+        label: member?.name || "Unknown Member",
     }));
 
     const [{

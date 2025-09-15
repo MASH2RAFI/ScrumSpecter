@@ -57,9 +57,9 @@ const baseColumns: ColumnDef<Task>[] = [
                 <div className="flex items-center gap-x-2 text-sm font-medium">
                     <ProjectAvatar
                         className="size-6"
-                        name={project.name}
+                        name={project?.name}
                     />
-                    <p className="line-clamp-1">{project.name}</p>
+                    <p className="line-clamp-1">{project?.name}</p>
                 </div>
             )
         }
@@ -90,9 +90,9 @@ const baseColumns: ColumnDef<Task>[] = [
                     <MemberAvatar
                     className="size-6"
                     fallbackClassName="text-xs"
-                    name={assignee.name}
+                    name={assignee?.name}
                     />
-                    <p className="line-clamp-1">{assignee.name}</p>
+                    <p className="line-clamp-1">{assignee?.name || "Unassigned"}</p>
                 </div>
             )
         }
