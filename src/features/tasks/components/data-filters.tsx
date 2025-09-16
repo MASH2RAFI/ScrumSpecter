@@ -61,26 +61,51 @@ export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
     if (isLoading) return null;
 
     return (
-        <div className="flex flex-col lg:flex-row gap-2">
+        <div className="flex flex-col lg:flex-row gap-3">
 
             <Select
                 defaultValue={status ?? undefined} 
                 onValueChange={(value) => {onStatusChange(value)}} 
             >
                 <SelectTrigger className="w-full lg:w-auto h-8"> 
-                    <div className="flex items—center pr-2'"> 
-                        <ListChecksIcon className="size-4 mr-2" /> 
+                    <div className="flex items-center pr-2"> 
+                        <ListChecksIcon className="size-4 mr-2 text-blue-600" /> 
                         <SelectValue placeholder="All statuses" /> 
                     </div> 
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">All statuses</SelectItem>
                     <SelectSeparator />
-                    <SelectItem value={TaskStatus.BACKLOG}>Backlog</SelectItem>
-                    <SelectItem value={TaskStatus.IN_PROGRESS}>In Progress</SelectItem>
-                    <SelectItem value={TaskStatus.IN_REVIEW}>In Review</SelectItem>
-                    <SelectItem value={TaskStatus.TODO}>Todo</SelectItem>
-                    <SelectItem value={TaskStatus.DONE}>Done</SelectItem>
+                    <SelectItem value={TaskStatus.BACKLOG} className="text-black dark:text-black">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-slate-500"></div>
+                            Backlog
+                        </div>
+                    </SelectItem>
+                    <SelectItem value={TaskStatus.TODO} className="text-black dark:text-black">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                            Todo
+                        </div>
+                    </SelectItem>
+                    <SelectItem value={TaskStatus.IN_PROGRESS} className="text-black dark:text-black">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                            In Progress
+                        </div>
+                    </SelectItem>
+                    <SelectItem value={TaskStatus.IN_REVIEW} className="text-black dark:text-black">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+                            In Review
+                        </div>
+                    </SelectItem>
+                    <SelectItem value={TaskStatus.DONE} className="text-black dark:text-black">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-emerald-600"></div>
+                            Done
+                        </div>
+                    </SelectItem>
                 </SelectContent >
             </Select> 
 
@@ -89,8 +114,8 @@ export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
                 onValueChange={(value) => {onAssigneeChange(value)}} 
             >
                 <SelectTrigger className="w-full lg:w-auto h-8"> 
-                    <div className="flex items—center pr-2'"> 
-                        <UserIcon className="size-4 mr-2" /> 
+                    <div className="flex items-center pr-2"> 
+                        <UserIcon className="size-4 mr-2 text-emerald-600" /> 
                         <SelectValue placeholder="All assignees" /> 
                     </div> 
                 </SelectTrigger>
@@ -110,12 +135,12 @@ export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
                     defaultValue={projectId ?? undefined} 
                     onValueChange={(value) => {onProjectChange(value)}} 
                 >
-                    <SelectTrigger className="w-full lg:w-auto h-8"> 
-                        <div className="flex items—center pr-2'"> 
-                            <FolderIcon className="size-4 mr-2" /> 
-                            <SelectValue placeholder="All projects" /> 
-                        </div> 
-                    </SelectTrigger>
+                <SelectTrigger className="w-full lg:w-auto h-8"> 
+                    <div className="flex items-center pr-2"> 
+                        <FolderIcon className="size-4 mr-2 text-purple-600" /> 
+                        <SelectValue placeholder="All projects" /> 
+                    </div> 
+                </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All projects</SelectItem>
                         <SelectSeparator />

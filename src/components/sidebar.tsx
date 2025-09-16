@@ -7,7 +7,7 @@ import { ThemeLogo } from "./theme-logo";
 
 export const Sidebar = () => {
     return(
-        <aside className="h-full bg-background p-4 w-full">
+        <aside className="h-full bg-background p-4 w-full transition-unified">
             <Link href="/">
                 <ThemeLogo width={100} height={50} />
             </Link>

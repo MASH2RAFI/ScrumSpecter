@@ -160,8 +160,8 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
     };
 
     return (
-        <Card className="w-full h-full border-none shadow-none">
-            <CardHeader className="flex flex-col p-7 space-y-3">
+        <Card className="w-full h-full border-none shadow-none transition-unified">
+            <CardHeader className="flex flex-col p-7 space-unified-sm">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-xl font-bold">
                         Create a new task

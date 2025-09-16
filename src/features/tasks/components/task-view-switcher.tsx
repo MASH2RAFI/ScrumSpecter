@@ -75,27 +75,27 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
         <Tabs 
             defaultValue={view}
             onValueChange={setView}
-            className="flex-1 w-full border border-border rounded-lg bg-background"
+            className="flex-1 w-full border border-border rounded-unified-lg bg-background shadow-unified transition-unified"
         >
-            <div className="h-full flex flex-col overflow-auto p-4">
+            <div className="h-full flex flex-col p-4">
                 <div className="flex flex-col gap-y-2 lg:flex-row justify-between items-center">
                     <TabsList className="w-full lg:w-auto bg-transparent p-0">
                         <TabsTrigger
-                            className="h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                            className="h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-unified-sm transition-unified"
                             value="table"
                         >
                             Table
                         </TabsTrigger>
 
                         <TabsTrigger
-                            className="h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                            className="h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-unified-sm transition-unified"
                             value="kanban"
                         >
                             Kanban
                         </TabsTrigger>
 
                         <TabsTrigger
-                            className="h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                            className="h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-unified-sm transition-unified"
                             value="calendar"
                         >
                             Calendar
@@ -131,7 +131,7 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
                         <TabsContent value="kanban" className="mt-0">
                             <Datakanban onChange={onKanbanChange} data={tasks?.documents??[]}/>
                         </TabsContent>
-                        <TabsContent value="calendar" className="mt-0 h-full pb-4">
+                        <TabsContent value="calendar" className="mt-0 h-full overflow-auto">
                             <div className="h-full min-h-[600px]">
                                 <DataCalendar data={tasks?.documents ?? []} />
                             </div>

@@ -31,7 +31,7 @@ export const Navbar = () => {
     const { title, description } = pathnameMap[pathnameKey] || defaultMap;
     
     return (
-        <nav className="pt-4 px-6 flex items-center justify-between bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <nav className="pt-4 px-6 flex items-center justify-between bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-unified">
             <div className="flex items-center gap-4">
                 <MobileSidebar />
                 <div className="flex-col flex">

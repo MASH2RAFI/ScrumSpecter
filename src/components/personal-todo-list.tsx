@@ -235,18 +235,18 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
   return (
     <div className="fixed right-4 bottom-4 z-50">
       <Card className={cn(
-        "w-80 shadow-lg transition-all duration-300 ease-in-out",
+        "w-80 shadow-unified-lg transition-unified-slow",
         isExpanded ? "h-[600px]" : "h-16"
       )}>
         <CardHeader className="pb-1 pt-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ListTodo className="h-5 w-5 text-primary" />
+              <ListTodo className="h-5 w-5 text-emerald-600" />
               <CardTitle className="text-lg">
                 Personal Todos
               </CardTitle>
               {todos.length > 0 && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge className="bg-emerald-200 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 text-xs">
                   {activeTodos.length}
                 </Badge>
               )}
@@ -267,7 +267,7 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
         </CardHeader>
 
         {isExpanded && (
-          <CardContent className="space-y-4">
+          <CardContent className="space-unified-md">
             {/* Add new todo */}
             <div className="flex gap-2">
               <Input

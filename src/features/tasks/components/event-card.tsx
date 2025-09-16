@@ -14,11 +14,11 @@ interface EventCardProps{
 }
 
 const statusColorMap: Record<TaskStatus, string> = {
-    [TaskStatus.BACKLOG] : "border-l-pink-500 bg-pink-50/50 dark:bg-pink-950/20",
-    [TaskStatus.TODO]: "border-l-red-500 bg-red-50/50 dark:bg-red-950/20",
-    [TaskStatus.IN_PROGRESS]: "border-l-yellow-500 bg-yellow-50/50 dark:bg-yellow-950/20",
-    [TaskStatus.IN_REVIEW]: "border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20",
-    [TaskStatus.DONE]: "border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20",
+    [TaskStatus.BACKLOG] : "border-l-slate-500 bg-slate-100/80 dark:bg-slate-900/20",
+    [TaskStatus.TODO]: "border-l-red-500 bg-red-100/80 dark:bg-red-950/20",
+    [TaskStatus.IN_PROGRESS]: "border-l-amber-500 bg-amber-100/80 dark:bg-amber-950/20",
+    [TaskStatus.IN_REVIEW]: "border-l-blue-600 bg-blue-100/80 dark:bg-blue-950/20",
+    [TaskStatus.DONE]: "border-l-emerald-600 bg-emerald-100/80 dark:bg-emerald-950/20",
 };
 
 const statusIconMap: Record<TaskStatus, string> = {
@@ -46,15 +46,18 @@ export const EventCard = ({
 };
 
     return ( 
-        <div className="px-1 py-0.5"> 
-            <div onClick={onClick} className={cn(
-                "p-2 text-xs bg-card text-foreground border border-border/50 rounded-lg border-l-4 flex flex-col gap-y-2 cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 group",
-                statusColorMap[status]
-            )}>
+        <div className="px-0.5 py-0.5 sm:px-1 sm:py-1 lg:px-1.5 lg:py-1.5"> 
+        <div onClick={onClick} className={cn(
+            "p-1 sm:p-2 md:p-3 text-[8px] sm:text-[10px] md:text-xs lg:text-sm bg-card text-foreground border border-border/50 rounded-lg border-l-4 flex flex-col gap-y-0.5 sm:gap-y-1 md:gap-y-2 cursor-pointer hover:shadow-xl transition-all duration-300 group backdrop-blur-sm",
+            "hover:bg-gradient-to-br hover:from-primary/5 hover:to-accent/5",
+            "hover:border-primary/30 hover:ring-2 hover:ring-primary/10",
+            "w-full max-w-full relative z-50",
+            statusColorMap[status]
+        )}>
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         <span className="text-xs opacity-70 flex-shrink-0">{statusIconMap[status]}</span>
-                        <p className="font-medium text-foreground truncate group-hover:text-primary transition-colors">{title}</p>
+                        <p className="font-medium text-foreground truncate group-hover:text-primary transition-unified text-xs leading-tight">{title}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-x-1.5">
@@ -64,14 +67,14 @@ export const EventCard = ({
                                 name={assignee.name}
                                 className="size-4"
                             />
-                            <span className="text-[10px] text-muted-foreground truncate max-w-[60px]">{assignee.name}</span>
+                            <span className="text-xs text-muted-foreground truncate max-w-[60px]">{assignee.name}</span>
                         </div>
                     ) : (
                         <div className="flex items-center gap-1">
-                            <div className="size-4 rounded-full bg-muted flex items-center justify-center">
-                                <span className="text-[8px] text-muted-foreground">?</span>
+                            <div className="size-4 rounded-md bg-muted flex items-center justify-center">
+                                <span className="text-xs text-muted-foreground">?</span>
                             </div>
-                            <span className="text-[10px] text-muted-foreground">Unassigned</span>
+                            <span className="text-xs text-muted-foreground">Unassigned</span>
                         </div>
                     )}
                     <div className="size-1 rounded-full bg-border/50" />
@@ -81,14 +84,14 @@ export const EventCard = ({
                                 name={project.name}
                                 className="size-4"
                             />
-                            <span className="text-[10px] text-muted-foreground truncate max-w-[60px]">{project.name}</span>
+                            <span className="text-xs text-muted-foreground truncate max-w-[60px]">{project.name}</span>
                         </div>
                     ) : (
                         <div className="flex items-center gap-1">
-                            <div className="size-4 rounded-full bg-muted flex items-center justify-center">
-                                <span className="text-[8px] text-muted-foreground">?</span>
+                            <div className="size-4 rounded-md bg-muted flex items-center justify-center">
+                                <span className="text-xs text-muted-foreground">?</span>
                             </div>
-                            <span className="text-[10px] text-muted-foreground">No project</span>
+                            <span className="text-xs text-muted-foreground">No project</span>
                         </div>
                     )}
                 </div>

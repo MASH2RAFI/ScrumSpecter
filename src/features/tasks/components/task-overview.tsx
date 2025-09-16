@@ -1,16 +1,24 @@
 import { Button } from "@/components/ui/button";
-import { Task } from "../types";
+import { Task, TaskStatus } from "../types";
 import { PencilIcon } from "lucide-react";
 import { DottedSeparator } from "@/components/dotted-separator";
 import { OverviewProperty } from "./overview-property";
 import { MemberAvatar } from "@/features/members/components/member-avatar";
 import { TaskDate } from "./task-date";
-import { snakeCaseToTitleCase } from "@/lib/utils";
+import { snakeCaseToTitleCase, cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useEditTaskModal } from "../hooks/use-edit-task-modal";
 
 interface TaskOverviewProps { 
     task: Task;
+};
+
+const statusColorMap: Record<TaskStatus, string> = {
+    [TaskStatus.BACKLOG] : "bg-slate-200 text-black dark:bg-slate-800 dark:text-black",
+    [TaskStatus.TODO]: "bg-red-200 text-black dark:bg-red-900 dark:text-black",
+    [TaskStatus.IN_PROGRESS]: "bg-amber-200 text-black dark:bg-amber-900 dark:text-black",
+    [TaskStatus.IN_REVIEW]: "bg-blue-200 text-black dark:bg-blue-900 dark:text-black",
+    [TaskStatus.DONE]: "bg-emerald-200 text-black dark:bg-emerald-900 dark:text-black",
 };
 
 export const TaskOverview = ({ 
@@ -46,7 +54,7 @@ export const TaskOverview = ({
                         <TaskDate value={task.dueDate} className="text-sm font-medium" />
                     </OverviewProperty>
                     <OverviewProperty label="Status"> 
-                    <Badge variant={task.status}> 
+                    <Badge className={cn(statusColorMap[task.status])}> 
                         {snakeCaseToTitleCase(task.status)}
                     </Badge> 
                     </OverviewProperty> 

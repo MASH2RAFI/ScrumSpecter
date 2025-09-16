@@ -1,6 +1,6 @@
 {
   "name": "scrumspecter",
-  "version": "3.1.5",
+  "version": "3.2.5",
   "private": true,
   "scripts": {
     "dev": "next dev",
