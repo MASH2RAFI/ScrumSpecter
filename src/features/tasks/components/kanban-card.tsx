@@ -22,42 +22,44 @@ const statusColorMap: Record<TaskStatus, string> = {
 export const KanbanCard = ({ task }: KanbanCardProps) => {
     return (
         <div className={cn(
-            "bg-card p-2.5 mb-1.5 rounded-unified shadow-unified space-unified-sm border border-border transition-unified hover:shadow-unified-md border-l-4",
+            "bg-card p-2 sm:p-2.5 mb-1 sm:mb-1.5 rounded-unified shadow-unified space-unified-sm border border-border transition-unified hover:shadow-unified-md border-l-4 touch-manipulation",
             statusColorMap[task.status]
         )}>
-            <div className="flex items-start justify-between gap-x-2">
-                <p className="text-sm line-clamp-2 text-foreground">{task.name}</p>
+            <div className="flex items-start justify-between gap-x-1 sm:gap-x-2">
+                <p className="text-xs sm:text-sm line-clamp-2 text-foreground flex-1 min-w-0">{task.name}</p>
                 <TaskActions id={task.$id} projectId={task.projectId}> 
-                    <MoreHorizontal className="size-[18px] stroke-1 shrink-0 text-muted-foreground hover:text-foreground transition-unified" />
+                    <MoreHorizontal className="size-4 sm:size-[18px] stroke-1 shrink-0 text-muted-foreground hover:text-foreground transition-unified min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] flex items-center justify-center" />
                 </TaskActions>
             </div>
             <DottedSeparator />
-            <div className="flex items-center gap-x-1.5">
+            <div className="flex items-center gap-x-1 sm:gap-x-1.5">
                 {task.assignee ? (
                     <MemberAvatar
                         name={task.assignee.name}
-                        fallbackClassName="text-[10px]"
+                        fallbackClassName="text-[8px] sm:text-[10px]"
+                        className="size-5 sm:size-6"
                     />
                 ) : (
-                    <div className="size-6 rounded-md bg-muted flex items-center justify-center">
-                        <span className="text-[10px] text-muted-foreground">?</span>
+                    <div className="size-5 sm:size-6 rounded-md bg-muted flex items-center justify-center">
+                        <span className="text-[8px] sm:text-[10px] text-muted-foreground">?</span>
                     </div>
                 )}
                 <div className="size-1 rounded-full bg-border" />
-                <TaskDate value={task.dueDate} className="text-xs" />
+                <TaskDate value={task.dueDate} className="text-[10px] sm:text-xs" />
             </div>
 
-            <div className="flex items-center gap-x-1.5">
+            <div className="flex items-center gap-x-1 sm:gap-x-1.5">
                 {task.project ? (
                     <>
                         <ProjectAvatar
                             name={task.project.name} 
-                            fallbackClassName="text-[10px]"
+                            fallbackClassName="text-[8px] sm:text-[10px]"
+                            className="size-5 sm:size-6"
                         /> 
-                        <span className="text-xs font-medium text-muted-foreground">{task.project.name}</span>
+                        <span className="text-[10px] sm:text-xs font-medium text-muted-foreground truncate">{task.project.name}</span>
                     </>
                 ) : (
-                    <span className="text-xs font-medium text-muted-foreground">No project</span>
+                    <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">No project</span>
                 )}
             </div>
         </div>        

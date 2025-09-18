@@ -18,9 +18,11 @@ import { SimpleDatePicker } from "@/components/simple-date-picker";
 
 interface DataFiltersProps {
     hideProjectFilter?: boolean;
+    hideStatusFilter?: boolean;
+    hideDateFilter?: boolean;
 };
 
-export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
+export const DataFilters = ({ hideProjectFilter, hideStatusFilter, hideDateFilter }: DataFiltersProps) => {
 
     const workspaceId = useWorkspaceId();
 
@@ -64,56 +66,10 @@ export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
         <div className="flex flex-col lg:flex-row gap-3">
 
             <Select
-                defaultValue={status ?? undefined} 
-                onValueChange={(value) => {onStatusChange(value)}} 
-            >
-                <SelectTrigger className="w-full lg:w-auto h-8"> 
-                    <div className="flex items-center pr-2"> 
-                        <ListChecksIcon className="size-4 mr-2 text-blue-600" /> 
-                        <SelectValue placeholder="All statuses" /> 
-                    </div> 
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">All statuses</SelectItem>
-                    <SelectSeparator />
-                    <SelectItem value={TaskStatus.BACKLOG} className="text-black dark:text-black">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-slate-500"></div>
-                            Backlog
-                        </div>
-                    </SelectItem>
-                    <SelectItem value={TaskStatus.TODO} className="text-black dark:text-black">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                            Todo
-                        </div>
-                    </SelectItem>
-                    <SelectItem value={TaskStatus.IN_PROGRESS} className="text-black dark:text-black">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                            In Progress
-                        </div>
-                    </SelectItem>
-                    <SelectItem value={TaskStatus.IN_REVIEW} className="text-black dark:text-black">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-blue-600"></div>
-                            In Review
-                        </div>
-                    </SelectItem>
-                    <SelectItem value={TaskStatus.DONE} className="text-black dark:text-black">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-emerald-600"></div>
-                            Done
-                        </div>
-                    </SelectItem>
-                </SelectContent >
-            </Select> 
-
-            <Select
                 defaultValue={assigneeId ?? undefined} 
                 onValueChange={(value) => {onAssigneeChange(value)}} 
             >
-                <SelectTrigger className="w-full lg:w-auto h-8"> 
+                <SelectTrigger className="w-full lg:w-auto h-10 sm:h-8 min-h-[44px] sm:min-h-[32px]"> 
                     <div className="flex items-center pr-2"> 
                         <UserIcon className="size-4 mr-2 text-emerald-600" /> 
                         <SelectValue placeholder="All assignees" /> 
@@ -135,7 +91,7 @@ export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
                     defaultValue={projectId ?? undefined} 
                     onValueChange={(value) => {onProjectChange(value)}} 
                 >
-                <SelectTrigger className="w-full lg:w-auto h-8"> 
+                <SelectTrigger className="w-full lg:w-auto h-10 sm:h-8 min-h-[44px] sm:min-h-[32px]"> 
                     <div className="flex items-center pr-2"> 
                         <FolderIcon className="size-4 mr-2 text-purple-600" /> 
                         <SelectValue placeholder="All projects" /> 
@@ -153,14 +109,64 @@ export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
                 </Select>
             )}
 
-            <SimpleDatePicker
-                placeholder="Due date"
-                size="sm"
-                value={dueDate ? new Date(dueDate) : undefined}
-                onChange={ (date) => {
-                setFilters ({ dueDate: date ? date.toISOString() : null })
-                }}
-            />
+            {!hideDateFilter && (
+                <SimpleDatePicker
+                    placeholder="Due date"
+                    size="sm"
+                    value={dueDate ? new Date(dueDate) : undefined}
+                    onChange={ (date) => {
+                    setFilters ({ dueDate: date ? date.toISOString() : null })
+                    }}
+                />
+            )}
+
+            {!hideStatusFilter && (
+                <Select
+                    defaultValue={status ?? undefined} 
+                    onValueChange={(value) => {onStatusChange(value)}} 
+                >
+                    <SelectTrigger className="w-full lg:w-auto h-10 sm:h-8 min-h-[44px] sm:min-h-[32px]"> 
+                        <div className="flex items-center pr-2"> 
+                            <ListChecksIcon className="size-4 mr-2 text-blue-600" /> 
+                            <SelectValue placeholder="All statuses" /> 
+                        </div> 
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All statuses</SelectItem>
+                        <SelectSeparator />
+                        <SelectItem value={TaskStatus.BACKLOG}>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-slate-500"></div>
+                                Backlog
+                            </div>
+                        </SelectItem>
+                        <SelectItem value={TaskStatus.TODO}>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                Todo
+                            </div>
+                        </SelectItem>
+                        <SelectItem value={TaskStatus.IN_PROGRESS}>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                                In Progress
+                            </div>
+                        </SelectItem>
+                        <SelectItem value={TaskStatus.IN_REVIEW}>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+                                In Review
+                            </div>
+                        </SelectItem>
+                        <SelectItem value={TaskStatus.DONE}>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-emerald-600"></div>
+                                Done
+                            </div>
+                        </SelectItem>
+                    </SelectContent >
+                </Select>
+            )} 
         </div>
 
     );

@@ -55,15 +55,15 @@ export function DataTable<TData, TValue>({
   })
 
   return (
-    <div>
-        <div className="overflow-hidden rounded-md border">
+    <div className="w-full">
+        <div className="overflow-x-auto rounded-md border">
             <Table>
                 <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
                         <TableRow key={headerGroup.id}>
                             {headerGroup.headers.map((header) => {
                                 return (
-                                <TableHead key={header.id}>
+                                <TableHead key={header.id} className="whitespace-nowrap">
                                     {header.isPlaceholder
                                     ? null
                                     : flexRender(
@@ -84,7 +84,7 @@ export function DataTable<TData, TValue>({
                             data-state={row.getIsSelected() && "selected"}
                         >
                             {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id}>
+                            <TableCell key={cell.id} className="whitespace-nowrap">
                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
                             </TableCell>
                             ))}
@@ -101,24 +101,31 @@ export function DataTable<TData, TValue>({
             </Table>
         </div>
 
-        <div className="flex items-center justify-end space-x-2 py-4">
-            <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-            >
-                Previous
-            </Button>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 py-4">
+            <div className="text-sm text-muted-foreground">
+                Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+            </div>
+            <div className="flex items-center gap-2">
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                    className="min-h-[44px] sm:min-h-[32px]"
+                >
+                    Previous
+                </Button>
 
-            <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-            >
-                Next
-            </Button>
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                    className="min-h-[44px] sm:min-h-[32px]"
+                >
+                    Next
+                </Button>
+            </div>
         </div>
     </div>
     

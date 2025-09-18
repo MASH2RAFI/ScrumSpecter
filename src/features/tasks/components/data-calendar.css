@@ -351,38 +351,53 @@
 
   /* Mobile-specific calendar optimizations */
   .calendar-container {
-    @apply mx-2;
+    @apply mx-1;
     @apply rounded-lg;
     @apply shadow-lg;
+    @apply min-w-[320px];
   }
 
   .rbc-header {
     @apply py-2;
-    @apply px-2;
-    @apply text-xs;
+    @apply px-1;
+    @apply text-[10px];
     @apply font-semibold;
+    @apply min-h-[32px];
+    @apply flex items-center justify-center;
   }
 
   .rbc-date-cell {
-    @apply min-h-[60px];
-    @apply p-1;
+    @apply min-h-[70px];
+    @apply p-0.5;
     @apply text-xs;
+    @apply relative;
+    @apply touch-manipulation;
   }
 
   .rbc-date-cell .rbc-day-bg {
-    @apply min-h-[50px];
+    @apply min-h-[60px];
+    @apply rounded-sm;
+    @apply transition-colors duration-200;
+  }
+
+  .rbc-date-cell .rbc-day-bg:hover {
+    @apply bg-muted/20;
   }
 
   .rbc-events-container {
-    @apply min-h-[40px];
+    @apply min-h-[50px];
     @apply gap-0.5;
+    @apply mt-1;
+    @apply flex flex-col;
   }
 
   .rbc-event {
     @apply text-[8px];
-    @apply p-1;
+    @apply p-0.5;
     @apply rounded-sm;
     @apply leading-tight;
+    @apply touch-manipulation;
+    @apply active:scale-95;
   }
 
   .rbc-toolbar {
@@ -412,19 +427,25 @@
 
   /* Mobile task cards */
   .event-card {
-    @apply text-[7px];
-    @apply p-0.5;
+    @apply text-[8px];
+    @apply p-1;
     @apply rounded-sm;
     @apply leading-tight;
-    @apply min-h-[16px];
+    @apply min-h-[20px];
+    @apply touch-manipulation;
+    @apply active:scale-95;
+    @apply transition-transform duration-150;
   }
 
   .grouped-event-card {
-    @apply text-[7px];
-    @apply p-0.5;
+    @apply text-[8px];
+    @apply p-1;
     @apply rounded-sm;
     @apply leading-tight;
-    @apply min-h-[16px];
+    @apply min-h-[20px];
+    @apply touch-manipulation;
+    @apply active:scale-95;
+    @apply transition-transform duration-150;
   }
 
   /* Mobile popup improvements */
@@ -432,45 +453,81 @@
     @apply top-2;
     @apply left-2;
     @apply right-2;
-    @apply max-h-[85vh];
+    @apply max-h-[90vh];
     @apply text-sm;
+    @apply rounded-lg;
+    @apply shadow-2xl;
+    @apply border-2;
+    @apply border-border;
   }
 
   .mobile-popup .task-item {
-    @apply p-3;
+    @apply p-4;
     @apply text-sm;
-    @apply min-h-[44px];
+    @apply min-h-[48px];
+    @apply touch-manipulation;
+    @apply active:scale-[0.98];
+    @apply transition-transform duration-150;
   }
 
   .mobile-popup .task-item h4 {
     @apply text-base;
     @apply font-semibold;
+    @apply mb-1;
   }
 
   .mobile-popup .task-item p {
     @apply text-sm;
     @apply mt-1;
+    @apply opacity-80;
   }
 
   /* Touch-friendly buttons */
   .mobile-popup button {
-    @apply min-h-[44px];
+    @apply min-h-[48px];
     @apply px-4;
     @apply text-sm;
+    @apply touch-manipulation;
+    @apply active:scale-95;
   }
 
   /* Mobile dropdown improvements */
   .task-dropdown {
-    @apply max-w-[calc(100vw-2rem)];
-    @apply left-4;
-    @apply right-4;
+    @apply max-w-[calc(100vw-1rem)];
+    @apply left-2;
+    @apply right-2;
     @apply text-sm;
+    @apply rounded-lg;
+    @apply shadow-2xl;
+    @apply border-2;
+    @apply border-border;
   }
 
   .task-dropdown .task-item {
-    @apply p-3;
+    @apply p-4;
     @apply text-sm;
-    @apply min-h-[44px];
+    @apply min-h-[48px];
+    @apply touch-manipulation;
+    @apply active:scale-[0.98];
+    @apply transition-transform duration-150;
+  }
+
+  /* Mobile calendar scroll improvements */
+  .rbc-month-view {
+    @apply overflow-x-auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Mobile date cell improvements */
+  .rbc-date-cell .rbc-day-bg {
+    @apply cursor-pointer;
+    @apply select-none;
+  }
+
+  /* Mobile month row improvements */
+  .rbc-month-row {
+    @apply min-h-[80px];
+    @apply border-b border-border/20;
   }
 }
 

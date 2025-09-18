@@ -77,25 +77,25 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
             onValueChange={setView}
             className="flex-1 w-full border border-border rounded-unified-lg bg-background shadow-unified transition-unified"
         >
-            <div className="h-full flex flex-col p-4">
-                <div className="flex flex-col gap-y-2 lg:flex-row justify-between items-center">
-                    <TabsList className="w-full lg:w-auto bg-transparent p-0">
+            <div className="h-full flex flex-col p-3 sm:p-4">
+                <div className="flex flex-col gap-y-3 sm:gap-y-2 lg:flex-row justify-between items-stretch sm:items-center">
+                    <TabsList className="w-full lg:w-auto bg-transparent p-0 h-auto">
                         <TabsTrigger
-                            className="h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-unified-sm transition-unified"
+                            className="h-10 sm:h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-unified-sm transition-unified text-sm sm:text-base min-h-[44px] sm:min-h-[32px]"
                             value="table"
                         >
                             Table
                         </TabsTrigger>
 
                         <TabsTrigger
-                            className="h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-unified-sm transition-unified"
+                            className="h-10 sm:h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-unified-sm transition-unified text-sm sm:text-base min-h-[44px] sm:min-h-[32px]"
                             value="kanban"
                         >
                             Kanban
                         </TabsTrigger>
 
                         <TabsTrigger
-                            className="h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-unified-sm transition-unified"
+                            className="h-10 sm:h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-unified-sm transition-unified text-sm sm:text-base min-h-[44px] sm:min-h-[32px]"
                             value="calendar"
                         >
                             Calendar
@@ -106,7 +106,7 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
                             <Button
                                 onClick={() => open()}
                                 size="sm"
-                                className="w-full lg:w-auto"
+                                className="w-full lg:w-auto min-h-[44px] sm:min-h-[32px] text-sm sm:text-base"
                             >
                                 <PlusIcon className="size-4 mr-2" />
                                 New
@@ -116,7 +116,11 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
                 </div>
 
                 <DottedSeparator className="my-4" />
-                    <DataFilters hideProjectFilter = { hideProjectFilter } />
+                    <DataFilters 
+                        hideProjectFilter={hideProjectFilter} 
+                        hideStatusFilter={view === "kanban"}
+                        hideDateFilter={view === "calendar"}
+                    />
                 <DottedSeparator className="my-4" />
                 {isLoadingTasks ? (
                     <div className="w-full border border-border rounded-lg h-[200px] flex flex-col items-center justify-center bg-muted/20">

@@ -19,8 +19,7 @@ import {
   CheckCircle2,
   ListTodo,
   ChevronUp,
-  ChevronDown,
-  ChevronLeft
+  ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -240,7 +239,7 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
           "shadow-unified-lg transition-unified-slow",
           // Mobile: icon-only when collapsed, adaptive width when expanded
           "w-12 sm:w-80",
-          isExpanded ? "h-[70vh] w-[90vw] sm:h-[600px] sm:w-80" : "h-12 sm:h-16",
+          isExpanded ? "h-[75vh] w-[90vw] sm:h-[600px] sm:w-80" : "h-12 sm:h-16",
           // Make clickable on mobile when collapsed
           !isExpanded && "sm:cursor-default cursor-pointer"
         )}
@@ -260,7 +259,7 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
                 Personal Todos
               </CardTitle>
               {todos.length > 0 && (
-                <Badge className="bg-emerald-200 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 text-xs min-w-[20px] h-5 flex items-center justify-center">
+                <Badge className="bg-emerald-200 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 text-xs min-w-[20px] h-5 flex items-center justify-center hidden sm:flex">
                   {activeTodos.length}
                 </Badge>
               )}
@@ -319,7 +318,7 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
             )}
 
             {/* Todo list */}
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+            <div className="space-y-2 max-h-[50vh] sm:max-h-96 overflow-y-auto pr-1">
               {todos.length === 0 ? (
                 <div className="text-center text-muted-foreground py-8">
                   <ListTodo className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -331,7 +330,7 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
                   <div
                     key={todo.id}
                     className={cn(
-                      "p-3 rounded-lg border transition-all",
+                      "p-3 rounded-lg border transition-all min-h-[80px]",
                       todo.completed 
                         ? "bg-muted/50 border-muted" 
                         : "bg-background border-border hover:border-primary/50"
@@ -341,12 +340,12 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
                       <Checkbox
                         checked={todo.completed}
                         onCheckedChange={() => toggleTodo(todo.id)}
-                        className="mt-1"
+                        className="mt-1 flex-shrink-0"
                       />
                       
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 space-y-3">
                         {editingId === todo.id ? (
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 items-center">
                             <Input
                               value={editingText}
                               onChange={(e) => setEditingText(e.target.value)}
@@ -354,27 +353,27 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
                               className="flex-1 h-8"
                               autoFocus
                             />
-                            <Button size="sm" variant="ghost" onClick={saveEdit}>
+                            <Button size="sm" variant="ghost" onClick={saveEdit} className="h-8 w-8 p-0 focus:ring-1 focus:ring-offset-1">
                               <CheckCircle2 className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={cancelEdit}>
+                            <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-8 w-8 p-0 focus:ring-1 focus:ring-offset-1">
                               <X className="h-4 w-4" />
                             </Button>
                           </div>
                         ) : (
-                          <div className="space-y-2">
+                          <>
                             <p className={cn(
-                              "text-sm",
+                              "text-sm leading-relaxed",
                               todo.completed && "line-through text-muted-foreground"
                             )}>
                               {todo.text}
                             </p>
                             
-                            {/* Timer section */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
+                            {/* Timer and action buttons section */}
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <div className={`flex items-center gap-1 text-xs ${todo.completed ? 'text-muted-foreground/60' : 'text-muted-foreground'}`}>
-                                  <Clock className={`h-3 w-3 ${todo.completed ? 'opacity-50' : ''}`} />
+                                  <Clock className={`h-3 w-3 flex-shrink-0 ${todo.completed ? 'opacity-50' : ''}`} />
                                   <span className={todo.completed ? 'line-through' : ''}>{formatTime(todo.timer.timeSpent)}</span>
                                   {todo.completed && (
                                     <span className="text-xs text-green-600 dark:text-green-400 font-medium ml-1">
@@ -383,13 +382,13 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
                                   )}
                                 </div>
                                 
-                                <div className="flex gap-1">
+                                <div className="flex gap-1.5">
                                   <Button
                                     size="sm"
                                     variant="ghost"
                                     onClick={() => toggleTimer(todo.id)}
                                     disabled={todo.completed}
-                                    className="h-6 w-6 p-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="h-7 w-7 p-0 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 focus:ring-1 focus:ring-offset-1"
                                   >
                                     {todo.timer.isRunning ? (
                                       <Pause className="h-3 w-3" />
@@ -403,19 +402,19 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
                                     variant="ghost"
                                     onClick={() => resetTimer(todo.id)}
                                     disabled={todo.completed}
-                                    className="h-6 w-6 p-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="h-7 w-7 p-0 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 focus:ring-1 focus:ring-offset-1"
                                   >
                                     <Square className="h-3 w-3" />
                                   </Button>
                                 </div>
                               </div>
                               
-                              <div className="flex gap-1">
+                              <div className="flex gap-1.5 flex-shrink-0">
                                 <Button
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => startEdit(todo.id, todo.text)}
-                                  className="h-6 w-6 p-0"
+                                  className="h-7 w-7 p-0 focus:ring-1 focus:ring-offset-1"
                                 >
                                   <Edit2 className="h-3 w-3" />
                                 </Button>
@@ -423,13 +422,13 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => deleteTodo(todo.id)}
-                                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                  className="h-7 w-7 p-0 text-destructive hover:text-destructive focus:ring-1 focus:ring-offset-1"
                                 >
                                   <Trash2 className="h-3 w-3" />
                                 </Button>
                               </div>
                             </div>
-                          </div>
+                          </>
                         )}
                       </div>
                     </div>

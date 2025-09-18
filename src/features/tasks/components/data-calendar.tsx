@@ -55,32 +55,38 @@ const CustomToolbar = ({ date, onNavigate }: CustomToolbarProps) => {
     const isToday = format(new Date(), "yyyy-MM") === format(date, "yyyy-MM");
     
     return (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-unified bg-primary/10 text-primary shadow-unified">
-                        <CalendarIcon className="h-5 w-5" />
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-foreground">{currentMonth}</h2>
-                        {isToday && (
-                            <p className="text-sm text-muted-foreground">Current month</p>
-                        )}
+            <div className="flex flex-col gap-3 sm:gap-4">
+                {/* Mobile: Stacked layout, Desktop: Side by side */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="p-1.5 sm:p-2 rounded-unified bg-primary/10 text-primary shadow-unified">
+                            <CalendarIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg sm:text-xl font-bold text-foreground">{currentMonth}</h2>
+                            {isToday && (
+                                <p className="text-xs sm:text-sm text-muted-foreground">Current month</p>
+                            )}
+                        </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                
+                {/* Navigation buttons - full width on mobile */}
+                <div className="flex items-center justify-between gap-2">
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={() => onNavigate("PREV")}
-                        className="transition-unified"
+                        className="transition-unified flex-1 sm:flex-none min-h-[44px] sm:min-h-[32px]"
                     >
-                        <ChevronLeftIcon className="h-4 w-4" />
+                        <ChevronLeftIcon className="h-4 w-4 mr-1 sm:mr-0" />
+                        <span className="sm:hidden">Prev</span>
                     </Button>
                     <Button
                         variant={isToday ? "primary" : "outline"}
                         size="sm"
                         onClick={() => onNavigate("TODAY")}
-                        className="transition-unified"
+                        className="transition-unified flex-1 sm:flex-none min-h-[44px] sm:min-h-[32px]"
                     >
                         Today
                     </Button>
@@ -88,9 +94,10 @@ const CustomToolbar = ({ date, onNavigate }: CustomToolbarProps) => {
                         variant="outline"
                         size="sm"
                         onClick={() => onNavigate("NEXT")}
-                        className="transition-unified"
+                        className="transition-unified flex-1 sm:flex-none min-h-[44px] sm:min-h-[32px]"
                     >
-                        <ChevronRightIcon className="h-4 w-4" />
+                        <span className="sm:hidden">Next</span>
+                        <ChevronRightIcon className="h-4 w-4 ml-1 sm:ml-0" />
                     </Button>
                 </div>
             </div>
@@ -324,11 +331,11 @@ export const DataCalendar = ({
     }
 
     return (
-        <div className="bg-background rounded-unified-lg border border-border shadow-unified transition-unified flex flex-col">
-            <div className="p-2 sm:p-4 gradient-mono-subtle border-b border-border flex-shrink-0">
+        <div className="bg-background rounded-unified-lg border border-border shadow-unified transition-unified flex flex-col w-full">
+            <div className="p-3 sm:p-4 gradient-mono-subtle border-b border-border flex-shrink-0">
                 <CustomToolbar date={value} onNavigate={handleNavigate} />
             </div>
-            <div className="p-1 sm:p-2 flex-1">
+            <div className="p-1 sm:p-2 flex-1 overflow-x-auto">
                 <Calendar
                     localizer={localizer}
                     date={value}
