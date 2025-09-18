@@ -2,6 +2,73 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile-first typography and spacing improvements */
+@layer base {
+  html {
+    /* Improve text rendering on mobile */
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  body {
+    /* Prevent horizontal scroll on mobile */
+    overflow-x: hidden;
+    /* Improve touch scrolling */
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Better touch targets for mobile */
+  button, 
+  [role="button"], 
+  input[type="submit"], 
+  input[type="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Improve form inputs on mobile */
+  input, 
+  textarea, 
+  select {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+  
+  /* Better focus states for accessibility */
+  *:focus-visible {
+    outline: 2px solid theme(colors.primary.DEFAULT);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Mobile-optimized container */
+  .mobile-container {
+    @apply px-4 sm:px-6 lg:px-8;
+    @apply max-w-full;
+  }
+  
+  /* Touch-friendly spacing */
+  .touch-spacing {
+    @apply space-y-4 sm:space-y-6;
+  }
+  
+  /* Mobile-optimized text sizes */
+  .mobile-text {
+    @apply text-sm sm:text-base;
+  }
+  
+  .mobile-heading {
+    @apply text-lg sm:text-xl md:text-2xl;
+  }
+  
+  /* Better mobile scrolling */
+  .mobile-scroll {
+    @apply overflow-y-auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 
 body {
   font-family: Arial, Helvetica, sans-serif;

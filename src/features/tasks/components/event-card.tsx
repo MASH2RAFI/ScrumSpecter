@@ -52,6 +52,9 @@ export const EventCard = ({
             "hover:bg-gradient-to-br hover:from-primary/5 hover:to-accent/5",
             "hover:border-primary/30 hover:ring-2 hover:ring-primary/10",
             "w-full max-w-full relative z-50",
+            "touch-manipulation", // Optimize for touch
+            "active:scale-95", // Touch feedback
+            "min-h-[32px] sm:min-h-[40px]", // Minimum touch target
             statusColorMap[status]
         )}>
                 <div className="flex items-start justify-between gap-2">

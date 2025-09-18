@@ -31,19 +31,19 @@ export const Navbar = () => {
     const { title, description } = pathnameMap[pathnameKey] || defaultMap;
     
     return (
-        <nav className="pt-4 px-6 flex items-center justify-between bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-unified">
-            <div className="flex items-center gap-4">
+        <nav className="sticky top-0 z-40 pt-3 pb-3 px-4 sm:px-6 flex items-center justify-between bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-unified border-b border-border/50">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                 <MobileSidebar />
-                <div className="flex-col flex">
-                    <h1 className="text-2xl font-semibold">
+                <div className="flex-col flex min-w-0 flex-1">
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-semibold truncate">
                         {title}
                     </h1>
-                    <p className="text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate hidden sm:block">
                         {description}
                     </p>
                 </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
                 <UserButton />
             </div>
         </nav>

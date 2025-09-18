@@ -125,8 +125,11 @@ export const MultipleTasksPopup = ({ tasks, date, isOpen, onClose, position }: M
   return (
     <div
       ref={dropdownRef}
-      className="fixed z-50 bg-card border border-border rounded-lg shadow-xl backdrop-blur-sm"
-      style={{
+      className={cn(
+        "fixed z-50 bg-card border border-border rounded-lg shadow-xl backdrop-blur-sm",
+        typeof window !== 'undefined' && window.innerWidth < 640 ? "mobile-popup" : ""
+      )}
+      style={typeof window !== 'undefined' && window.innerWidth < 640 ? {} : {
         left: position.x,
         top: position.y,
         maxWidth: '500px',
@@ -211,7 +214,8 @@ export const MultipleTasksPopup = ({ tasks, date, isOpen, onClose, position }: M
                         key={task.$id}
                         onClick={() => handleTaskClick(task.$id)}
                         className={cn(
-                          "p-3 rounded-lg border border-border/50 border-l-4 cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all duration-200 group",
+                          "p-3 rounded-lg border border-border/50 border-l-4 cursor-pointer hover:shadow-md hover:scale-[1.01] active:scale-95 transition-all duration-200 group min-h-[44px] flex items-center",
+                          "touch-manipulation", // Optimize for touch
                           statusColorMap[task.status]
                         )}
                       >

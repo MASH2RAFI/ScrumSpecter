@@ -19,7 +19,8 @@ import {
   CheckCircle2,
   ListTodo,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  ChevronLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -234,19 +235,32 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
 
   return (
     <div className="fixed right-4 bottom-4 z-50">
-      <Card className={cn(
-        "w-80 shadow-unified-lg transition-unified-slow",
-        isExpanded ? "h-[600px]" : "h-16"
-      )}>
-        <CardHeader className="pb-1 pt-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+      <Card 
+        className={cn(
+          "shadow-unified-lg transition-unified-slow",
+          // Mobile: icon-only when collapsed, adaptive width when expanded
+          "w-12 sm:w-80",
+          isExpanded ? "h-[70vh] w-[90vw] sm:h-[600px] sm:w-80" : "h-12 sm:h-16",
+          // Make clickable on mobile when collapsed
+          !isExpanded && "sm:cursor-default cursor-pointer"
+        )}
+        onClick={() => {
+          // Only handle click on mobile when collapsed
+          if (typeof window !== 'undefined' && window.innerWidth < 640 && !isExpanded) {
+            setIsExpanded(true);
+          }
+        }}
+      >
+        <CardHeader className="pb-1 pt-2 px-2 sm:px-6">
+          <div className="flex items-center justify-center sm:justify-between">
+            {/* Mobile: Show only icon and badge when collapsed */}
+            <div className="flex items-center gap-1 sm:gap-2">
               <ListTodo className="h-5 w-5 text-emerald-600" />
-              <CardTitle className="text-lg">
+              <CardTitle className="text-lg hidden sm:block">
                 Personal Todos
               </CardTitle>
               {todos.length > 0 && (
-                <Badge className="bg-emerald-200 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 text-xs">
+                <Badge className="bg-emerald-200 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 text-xs min-w-[20px] h-5 flex items-center justify-center">
                   {activeTodos.length}
                 </Badge>
               )}
@@ -255,7 +269,7 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
               variant="ghost"
               size="sm"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="h-8 w-8 p-0"
+              className="h-8 w-8 p-0 hidden sm:flex"
             >
               {isExpanded ? (
                 <ChevronDown className="h-4 w-4" />
@@ -267,7 +281,18 @@ export const PersonalTodoWidget = React.memo(function PersonalTodoWidget() {
         </CardHeader>
 
         {isExpanded && (
-          <CardContent className="space-unified-md">
+          <CardContent className="space-unified-md px-2 sm:px-6">
+            {/* Mobile close button */}
+            <div className="flex justify-center sm:hidden mb-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsExpanded(false)}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronDown className="h-5 w-5" />
+              </Button>
+            </div>
             {/* Add new todo */}
             <div className="flex gap-2">
               <Input

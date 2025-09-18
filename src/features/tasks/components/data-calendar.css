@@ -105,7 +105,7 @@
 }
 
 .rbc-month-view {
-  @apply border-none;
+    @apply border-none;
   @apply rounded-unified-lg;
   @apply shadow-2xl;
   @apply transition-all duration-300;
@@ -347,6 +347,130 @@
     @apply z-50;
     @apply max-h-[80vh];
     @apply overflow-y-auto;
+  }
+
+  /* Mobile-specific calendar optimizations */
+  .calendar-container {
+    @apply mx-2;
+    @apply rounded-lg;
+    @apply shadow-lg;
+  }
+
+  .rbc-header {
+    @apply py-2;
+    @apply px-2;
+    @apply text-xs;
+    @apply font-semibold;
+  }
+
+  .rbc-date-cell {
+    @apply min-h-[60px];
+    @apply p-1;
+    @apply text-xs;
+  }
+
+  .rbc-date-cell .rbc-day-bg {
+    @apply min-h-[50px];
+  }
+
+  .rbc-events-container {
+    @apply min-h-[40px];
+    @apply gap-0.5;
+  }
+
+  .rbc-event {
+    @apply text-[8px];
+    @apply p-1;
+    @apply rounded-sm;
+    @apply leading-tight;
+  }
+
+  .rbc-toolbar {
+    @apply flex-col;
+    @apply gap-2;
+    @apply p-2;
+  }
+
+  .rbc-toolbar-label {
+    @apply text-sm;
+    @apply font-semibold;
+    @apply order-2;
+  }
+
+  .rbc-btn-group {
+    @apply order-1;
+    @apply w-full;
+    @apply justify-center;
+  }
+
+  .rbc-btn-group button {
+    @apply text-xs;
+    @apply px-2;
+    @apply py-1;
+    @apply min-h-[32px];
+  }
+
+  /* Mobile task cards */
+  .event-card {
+    @apply text-[7px];
+    @apply p-0.5;
+    @apply rounded-sm;
+    @apply leading-tight;
+    @apply min-h-[16px];
+  }
+
+  .grouped-event-card {
+    @apply text-[7px];
+    @apply p-0.5;
+    @apply rounded-sm;
+    @apply leading-tight;
+    @apply min-h-[16px];
+  }
+
+  /* Mobile popup improvements */
+  .mobile-popup {
+    @apply top-2;
+    @apply left-2;
+    @apply right-2;
+    @apply max-h-[85vh];
+    @apply text-sm;
+  }
+
+  .mobile-popup .task-item {
+    @apply p-3;
+    @apply text-sm;
+    @apply min-h-[44px];
+  }
+
+  .mobile-popup .task-item h4 {
+    @apply text-base;
+    @apply font-semibold;
+  }
+
+  .mobile-popup .task-item p {
+    @apply text-sm;
+    @apply mt-1;
+  }
+
+  /* Touch-friendly buttons */
+  .mobile-popup button {
+    @apply min-h-[44px];
+    @apply px-4;
+    @apply text-sm;
+  }
+
+  /* Mobile dropdown improvements */
+  .task-dropdown {
+    @apply max-w-[calc(100vw-2rem)];
+    @apply left-4;
+    @apply right-4;
+    @apply text-sm;
+  }
+
+  .task-dropdown .task-item {
+    @apply p-3;
+    @apply text-sm;
+    @apply min-h-[44px];
   }
 }
 

@@ -161,12 +161,12 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
 
     return (
         <Card className="w-full h-full border-none shadow-none transition-unified">
-            <CardHeader className="flex flex-col p-7 space-unified-sm">
+            <CardHeader className="flex flex-col p-4 sm:p-7 space-unified-sm">
                 <div className="flex items-center justify-between">
-                    <CardTitle className="text-xl font-bold">
+                    <CardTitle className="text-lg sm:text-xl font-bold">
                         Create a new task
                     </CardTitle>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-xs sm:text-sm text-muted-foreground">
                         {getFormCompletion()}% complete
                     </div>
                 </div>
@@ -178,10 +178,10 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                     />
                 </div>
             </CardHeader>
-            <div className="px-7">
+            <div className="px-4 sm:px-7">
                 <DottedSeparator />
             </div> 
-            <CardContent className="p-7">
+            <CardContent className="p-4 sm:p-7">
                 <Form {...form}> 
                     <form onSubmit={form.handleSubmit(onSubmit)}> 
                         {/* Global Error Display */}
@@ -224,7 +224,7 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                             </div>
                         )}
 
-                        <div className="flex flex-col gap-y-4">
+                        <div className="flex flex-col gap-y-4 sm:gap-y-6">
                             <FormField
                                 control={form.control} 
                                 name="name" 
@@ -510,7 +510,7 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                             >
                                 Cancel
                             </Button>
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                 {/* Form validation status indicator */}
                                 {submitAttempted && isFormReady() && (
                                     <div className="flex items-center gap-2 text-green-600 text-sm">
@@ -529,7 +529,7 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                                     size="lg"
                                     disabled={isPending}
                                     className={cn(
-                                        "min-w-[120px] transition-all duration-200",
+                                        "w-full sm:w-auto min-h-[44px] text-sm sm:text-base transition-all duration-200",
                                         isFormReady() && "bg-green-600 hover:bg-green-700"
                                     )}
                                 >
