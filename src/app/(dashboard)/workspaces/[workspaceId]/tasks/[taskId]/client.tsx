@@ -1,15 +1,15 @@
 "use client";
 
-import { DottedSeparator } from "@/components/dotted-separator";
 import { PageError } from "@/components/page-error";
 import { PageLoader } from "@/components/page-loader";
 import { useGetTask } from "@/features/tasks/api/use-get-task";
-import { TaskBreadcrumbs } from "@/features/tasks/components/task-breadcrumbs";
 import { TaskDescription } from "@/features/tasks/components/task-description";
 import { TaskOverview } from "@/features/tasks/components/task-overview";
 import { useTaskId } from "@/features/tasks/hooks/use-task-id";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { TaskBreadcrumbs } from "@/features/tasks/components/task-breadcrumbs";
+import { DottedSeparator } from "@/components/dotted-separator";
 
 export const TaskIdClient = () => {
     const router = useRouter();
@@ -48,19 +48,21 @@ export const TaskIdClient = () => {
     }
 
     return (
-        <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
-            <div className="flex-1 min-w-0 lg:w-2/3 xl:w-3/4">
-                <TaskOverview task={data} />
-            </div>
-            <div className="flex-1 min-w-0 lg:w-1/3 xl:w-1/4 lg:sticky lg:top-20 lg:self-start">
-                {/* Outer container with fixed height and border */}
-                <div className="border rounded-lg lg:h-[50vh] lg:overflow-hidden">
-                    {/* Inner scrollable container */}
-                    <div className="h-full overflow-y-auto">
-                        <TaskDescription task={data} />
-                    </div>
+    <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+        <div className="flex-1 min-w-0 lg:w-2/3 xl:w-3/4">
+            <TaskBreadcrumbs project={data.project} task={data} />
+            <DottedSeparator className="my-6" />
+            <TaskOverview task={data} />
+        </div>
+        <div className="flex-1 min-w-0 lg:w-1/3 xl:w-1/4 lg:sticky lg:top-20 lg:self-start">
+            {/* Outer container with fixed height and border */}
+            <div className="border rounded-lg lg:overflow-hidden">
+                {/* Inner scrollable container */}
+                <div className="h-full overflow-y-auto">
+                    <TaskDescription task={data} />
                 </div>
             </div>
         </div>
+    </div>
     );
 };

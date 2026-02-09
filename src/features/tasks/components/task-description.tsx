@@ -45,6 +45,7 @@ export const TaskDescription = ({ task }: TaskDescriptionProps) => {
             {isEditing ? (
                 <div className="flex flex-col gap-y-4">
                     <Textarea
+                        className="lg:h-[50vh] overflow-y-auto"
                         placeholder="Add a description..."
                         value={value}
                         rows={4}
@@ -61,7 +62,7 @@ export const TaskDescription = ({ task }: TaskDescriptionProps) => {
                     </Button>
                 </div>
             ) :(
-                <div className="break-words whitespace-pre-wrap overflow-hidden"> 
+                <div className="break-words whitespace-pre-wrap overflow-hidden lg:h-[50vh] overflow-y-auto"> 
                     {task.description || (
                         <span className="text-muted-foreground">
                             No description set

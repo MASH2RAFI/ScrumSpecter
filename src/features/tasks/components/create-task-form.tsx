@@ -162,13 +162,10 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
     return (
         <Card className="w-full h-full border-none shadow-none transition-unified">
             <CardHeader className="flex flex-col p-4 sm:p-7 space-unified-sm">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between w-full">
                     <CardTitle className="text-lg sm:text-xl font-bold">
                         Create a new task
                     </CardTitle>
-                    <div className="text-xs sm:text-sm text-muted-foreground">
-                        {getFormCompletion()}% complete
-                    </div>
                 </div>
                 {/* Progress bar */}
                 <div className="w-full bg-muted rounded-full h-2">

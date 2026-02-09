@@ -42,7 +42,7 @@ export const CreateTaskFormWrapper = ({
     }
 
     return (
-        <div>
+        <div className="w-full h-[714px]">
             <CreateTaskForm 
                 onCancel={onCancel}
                 projectOptions={ projectOptions ?? [] }

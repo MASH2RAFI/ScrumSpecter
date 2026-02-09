@@ -131,7 +131,7 @@ export const CreateProjectForm = ({ onCancel }: CreateProjectFormProps) => {
                                     
                                     <FormField
                                         control={form.control} 
-                                        name="startingSprintDate" 
+                                        name="currentSprintStartDate" 
                                         render={({ field }) => 
                                             <FormItem> 
                                                 <FormControl>

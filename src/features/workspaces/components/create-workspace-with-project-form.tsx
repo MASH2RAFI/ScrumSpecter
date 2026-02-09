@@ -21,7 +21,6 @@ import { Button } from "@/components/ui/button";
 import { SimpleDatePicker } from "@/components/simple-date-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCreateWorkspaceWithProject } from "../api/use-create-workspace-with-project";
-import { cn } from "@/lib/utils";
 import { TargetIcon, UserPlus, Plus } from "lucide-react";
 import { formatDateDDMMYYYY, convertDDMMYYYYToDate, convertDateToDDMMYYYY } from "@/lib/sprint-utils";
 import { toast } from "sonner";
@@ -30,7 +29,7 @@ interface CreateWorkspaceWithProjectFormProps {
     onCancel?: () => void;
 };
 
-export const CreateWorkspaceWithProjectForm = ({ onCancel }: CreateWorkspaceWithProjectFormProps) => {
+export const CreateWorkspaceWithProjectForm = ({ }: CreateWorkspaceWithProjectFormProps) => {
     const { mutate, isPending } = useCreateWorkspaceWithProject();
     const router = useRouter();
     const [inviteLink, setInviteLink] = useState("");
@@ -41,7 +40,7 @@ export const CreateWorkspaceWithProjectForm = ({ onCancel }: CreateWorkspaceWith
         defaultValues: {
             workspaceName: "",
             projectName: "",
-            sprintDuration: 14,
+            sprintDuration: 30,
             startingSprintDate: formatDateDDMMYYYY(new Date()),
         },
     });
@@ -97,15 +96,10 @@ export const CreateWorkspaceWithProjectForm = ({ onCancel }: CreateWorkspaceWith
     };
 
     return (
-        <Card className="w-full max-w-2xl mx-auto border-0 shadow-2xl bg-gradient-to-br from-background to-muted/10">
+        <Card className="w-full h-[714px] max-w-2xl mx-auto border-0 shadow-2xl bg-gradient-to-br from-background to-muted/10">
             <CardHeader className="text-center p-10">
-                <div className="mb-6">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-r from-primary to-primary/80 mb-6">
-                        <TargetIcon className="h-8 w-8 text-primary-foreground" />
-                    </div>
-                </div>
                 <CardTitle className="text-3xl font-bold mb-4 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                    Get Started with ScrumSpecter
+                    Get Started
                 </CardTitle>
                 <p className="text-muted-foreground text-lg">
                     Create your own workspace or join an existing one
@@ -236,22 +230,12 @@ export const CreateWorkspaceWithProjectForm = ({ onCancel }: CreateWorkspaceWith
                                 <div className="mt-8 pt-8 border-t border-border/50">
                                     <div className="flex items-center justify-between">
                                         <Button
-                                            type="button"
-                                            size="lg"
-                                            variant="outline"
-                                            onClick={onCancel}
-                                            disabled={isPending}
-                                            className={cn(!onCancel && "invisible", "border-2 hover:bg-muted/50 transition-all duration-200")}
-                                        >
-                                            Cancel
-                                        </Button>
-                                        <Button
                                             type="submit"
                                             size="lg"
                                             disabled={isPending}
                                             className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transition-all duration-200"
                                         >
-                                            {isPending ? "Creating..." : "Create Workspace & Project"}
+                                            {isPending ? "Creating..." : "Create"}
                                         </Button>
                                     </div>
                                 </div>
@@ -261,16 +245,6 @@ export const CreateWorkspaceWithProjectForm = ({ onCancel }: CreateWorkspaceWith
 
                     <TabsContent value="join" className="space-y-6">
                         <div className="space-y-6">
-                            <div className="text-center space-y-2">
-                                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-r from-primary/20 to-primary/10 mb-4">
-                                    <UserPlus className="h-6 w-6 text-primary" />
-                                </div>
-                                <h3 className="text-xl font-semibold">Join an Existing Workspace</h3>
-                                <p className="text-muted-foreground">
-                                    Enter the invite link you received to join a workspace
-                                </p>
-                            </div>
-                            
                             <div className="space-y-4">
                                 <div>
                                     <label className="text-sm font-medium mb-2 block">
@@ -290,16 +264,6 @@ export const CreateWorkspaceWithProjectForm = ({ onCancel }: CreateWorkspaceWith
                             
                             <div className="pt-6 border-t border-border/50">
                                 <div className="flex items-center justify-between">
-                                    <Button
-                                        type="button"
-                                        size="lg"
-                                        variant="outline"
-                                        onClick={onCancel}
-                                        disabled={isJoining}
-                                        className={cn(!onCancel && "invisible", "border-2 hover:bg-muted/50 transition-all duration-200")}
-                                    >
-                                        Cancel
-                                    </Button>
                                     <Button
                                         type="button"
                                         size="lg"
