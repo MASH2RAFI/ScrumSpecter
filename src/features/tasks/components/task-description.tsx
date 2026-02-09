@@ -31,7 +31,7 @@ export const TaskDescription = ({ task }: TaskDescriptionProps) => {
     return (
         <div className="p-4 border rounded-lg"> 
             <div className="flex items-center justify-between"> 
-                <p className="text-lg font-semibold">Overview</p>
+                <p className="text-lg font-semibold">Description</p>
                 <Button onClick= { () => setIsEditing((prev) => !prev)} size="sm" variant="secondary"> 
                     {isEditing ? (
                         <XIcon className="size-4 mr-2" />
@@ -61,7 +61,7 @@ export const TaskDescription = ({ task }: TaskDescriptionProps) => {
                     </Button>
                 </div>
             ) :(
-                <div> 
+                <div className="break-words whitespace-pre-wrap overflow-hidden"> 
                     {task.description || (
                         <span className="text-muted-foreground">
                             No description set

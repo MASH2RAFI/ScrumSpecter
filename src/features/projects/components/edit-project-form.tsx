@@ -54,7 +54,9 @@ export const EditProjectForm = ({ onCancel,initialValues }: EditProjectFormProps
         resolver: zodResolver(updateProjectSchema),
         defaultValues: {
             ...initialValues,
-            startingSprintDate: initialValues.startingSprintDate || '',    
+            currentSprintStartDate: initialValues.currentSprintStartDate || '', 
+            sprintDuration: initialValues.sprintDuration || undefined,
+            sprintNumber: initialValues.sprintNumber || 1,   
         },
     });
 
@@ -79,7 +81,7 @@ export const EditProjectForm = ({ onCancel,initialValues }: EditProjectFormProps
             workspaceId: initialValues.workspaceId, // Include workspaceId
             sprintDuration: values.sprintDuration?.toString(),
             sprintNumber: initialValues.sprintNumber?.toString() || "1",
-            startingSprintDate: values.startingSprintDate || undefined,
+            currentSprintStartDate: values.currentSprintStartDate || undefined,
         }
         
         mutate({ 
@@ -117,25 +119,27 @@ export const EditProjectForm = ({ onCancel,initialValues }: EditProjectFormProps
                     <Form {...form}> 
                         <form onSubmit={form.handleSubmit(onSubmit)}> 
                             <div className="flex flex-col gap-y-4">
-                                <FormField
-                                    control={form.control} 
-                                    name="name" 
-                                    render={({ field }) => 
-                                        <FormItem> 
-                                            <FormLabel> 
-                                                Project Name
-                                            </FormLabel> 
-                                            <FormControl>
-                                                <Input 
-                                                    {...field}                                        
-                                                    placeholder="Enter project name"
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem> 
-                                    }
-                                />
-                                
+                                {isAdmin && (
+                                    <FormField
+                                        control={form.control} 
+                                        name="name" 
+                                        render={({ field }) => 
+                                            <FormItem> 
+                                                <FormLabel> 
+                                                    Project Name
+                                                </FormLabel> 
+                                                <FormControl>
+                                                    <Input 
+                                                        {...field}                                        
+                                                        placeholder="Enter project name"
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem> 
+                                        }
+                                    />
+                                )}
+
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-2">
                                         <TargetIcon className="h-4 w-4 text-primary" />
@@ -143,37 +147,38 @@ export const EditProjectForm = ({ onCancel,initialValues }: EditProjectFormProps
                                     </div>
                                     
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <FormField
-                                            control={form.control} 
-                                            name="sprintDuration" 
-                                            render={({ field }) => 
-                                                <FormItem> 
-                                                    <FormLabel> 
-                                                        Sprint Duration (days)
-                                                    </FormLabel> 
-                                                    <FormControl>
-                                                        <Input 
-                                                            {...field}
-                                                            type="number"
-                                                            min="1"
-                                                            max="30"
-                                                            placeholder="14"
-                                                            value={field.value || ''}
-                                                            onChange={(e) => {
-                                                                const value = e.target.value;
-                                                                field.onChange(value === '' ? undefined : Number(value));
-                                                            }}
-                                                        />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem> 
-                                            }
-                                        />
-                                        
                                         {isAdmin && (
                                             <FormField
                                                 control={form.control} 
-                                                name="startingSprintDate" 
+                                                name="sprintDuration" 
+                                                render={({ field }) => 
+                                                    <FormItem>
+                                                        <FormLabel> 
+                                                            Sprint Duration (days)
+                                                        </FormLabel> 
+                                                        <FormControl>
+                                                            <Input 
+                                                                {...field}
+                                                                type="number"
+                                                                min="1"
+                                                                max="365"
+                                                                placeholder="30"
+                                                                value={field.value || ''}
+                                                                onChange={(e) => {
+                                                                    const value = e.target.value;
+                                                                    field.onChange(value === '' ? undefined : Number(value));
+                                                                }}
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem> 
+                                                }
+                                            />
+                                        )}
+                                        {isAdmin && (
+                                            <FormField
+                                                control={form.control} 
+                                                name="currentSprintStartDate" 
                                                 render={({ field }) => 
                                                     <FormItem> 
                                                         <FormLabel className="flex items-center gap-2">
@@ -191,27 +196,20 @@ export const EditProjectForm = ({ onCancel,initialValues }: EditProjectFormProps
                                                                         field.onChange('');
                                                                     }
                                                                 }}
-                                                                label=""
                                                                 placeholder="Select starting date"
                                                                 size="lg"
                                                             />
                                                         </FormControl>
-                                                        {field.value && field.value.trim() !== '' && (
-                                                            <p className="text-sm text-muted-foreground mt-1">
-                                                                Current starting date: {field.value}
-                                                            </p>
-                                                        )}
                                                         <FormMessage />
                                                     </FormItem> 
                                                 }
                                             />
                                         )}
-                                        
                                     </div>
                                 </div>
                             </div>
                             <DottedSeparator className="py-7" />
-                            <div className="flex items—center justify-between">
+                            <div className="flex items-center justify-between">
                                 <Button
                                     type="button"
                                     size="lg"

@@ -38,16 +38,17 @@ export const CreateProjectForm = ({ onCancel }: CreateProjectFormProps) => {
         resolver: zodResolver(formSchema),
         defaultValues: {
             name: "",
-            sprintDuration: 14,
-            startingSprintDate: formatDateDDMMYYYY(new Date()),
+            sprintDuration: 30,
+            currentSprintStartDate: formatDateDDMMYYYY(new Date()),
+            sprintNumber: 1,
         },
     });
 
     const onSubmit = (values: z.infer<typeof formSchema>) => {
         // Convert DD/MM/YYYY to YYYY-MM-DD for calculations
-        const startDateString = convertDDMMYYYYToYYYYMMDD(values.startingSprintDate || formatDateDDMMYYYY(new Date()));
+        const startDateString = convertDDMMYYYYToYYYYMMDD(values.currentSprintStartDate || formatDateDDMMYYYY(new Date()));
         const startDate = new Date(startDateString);
-        const endDate = calculateSprintEndDate(startDate, values.sprintDuration || 14);
+        const endDate = calculateSprintEndDate(startDate, values.sprintDuration || 30);
         
         const finalValues = {
             ...values,
@@ -118,8 +119,8 @@ export const CreateProjectForm = ({ onCancel }: CreateProjectFormProps) => {
                                                         {...field}
                                                         type="number"
                                                         min="1"
-                                                        max="30"
-                                                        placeholder="14"
+                                                        max="365"
+                                                        placeholder="30"
                                                         onChange={(e) => field.onChange(Number(e.target.value))}
                                                     />
                                                 </FormControl>

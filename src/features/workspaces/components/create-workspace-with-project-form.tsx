@@ -194,8 +194,8 @@ export const CreateWorkspaceWithProjectForm = ({ onCancel }: CreateWorkspaceWith
                                                                 {...field}
                                                                 type="number"
                                                                 min="1"
-                                                                max="30"
-                                                                placeholder="14"
+                                                                max="365"
+                                                                placeholder="30"
                                                                 className="h-12 border-2 focus:border-primary/50 transition-colors duration-200"
                                                                 onChange={(e) => field.onChange(Number(e.target.value))}
                                                             />

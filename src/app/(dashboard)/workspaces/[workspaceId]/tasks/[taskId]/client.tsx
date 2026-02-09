@@ -48,12 +48,18 @@ export const TaskIdClient = () => {
     }
 
     return (
-        <div className="flex flex-col"> 
-            <TaskBreadcrumbs project={data.project} task={data} />
-            <DottedSeparator className="my-6" />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+            <div className="flex-1 min-w-0 lg:w-2/3 xl:w-3/4">
                 <TaskOverview task={data} />
-                <TaskDescription task= { data } />
+            </div>
+            <div className="flex-1 min-w-0 lg:w-1/3 xl:w-1/4 lg:sticky lg:top-20 lg:self-start">
+                {/* Outer container with fixed height and border */}
+                <div className="border rounded-lg lg:h-[50vh] lg:overflow-hidden">
+                    {/* Inner scrollable container */}
+                    <div className="h-full overflow-y-auto">
+                        <TaskDescription task={data} />
+                    </div>
+                </div>
             </div>
         </div>
     );

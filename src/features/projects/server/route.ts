@@ -161,7 +161,7 @@ const app = new Hono()
             const user = c.get("user");
             const databases = c.get("databases");
             const { projectId } = c.req.param();
-            const { name, sprintDuration, startingSprintDate, currentSprintStartDate, currentSprintEndDate } = c.req.valid("form");
+            const { name, sprintDuration, currentSprintStartDate, currentSprintEndDate, sprintNumber } = c.req.valid("form");
 
             const existingProject = await databases.getDocument<Project>(
                 DATABASE_ID,
@@ -192,7 +192,7 @@ const app = new Hono()
             }
 
             // Check if user is admin for startingSprintDate updates
-            if (startingSprintDate !== undefined) {
+            if (currentSprintStartDate !== undefined) {
                 const userIsAdmin = await isAdmin({
                     databases,
                     workspaceId: existingProject.workspaceId,
@@ -211,9 +211,9 @@ const app = new Hono()
                 {
                     name,
                     sprintDuration,
-                    startingSprintDate,
                     currentSprintStartDate,
                     currentSprintEndDate,
+                    sprintNumber,
                 }
             );
 
