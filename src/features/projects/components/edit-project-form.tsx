@@ -27,7 +27,7 @@ import { useConfirm } from "@/hooks/use-confirm";
 import { useDeleteProject } from "../api/use-delete-project";
 import { toast } from "sonner";
 import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
-import { convertDDMMYYYYToDate, convertDateToDDMMYYYY } from "@/lib/sprint-utils";
+import { calculateSprintEndDate, convertDDMMYYYYToDate, convertDDMMYYYYToYYYYMMDD, convertDateToDDMMYYYY, formatDateDDMMYYYY } from "@/lib/sprint-utils";
 
 interface EditProjectFormProps {
     onCancel?: () => void;
@@ -56,10 +56,9 @@ export const EditProjectForm = ({ onCancel,initialValues }: EditProjectFormProps
             ...initialValues,
             currentSprintStartDate: initialValues.currentSprintStartDate || '', 
             sprintDuration: initialValues.sprintDuration || undefined,
-            sprintNumber: initialValues.sprintNumber || 1,   
+            sprintNumber: initialValues.sprintNumber || 1,
         },
     });
-
 
     const handleDelete = async () => {
         const ok = await confirmDelete();
@@ -76,12 +75,16 @@ export const EditProjectForm = ({ onCancel,initialValues }: EditProjectFormProps
 
 
     const onSubmit = (values: z.infer<typeof updateProjectSchema>) => {
+        const startDateString = convertDDMMYYYYToYYYYMMDD(values.currentSprintStartDate || formatDateDDMMYYYY(new Date()));
+        const startDate = new Date(startDateString);
+        const endDate = calculateSprintEndDate(startDate, values.sprintDuration || 30);
         const finalValues = {
             ...values,
             workspaceId: initialValues.workspaceId, // Include workspaceId
             sprintDuration: values.sprintDuration?.toString(),
             sprintNumber: initialValues.sprintNumber?.toString() || "1",
             currentSprintStartDate: values.currentSprintStartDate || undefined,
+            currentSprintEndDate:endDate.toISOString().split('T')[0] || undefined
         }
         
         mutate({ 
