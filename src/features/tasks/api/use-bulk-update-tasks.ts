@@ -1,20 +1,22 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { InferRequestType, InferResponseType } from "hono";
-import { client } from "@/lib/rpc";
 import { toast } from "sonner";
 
+import { client } from "@/lib/rpc";
 
+import { patchCachedTasks, restoreCachedTasks } from "./optimistic-tasks";
 
 type ResponseType = InferResponseType<typeof client.api.tasks["bulk-update"]["$post"], 200>;
 type RequestType = InferRequestType<typeof client.api.tasks["bulk-update"]["$post"]>;
 
 export const useBulkUpdateTasks = () => {
-    const queryClient = useQueryClient();  
+    const queryClient = useQueryClient();
     const mutation = useMutation<
         ResponseType,
         Error,
-        RequestType
-    > ({
+        RequestType,
+        { snapshot: Awaited<ReturnType<typeof patchCachedTasks>> }
+    >({
         mutationFn: async ({ json }) => {
             const response = await client.api.tasks["bulk-update"]["$post"]({ json });
             if (!response.ok) {
@@ -22,16 +24,24 @@ export const useBulkUpdateTasks = () => {
             }
             return await response.json();
         },
+        // Table and calendar views see the drag immediately, not after the refetch
+        onMutate: async ({ json }) => {
+            const snapshot = await patchCachedTasks(
+                queryClient,
+                new Map(json.tasks.map(({ $id, status, position }) => [$id, { status, position }])),
+            );
+            return { snapshot };
+        },
         onSuccess: () => {
             toast.success("Tasks updates successfully");
-
-            queryClient.invalidateQueries({ queryKey: ["project-analytics"] });
-            queryClient.invalidateQueries({ queryKey: ["workspace-analytics"] });
-            queryClient.invalidateQueries({ queryKey: ["tasks"] });
         },
-        onError: () => {
+        onError: (_error, _variables, context) => {
+            restoreCachedTasks(queryClient, context?.snapshot);
             toast.error("Failed to update Tasks");
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ["tasks"] });
         }
     });
-    return mutation
+    return mutation;
 };

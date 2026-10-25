@@ -14,7 +14,7 @@ CardTitle,
 export const useConfirm = (
     title: string,
     message: string,
-    variant: ButtonProps["variant"] = "primary" 
+    variant: ButtonProps["variant"] = "primary"
 ): [ () => JSX.Element, () => Promise<unknown> ] => {
     const [promise, setPromise] = useState<{ resolve: (value: boolean) => void } | null>(null);
 
@@ -28,7 +28,7 @@ export const useConfirm = (
         setPromise (null);
     };
 
-    const handleConfirm = () => { 
+    const handleConfirm = () => {
         promise?.resolve(true);
         handleClose();
     };
@@ -39,13 +39,13 @@ export const useConfirm = (
     };
 
     const ConfirmationDialog = () => (
-        <ResponsiveModal open = {promise !== null} onOpenChange={ handleClose }>
+        <ResponsiveModal title={title} open={promise !== null} onOpenChange={handleClose}>
             <Card className="w-full h-full border-none shadow-none'">
                 <CardContent className="pt-8">
                     <CardHeader className="p-0">
-                        <CardTitle>{title}</CardTitle> 
+                        <CardTitle>{title}</CardTitle>
                         <CardDescription>{message}</CardDescription>
-                    </CardHeader> 
+                    </CardHeader>
 
                     <div className="pt-4 w-full flex flex-col gap-y-2 lg:flex-row gap-x-2 items-center justify-end">
                         <Button onClick={handleCancel} variant="outline" className="w-full lg:w-auto">
@@ -56,9 +56,9 @@ export const useConfirm = (
                         </Button>
                     </div>
 
-                </CardContent> 
-            </Card> 
-        </ResponsiveModal> 
+                </CardContent>
+            </Card>
+        </ResponsiveModal>
     );
 
     return [ConfirmationDialog, confirm];

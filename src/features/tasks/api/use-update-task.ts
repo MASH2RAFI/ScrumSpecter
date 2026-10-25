@@ -1,38 +1,53 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { InferRequestType, InferResponseType } from "hono";
-import { client } from "@/lib/rpc";
 import { toast } from "sonner";
 
+import { client } from "@/lib/rpc";
 
+import { OPTIMISTIC_TASK_FIELDS, patchCachedTasks, restoreCachedTasks } from "./optimistic-tasks";
 
 type ResponseType = InferResponseType<typeof client.api.tasks[":taskId"]["$patch"], 200>;
 type RequestType = InferRequestType<typeof client.api.tasks[":taskId"]["$patch"]>;
 
 export const useUpdateTask = () => {
-    const queryClient = useQueryClient();  
+    const queryClient = useQueryClient();
     const mutation = useMutation<
         ResponseType,
         Error,
-        RequestType
-    > ({
+        RequestType,
+        { snapshot: Awaited<ReturnType<typeof patchCachedTasks>> }
+    >({
         mutationFn: async ({ json, param }) => {
-            const response = await client.api.tasks[":taskId"]["$patch"]({ json,  param });
+            const response = await client.api.tasks[":taskId"]["$patch"]({ json, param });
             if (!response.ok) {
                 throw new Error("Task update failed");
             }
             return await response.json();
         },
-        onSuccess: ({ data }) => {
-            toast.success("Task updates successfully");
-
-            queryClient.invalidateQueries({ queryKey: ["project-analytics"] });
-            queryClient.invalidateQueries({ queryKey: ["workspace-analytics"] });
-            queryClient.invalidateQueries({ queryKey: ["tasks"] });
-            queryClient.invalidateQueries({ queryKey: ["task", data.$id] });
+        // Show the edit right away; the refetch in onSettled reconciles with the server
+        onMutate: async ({ json, param }) => {
+            const patch: Record<string, unknown> = Object.fromEntries(
+                OPTIMISTIC_TASK_FIELDS
+                    .filter((field) => json[field] !== undefined)
+                    .map((field) => [field, json[field]])
+            );
+            if (json.dueDate !== undefined) {
+                patch.dueDate = new Date(json.dueDate as string | number | Date).toISOString();
+            }
+            const snapshot = await patchCachedTasks(queryClient, new Map([[param.taskId, patch]]));
+            return { snapshot };
         },
-        onError: () => {
+        onSuccess: () => {
+            toast.success("Task updates successfully");
+        },
+        onError: (_error, _variables, context) => {
+            restoreCachedTasks(queryClient, context?.snapshot);
             toast.error("Failed to update Task");
+        },
+        onSettled: (_data, _error, { param }) => {
+            queryClient.invalidateQueries({ queryKey: ["tasks"] });
+            queryClient.invalidateQueries({ queryKey: ["task", param.taskId] });
         }
     });
-    return mutation
+    return mutation;
 };

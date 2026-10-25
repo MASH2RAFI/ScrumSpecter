@@ -1,9 +1,11 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDown, MoreVertical } from "lucide-react"
+import { ArrowUpDown, MoreVertical, RepeatIcon } from "lucide-react"
 
-import { Task } from "../types";
+import { Task, TaskStatus } from "../types";
+import { useUpdateTask } from "../api/use-update-task";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 import { MemberAvatar } from "@/features/members/components/member-avatar";
@@ -11,6 +13,51 @@ import { TaskDate } from "./task-date";
 import { Badge } from "@/components/ui/badge";
 import { snakeCaseToTitleCase } from "@/lib/utils";
 import { TaskActions } from "./task-actions";
+import { useTaskPanel } from "../hooks/use-task-panel";
+
+const STATUSES = Object.values(TaskStatus);
+
+// Status badge doubles as a menu to change status in place (members may change status too)
+const StatusCell = ({ task }: { task: Task }) => {
+    const { mutate } = useUpdateTask();
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <button type="button" aria-label={`Change status (${snakeCaseToTitleCase(task.status)})`} className="rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <Badge variant={task.status} className="cursor-pointer">{snakeCaseToTitleCase(task.status)}</Badge>
+                </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+                {STATUSES.map((status) => (
+                    <DropdownMenuItem
+                        key={status}
+                        disabled={status === task.status}
+                        onClick={() => mutate({ param: { taskId: task.$id }, json: { status } })}
+                    >
+                        <Badge variant={status}>{snakeCaseToTitleCase(status)}</Badge>
+                    </DropdownMenuItem>
+                ))}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+};
+
+// Clicking the name opens the task in the side panel
+const TaskNameCell = ({ task }: { task: Task }) => {
+    const { open } = useTaskPanel();
+
+    return (
+        <button
+            type="button"
+            onClick={() => open(task.$id)}
+            className="flex items-center gap-1.5 text-left hover:text-primary hover:underline underline-offset-2"
+        >
+            {task.routineId && <RepeatIcon className="size-3.5 shrink-0 text-primary" aria-label="From a weekly routine" />}
+            <span className="line-clamp-1">{task.name}</span>
+        </button>
+    );
+};
 
 const baseColumns: ColumnDef<Task>[] = [
     {
@@ -27,9 +74,7 @@ const baseColumns: ColumnDef<Task>[] = [
             )
         },
         cell: ({ row }) => {
-            const name = row.original.name;
-
-            return <p className="line-clamp-1">{name}</p>
+            return <TaskNameCell task={row.original} />;
         }
     },
 
@@ -119,6 +164,18 @@ const baseColumns: ColumnDef<Task>[] = [
     },
 
     {
+        accessorKey: "storyPoints",
+        header: ({ column }) => (
+            <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+                Points
+                <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+        ),
+        cell: ({ row }) => (
+            <span className="tabular-nums text-sm text-muted-foreground">{row.original.storyPoints ?? "—"}</span>
+        ),
+    },
+    {
         accessorKey: "status",
         header: ({ column }) => {
             return (
@@ -131,11 +188,7 @@ const baseColumns: ColumnDef<Task>[] = [
                 </Button>
             )
         },
-        cell: ({ row }) => {
-            const status = row.original.status;
-
-            return <Badge variant={status}> {snakeCaseToTitleCase(status)} </Badge>
-        }
+        cell: ({ row }) => <StatusCell task={row.original} />,
     },
 
     {

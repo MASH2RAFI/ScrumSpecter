@@ -11,6 +11,8 @@ import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useGetTasks } from "@/features/tasks/api/use-get-tasks";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 
+import { ProjectSelect } from "./analytics-shared";
+
 interface TeamMember {
     id: string;
     name: string;
@@ -23,7 +25,7 @@ export const CapacityCalculator = () => {
     const { data: members } = useGetMembers({ workspaceId });
     const { data: projects } = useGetProjects({ workspaceId });
     const { data: tasks } = useGetTasks({ workspaceId });
-    
+
     const [selectedProject, setSelectedProject] = useState<string>("");
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [sprintDuration, setSprintDuration] = useState(14);
@@ -34,7 +36,7 @@ export const CapacityCalculator = () => {
             // Get members who are assigned to tasks in the selected project
             const projectTasks = tasks.documents.filter(task => task.projectId === selectedProject);
             const assignedMemberIds = new Set(projectTasks.map(task => task.assigneeId).filter(Boolean));
-            
+
             const projectTeamMembers = members.documents
                 .filter(member => assignedMemberIds.has(member.$id))
                 .map(member => ({
@@ -43,7 +45,7 @@ export const CapacityCalculator = () => {
                     capacity: 8,
                     availability: 100,
                 }));
-            
+
             setTeamMembers(projectTeamMembers);
         } else {
             setTeamMembers([]);
@@ -58,7 +60,7 @@ export const CapacityCalculator = () => {
     };
 
     const updateTeamMember = (id: string, field: keyof TeamMember, value: string | number) => {
-        setTeamMembers(teamMembers.map(member => 
+        setTeamMembers(teamMembers.map(member =>
             member.id === id ? { ...member, [field]: value } : member
         ));
     };
@@ -76,25 +78,12 @@ export const CapacityCalculator = () => {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="project-select">Select Project</Label>
-                            <select
-                                id="project-select"
-                                value={selectedProject}
-                                onChange={(e) => setSelectedProject(e.target.value)}
-                                className="w-full p-2 border border-border rounded-md bg-background text-foreground"
-                            >
-                                <option value="">Select a project</option>
-                                {projects?.documents.map(project => (
-                                    <option key={project.$id} value={project.$id}>
-                                        {project.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-                    
+                    <ProjectSelect
+                        projects={projects?.documents}
+                        value={selectedProject}
+                        onChange={setSelectedProject}
+                    />
+
                     {selectedProject && (
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -106,7 +95,6 @@ export const CapacityCalculator = () => {
                                         value={sprintDuration}
                                         onChange={(e) => setSprintDuration(Number(e.target.value))}
                                         min="1"
-                                        max="30"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -166,7 +154,7 @@ export const CapacityCalculator = () => {
                             </Button>
                         </>
                     )}
-                    
+
                     {!selectedProject && (
                         <div className="text-center py-8 text-muted-foreground">
                             <UsersIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />

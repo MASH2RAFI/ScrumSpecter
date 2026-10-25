@@ -8,7 +8,7 @@ DropResult,
 } from "@hello-pangea/dnd";
 
 import { Task, TaskStatus } from "../types"; 
-import { KanbanColumnHeader } from "./kancan-column-header";
+import { KanbanColumnHeader, KanbanQuickAdd } from "./kanban-column-header";
 import { KanbanCard } from "./kanban-card";
 
 const boards: TaskStatus[] = [
@@ -152,6 +152,7 @@ export const Datakanban = ({
                             <KanbanColumnHeader
                                 board={board}
                                 taskCount={tasks[board].length}
+                                storyPoints={tasks[board].reduce((sum, task) => sum + (task.storyPoints ?? 0), 0)}
                             />
 
                             <Droppable droppableId={board}>
@@ -185,6 +186,7 @@ export const Datakanban = ({
                                     </div>
                                 )}
                             </Droppable>
+                            <KanbanQuickAdd board={board} />
 
                         </div>
                     )

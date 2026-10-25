@@ -10,4 +10,4 @@ const WorkspaceIdJoinPage = async () => {
 
 }
 
-export default WorkspaceIdJoinPage; 
+export default WorkspaceIdJoinPage;

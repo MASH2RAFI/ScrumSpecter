@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
-import { client } from "@/lib/rpc"; 
+import { ApiError } from "@/lib/api-error";
+import { client } from "@/lib/rpc";
 import { TaskStatus } from "../types";
 
 interface UseGetTasksProps {
@@ -19,7 +20,7 @@ export const useGetTasks = ({
     search,
     assigneeId,
     dueDate,
-} : UseGetTasksProps) => { 
+}: UseGetTasksProps) => {
     const query = useQuery({
         queryKey: [
             "tasks",
@@ -30,7 +31,13 @@ export const useGetTasks = ({
             assigneeId,
             dueDate,
         ],
-        queryFn: async () => { 
+        // Skip the request until the route has an id (e.g. no workspace selected yet)
+        enabled: Boolean(workspaceId),
+        // Keep showing the current list while a new filter/search loads, but never
+        // another workspace's tasks
+        placeholderData: (previous, previousQuery) =>
+            previousQuery?.queryKey[1] === workspaceId ? keepPreviousData(previous) : undefined,
+        queryFn: async () => {
             const response = await client.api.tasks.$get({
                 query: {
                     workspaceId,
@@ -42,14 +49,13 @@ export const useGetTasks = ({
                 },
             });
 
-            if (!response.ok) { 
-                throw new Error("Failed to fetch tasks");
+            if (!response.ok) {
+                throw new ApiError("Failed to fetch tasks", response.status);
             }
-        const { data } = await response.json(); 
-        
-        return data;
+
+            const { data } = await response.json();
+            return data;
         },
     });
     return query;
 };
-    

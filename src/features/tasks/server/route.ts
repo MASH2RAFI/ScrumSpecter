@@ -1,14 +1,30 @@
-import { sessionMiddleware } from "@/lib/session-middleware";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { createTaskSchema } from "../schemas";
-import { getMember, isAdmin } from "@/features/members/utils";
-import { DATABASE_ID, MEMBERS_ID, PROJECTS_ID, TASKS_ID } from "@/config";
-import { ID, Query } from "node-appwrite";
 import { z } from "zod";
-import { Task, TaskStatus } from "../types";
-import { createAdminClient } from "@/lib/appwrite";
+import { and, desc, eq, ilike, inArray, max, type SQL } from "drizzle-orm";
+import { sessionMiddleware } from "@/lib/session-middleware";
+import { db } from "@/lib/db";
+import { findById } from "@/lib/db/find-by-id";
+import { findForeignReference } from "@/lib/db/workspace-refs";
+import { members, projects, tasks, users } from "@/lib/db/schema";
+import { toDoc } from "@/lib/db/types";
+import { MemberRole } from "@/features/members/types";
+import { requireAdmin, requireMember } from "@/features/members/utils";
 import { Project } from "@/features/projects/types";
+import { createTaskSchema } from "../schemas";
+import { PopulatedAssignee, Task, TaskStatus } from "../types";
+
+const MEMBER_NOT_FOUND = "Member not found in the workspace";
+
+const toTaskDoc = (task: typeof tasks.$inferSelect) => ({
+    ...toDoc(task),
+    dueDate: task.dueDate?.toISOString() ?? null,
+    startAt: task.startAt?.toISOString() ?? null,
+}) as Task;
+
+// undefined = leave unchanged, null = clear, string = set
+const toStartAt = (startAt: string | null | undefined) =>
+    startAt === undefined ? undefined : startAt === null ? null : new Date(startAt);
 
 const app = new Hono()
     .patch(
@@ -16,8 +32,6 @@ const app = new Hono()
         sessionMiddleware,
         zValidator("json", createTaskSchema.partial()),
         async (c) => {
-            const user = c.get("user");
-            const databases = c.get("databases");
             const {
                 name,
                 status,
@@ -26,99 +40,84 @@ const app = new Hono()
                 assigneeId,
                 description,
                 storyPoints,
+                startAt,
+                durationMinutes,
             } = c.req.valid("json");
 
             const { taskId } = c.req.param();
 
-            const existingTask = await databases.getDocument<Task>(
-                DATABASE_ID,
-                TASKS_ID,
-                taskId,
-            );
+            const existingTask = await findById(tasks, taskId);
 
-            const member = await getMember({
-                databases,
-                workspaceId: existingTask.workspaceId,                
-                userId: user.$id,
-            });
-
-            if (!member) {
-                return c.json(
-                    { error: "Member not found in the workspace" },
-                    401
-                );
+            if (!existingTask) {
+                return c.json({ error: "Task not found" }, 404);
             }
 
-            // Check if user is admin
-            const userIsAdmin = await isAdmin({ databases, workspaceId: existingTask.workspaceId, userId: user.$id });
+            const member = await requireMember(c, existingTask.workspaceId, { error: MEMBER_NOT_FOUND });
+            if (member instanceof Response) {
+                return member;
+            }
 
-            // For non-admin users, only allow updating description and status
-            const updateData = userIsAdmin ? {
+            const isAdmin = member.role === MemberRole.ADMIN;
+
+            if (isAdmin) {
+                const foreignReference = await findForeignReference(existingTask.workspaceId, { projectId, assigneeId });
+                if (foreignReference) {
+                    return c.json({ error: foreignReference }, 400);
+                }
+            }
+
+            // Non-admins may only update description and status
+            const updateData = isAdmin ? {
                 name,
                 status,
                 projectId,
                 dueDate,
                 assigneeId,
                 description,
-                storyPoints: storyPoints ? Number(storyPoints) : undefined,
+                storyPoints: storyPoints !== undefined ? Number(storyPoints) : undefined,
+                startAt: toStartAt(startAt),
+                durationMinutes,
             } : {
                 status,
                 description,
             };
 
-            const task = await databases.updateDocument(
-                DATABASE_ID,
-                TASKS_ID,
-                taskId,
-                updateData
-            );
-            return c.json({data: task});
+            // Drizzle rejects an update with nothing to set
+            if (Object.values(updateData).every((value) => value === undefined)) {
+                return c.json({ data: toTaskDoc(existingTask) });
+            }
+
+            const [task] = await db
+                .update(tasks)
+                .set(updateData)
+                .where(eq(tasks.id, taskId))
+                .returning();
+
+            return c.json({ data: toTaskDoc(task) });
         }
     )
 
-    .delete( 
-        "/:taskId", 
-        sessionMiddleware, 
+    .delete(
+        "/:taskId",
+        sessionMiddleware,
         async (c) => {
-            const user = c.get("user"); 
-            const databases = c.get("databases"); 
-            const { taskId } = c.req.param(); 
-            const task = await databases.getDocument<Task>( 
-                DATABASE_ID, 
-                TASKS_ID, 
-                taskId, 
-            );
+            const { taskId } = c.req.param();
+            const task = await findById(tasks, taskId);
 
-            const member = await getMember({
-                databases,
-                workspaceId: task.workspaceId,
-                userId: user.$id,
-            });
-            
-            if (!member) {
-                return c.json({ error: "Unauthorized" }, 401);
+            if (!task) {
+                return c.json({ error: "Task not found" }, 404);
             }
 
-            // Check if user is admin
-            const userIsAdmin = await isAdmin({
-                databases,
-                workspaceId: task.workspaceId,
-                userId: user.$id
-            });
-
-            if (!userIsAdmin) {
-                return c.json({ error: "Only admins can delete tasks" }, 403);
+            const member = await requireAdmin(c, task.workspaceId, "Only admins can delete tasks");
+            if (member instanceof Response) {
+                return member;
             }
 
-            await databases.deleteDocument(
-                DATABASE_ID,
-                TASKS_ID,
-                taskId,
-            );
+            await db.delete(tasks).where(eq(tasks.id, taskId));
 
-            return c.json({ data: { $id: task.$id } });
+            return c.json({ data: { $id: task.id } });
         }
-    ) 
+    )
 
     .get(
         "/",
@@ -126,125 +125,84 @@ const app = new Hono()
         zValidator(
             "query",
             z.object({
-            workspaceId: z.string(),
-            projectId: z.string().nullish(),
-            assigneeId: z.string().nullish(),
-            status: z.nativeEnum(TaskStatus).nullish(),
-            search: z.string().nullish(),
-            dueDate: z.string().nullish(),
+                workspaceId: z.string(),
+                projectId: z.string().nullish(),
+                assigneeId: z.string().nullish(),
+                status: z.nativeEnum(TaskStatus).nullish(),
+                search: z.string().nullish(),
+                dueDate: z.string().nullish(),
             })
         ),
-
-        async (c) => { 
-            const { users } = await createAdminClient();
-            const databases = c.get("databases");
-            const user = c.get("user"); 
-
+        async (c) => {
             const {
-                workspaceId, 
-                projectId, 
-                status, 
-                search,
-                assigneeId, 
-                dueDate,
-            } = c.req.valid("query"); 
-            
-            const member = await getMember({
-                databases,
                 workspaceId,
-                userId: user.$id,
-            });
+                projectId,
+                status,
+                search,
+                assigneeId,
+                dueDate,
+            } = c.req.valid("query");
 
-            if (!member) {
-                return c.json(
-                    { error: "Member not found in the workspace" },
-                    401
-                );
-            }
-
-            const query = [
-                Query.equal("workspaceId", workspaceId),
-                Query.orderDesc("$createdAt"),
-            ];
+            const filters: SQL[] = [eq(tasks.workspaceId, workspaceId)];
 
             if (projectId) {
-                query.push(Query.equal("projectId", projectId));
+                filters.push(eq(tasks.projectId, projectId));
             }
 
             if (status) {
-                query.push(Query.equal("status", status));
+                filters.push(eq(tasks.status, status));
             }
 
             if (assigneeId) {
-                query.push(Query.equal("assigneeId", assigneeId));
+                filters.push(eq(tasks.assigneeId, assigneeId));
             }
 
             if (dueDate) {
-                query.push(Query.equal("dueDate", dueDate));
+                filters.push(eq(tasks.dueDate, new Date(dueDate)));
             }
 
             if (search) {
-                query.push(Query.search("name", search));
+                filters.push(ilike(tasks.name, `%${search}%`));
             }
 
-            const tasks = await databases.listDocuments<Task>(
-                DATABASE_ID,
-                TASKS_ID,
-                query
-            );
+            // One round trip for tasks + their project and assignee, run alongside the
+            // membership check; rows are only returned once membership is confirmed
+            const [member, rows] = await Promise.all([
+                requireMember(c, workspaceId, { error: MEMBER_NOT_FOUND }),
+                db
+                    .select({
+                        task: tasks,
+                        project: projects,
+                        assignee: members,
+                        assigneeName: users.name,
+                        assigneeEmail: users.email,
+                    })
+                    .from(tasks)
+                    .leftJoin(projects, eq(projects.id, tasks.projectId))
+                    .leftJoin(members, eq(members.id, tasks.assigneeId))
+                    .leftJoin(users, eq(users.id, members.userId))
+                    .where(and(...filters))
+                    .orderBy(desc(tasks.createdAt)),
+            ]);
 
-            const projectIds = tasks.documents.map( (task) => task.projectId);
+            if (member instanceof Response) {
+                return member;
+            }
 
-            const assigneeIds = tasks.documents
-                .map( (task) => task.assigneeId )
-                .filter((id): id is string => id !== null);
-
-            const projects = await databases.listDocuments<Project>(
-                DATABASE_ID,
-                PROJECTS_ID,
-                projectIds.length > 0 ? [Query.contains("$id", projectIds)] : []
-            );
-
-            const members = await databases.listDocuments(
-                DATABASE_ID,
-                MEMBERS_ID,
-                assigneeIds.length > 0 ? [Query.contains("$id", assigneeIds)] : []
-            );
-
-            const assignees = await Promise.all(
-                members.documents.map(async (member) => {
-                    const user = await users.get(member.userId);
-                    return {
-                        ...member,
-                        name: user.name,
-                        email: user.email,
-                    }
-                })
-            );
-
-            const populatedTasks = tasks.documents.map( (task) => {
-                const project = projects.documents.find (
-                    (project) => project.$id === task.projectId,
-                );
-
-                const assignee = task.assigneeId ? assignees.find(
-                    (assignee) => assignee.$id === task.assigneeId,
-                ) : null;
-
-                return { 
-                    ...task,
-                    project,
-                    assignee,
-                };
-            });
+            const populatedTasks = rows.map(({ task, project, assignee, assigneeName, assigneeEmail }) => ({
+                ...toTaskDoc(task),
+                project: project ? toDoc(project) as Project : undefined,
+                assignee: assignee && assigneeName !== null && assigneeEmail !== null
+                    ? { ...toDoc(assignee), name: assigneeName, email: assigneeEmail } as PopulatedAssignee
+                    : null,
+            }));
 
             return c.json({
                 data: {
-                    ...tasks,
                     documents: populatedTasks,
-                }
+                    total: populatedTasks.length,
+                },
             });
-
         }
     )
 
@@ -253,8 +211,6 @@ const app = new Hono()
         sessionMiddleware,
         zValidator("json", createTaskSchema),
         async (c) => {
-            const user = c.get("user");
-            const databases = c.get("databases");
             const {
                 name,
                 status,
@@ -264,52 +220,30 @@ const app = new Hono()
                 assigneeId,
                 description,
                 storyPoints,
+                startAt,
+                durationMinutes,
             } = c.req.valid("json");
 
-            const member = await getMember({
-                databases,
-                workspaceId,                
-                userId: user.$id,
-            });
-
-            if (!member) {
-                return c.json(
-                    { error: "Member not found in the workspace" },
-                    401
-                );
+            const member = await requireAdmin(c, workspaceId, "Only admins can create tasks", MEMBER_NOT_FOUND);
+            if (member instanceof Response) {
+                return member;
             }
 
-            // Check if user is admin
-            const userIsAdmin = await isAdmin({
-                databases,
-                workspaceId,
-                userId: user.$id
-            });
-
-            if (!userIsAdmin) {
-                return c.json({ error: "Only admins can create tasks" }, 403);
+            const foreignReference = await findForeignReference(workspaceId, { projectId, assigneeId });
+            if (foreignReference) {
+                return c.json({ error: foreignReference }, 400);
             }
 
-            const highestPositionTask = await databases.listDocuments(
-                DATABASE_ID,
-                TASKS_ID,
-                [
-                    Query.equal("status", status),
-                    Query.equal("projectId", projectId),
-                    Query.orderAsc("position"),
-                    Query.limit(1),
-                ]
-            )
+            const [highestPosition] = await db
+                .select({ position: max(tasks.position) })
+                .from(tasks)
+                .where(and(eq(tasks.status, status), eq(tasks.projectId, projectId)));
 
-            const newPosition =
-                highestPositionTask.documents.length > 0
-                ? highestPositionTask.documents[0].position + 1000
-                : 1000; 
-            const task = await databases.createDocument(
-                DATABASE_ID,
-                TASKS_ID,
-                ID.unique(),
-                {
+            const newPosition = (highestPosition?.position ?? 0) + 1000;
+
+            const [task] = await db
+                .insert(tasks)
+                .values({
                     name,
                     status,
                     workspaceId,
@@ -317,138 +251,125 @@ const app = new Hono()
                     dueDate,
                     assigneeId,
                     description,
-                    storyPoints: storyPoints ? Number(storyPoints) : undefined,
+                    storyPoints: storyPoints !== undefined ? Number(storyPoints) : undefined,
+                    startAt: toStartAt(startAt),
+                    durationMinutes,
                     position: newPosition,
-                }
-            );
-            return c.json({data: task});
+                })
+                .returning();
+
+            return c.json({ data: toTaskDoc(task) });
         }
     )
-    
+
     .get(
         "/:taskId",
         sessionMiddleware,
         async (c) => {
-            const currentUser = c.get("user");
-            const databases = c.get("databases");
-            const { users } = await createAdminClient();
             const { taskId } = c.req.param();
 
-            const task = await databases.getDocument<Task>(
-                DATABASE_ID,
-                TASKS_ID,
-                taskId,
-            );
+            // Task, project and assignee in one round trip
+            const [row] = await db
+                .select({
+                    task: tasks,
+                    project: projects,
+                    assignee: members,
+                    assigneeName: users.name,
+                    assigneeEmail: users.email,
+                })
+                .from(tasks)
+                .leftJoin(projects, eq(projects.id, tasks.projectId))
+                .leftJoin(members, eq(members.id, tasks.assigneeId))
+                .leftJoin(users, eq(users.id, members.userId))
+                .where(eq(tasks.id, taskId))
+                .limit(1);
 
-            const currentMember = await getMember({
-                databases,
-                workspaceId: task.workspaceId,
-                userId: currentUser.$id,
-
-            });
-
-            if (!currentMember) {
-                return c.json({ error: "Unauthorized" }, 401);
+            if (!row) {
+                return c.json({ error: "Task not found" }, 404);
             }
 
-            const project = await databases.getDocument<Project>(
-                DATABASE_ID,
-                PROJECTS_ID,
-                task.projectId
-            );
+            const { task, project, assignee, assigneeName, assigneeEmail } = row;
 
-            let assignee = null;
-            
-            if (task.assigneeId) {
-                const member = await databases.getDocument(
-                    DATABASE_ID,
-                    MEMBERS_ID,
-                    task.assigneeId
-                );
+            const member = await requireMember(c, task.workspaceId);
+            if (member instanceof Response) {
+                return member;
+            }
 
-                const user = await users.get(member.userId);
-
-                assignee = {
-                    ...member,
-                    name: user.name,
-                    email: user.email,
-                };
+            if (!project) {
+                return c.json({ error: "Project not found" }, 404);
             }
 
             return c.json({
                 data: {
-                    ...task,
-                    project,
-                    assignee,
+                    ...toTaskDoc(task),
+                    project: toDoc(project) as Project,
+                    assignee: assignee && assigneeName !== null && assigneeEmail !== null
+                        ? { ...toDoc(assignee), name: assigneeName, email: assigneeEmail } as PopulatedAssignee
+                        : null,
                 },
             });
-
         }
     )
-    
+
     .post(
-        "/bulk-update", 
-        sessionMiddleware, 
-        zValidator( 
-            "json", 
-            z.object({ 
-                tasks: z.array( 
-                    z.object({ 
-                        $id: z.string(), 
-                        status: z.nativeEnum(TaskStatus), 
+        "/bulk-update",
+        sessionMiddleware,
+        zValidator(
+            "json",
+            z.object({
+                tasks: z.array(
+                    z.object({
+                        $id: z.string(),
+                        status: z.nativeEnum(TaskStatus),
                         position: z.number().int().positive().min(1000).max(1_000_000),
                     })
                 )
             })
         ),
-
         async (c) => {
+            const { tasks: taskUpdates } = c.req.valid("json");
 
-            const databases = c.get("databases");
-            const user = c.get("user")
-            const { tasks } = await c.req.valid("json");
+            const tasksToUpdate = await db
+                .select({ workspaceId: tasks.workspaceId })
+                .from(tasks)
+                .where(inArray(tasks.id, taskUpdates.map((task) => task.$id)));
 
-            const tasksToUpdate = await databases.listDocuments<Task>(
-                DATABASE_ID,
-                TASKS_ID,
-                [Query.contains("$id", tasks.map( (task) => task.$id))]
-            );
-
-            const workspaceIds = new Set(tasksToUpdate.documents.map(task => task.workspaceId));
+            const workspaceIds = new Set(tasksToUpdate.map((task) => task.workspaceId));
 
             if (workspaceIds.size !== 1) {
-                return c.json({ error: "All tasks must belong to the same workspace"})
+                return c.json({ error: "All tasks must belong to the same workspace" }, 400);
             }
-            
+
             const workspaceId = workspaceIds.values().next().value;
 
-            if (!workspaceId){ 
+            if (!workspaceId) {
                 return c.json({ error: "Workspace ID is required" }, 400);
             }
-            
-            const member = await getMember({
-                databases,
-                workspaceId,
-                userId: user.$id,
-            });
 
-            if (!member) {
-                return c.json({ error: "Unauthorized" }, 401);
+            const member = await requireMember(c, workspaceId);
+            if (member instanceof Response) {
+                return member;
             }
-                        
-            const updatedTasks = await Promise.all(
-                tasks.map(async (task) => {
-                    const { $id, status, position } = task;
-                    return databases.updateDocument<Task>(
-                        DATABASE_ID,
-                        TASKS_ID,
-                        $id,
-                        { status, position }
-                    );
-                })
+
+            const updatedTasks = await db.transaction((tx) =>
+                Promise.all(
+                    taskUpdates.map(async ({ $id, status, position }) => {
+                        const [task] = await tx
+                            .update(tasks)
+                            .set({ status, position })
+                            .where(and(eq(tasks.id, $id), eq(tasks.workspaceId, workspaceId)))
+                            .returning();
+                        return task;
+                    })
+                )
             );
 
-            return c.json({ data: updatedTasks });
+            // Tasks deleted mid-drag (or ids from another workspace) are skipped, not fatal
+            return c.json({
+                data: updatedTasks
+                    .filter((task): task is typeof tasks.$inferSelect => task !== undefined)
+                    .map(toTaskDoc),
+            });
         }
     );
 

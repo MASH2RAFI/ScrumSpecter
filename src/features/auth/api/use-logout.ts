@@ -1,25 +1,14 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-
+import { useMutation } from "@tanstack/react-query";
 import { InferRequestType, InferResponseType } from "hono";
+import { toast } from "sonner";
 
 import { client } from "@/lib/rpc";
-
-import { useRouter } from "next/navigation";
-
-import { toast } from "sonner";
 
 type ResponseType = InferResponseType<typeof client.api.auth.logout["$post"]>;
 type RequestType = InferRequestType<typeof client.api.auth.logout["$post"]>;
 
 export const useLogout = () => {
-    const router = useRouter();
-    const queryClient = useQueryClient();  
-
-    const mutation = useMutation<
-        ResponseType,
-        Error,
-        RequestType
-    > ({
+    return useMutation<ResponseType, Error, RequestType>({
         mutationFn: async () => {
             const response = await client.api.auth.logout["$post"]();
             if (!response.ok) {
@@ -28,13 +17,12 @@ export const useLogout = () => {
             return await response.json();
         },
         onSuccess: () => {
-            toast.success("Logout successful");
-            router.refresh();
-            queryClient.invalidateQueries();
+            // A full page load drops the previous user's cached data. Clearing the query cache
+            // in place made still-mounted components refetch it and hit 401s.
+            window.location.replace("/about");
         },
         onError: () => {
             toast.error("Logout failed");
-        }
+        },
     });
-    return mutation
 };

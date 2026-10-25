@@ -1,212 +1,148 @@
-import { createAdminClient } from "@/lib/appwrite";
-import { sessionMiddleware } from "@/lib/session-middleware";
-import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
+import { Hono } from "hono";
 import { z } from "zod";
-import { getMember, isAdmin } from "../utils";
-import { DATABASE_ID, MEMBERS_ID, TASKS_ID } from "@/config";
-import { Query } from "node-appwrite";
+import { and, eq } from "drizzle-orm";
+import { sessionMiddleware } from "@/lib/session-middleware";
+import { db } from "@/lib/db";
+import { findById } from "@/lib/db/find-by-id";
+import { members, tasks, users } from "@/lib/db/schema";
+import { toDoc } from "@/lib/db/types";
+import { getMember, isAdmin, requireMember } from "../utils";
 import { Member, MemberRole } from "../types";
+
+const listWorkspaceMembers = (workspaceId: string) =>
+    db.select().from(members).where(eq(members.workspaceId, workspaceId));
 
 const app = new Hono()
     .get(
         "/",
         sessionMiddleware,
         zValidator("query", z.object({ workspaceId: z.string() })),
-        async ( c ) => {
-            const { users } = await createAdminClient();
-            const databases = c.get("databases");
-            const user = c.get("user");
+        async (c) => {
             const { workspaceId } = c.req.valid("query");
 
-            const member = await getMember({
-                databases,
-                workspaceId,
-                userId: user.$id,
-            });
+            const rows = await db
+                .select({ member: members, name: users.name, email: users.email })
+                .from(members)
+                .innerJoin(users, eq(users.id, members.userId))
+                .where(eq(members.workspaceId, workspaceId));
 
-            if (!member) {
-                return c.json({ error: "Unauthorized"}, 401);
+            // The list doubles as the membership check, saving a round trip
+            if (!rows.some(({ member }) => member.userId === c.get("user").$id)) {
+                return c.json({ error: "Unauthorized" }, 401);
             }
 
-            const members = await databases.listDocuments<Member>(
-                DATABASE_ID,
-                MEMBERS_ID,
-                [Query.equal("workspaceId", workspaceId)]
-            );
-            
-            const populatedMembers = await Promise.all(
-                members.documents.map (async (member) => { 
-                    const user = await users.get(member.userId); 
-                    
-                    return { 
-                        ... member, 
-                        name: user.name, 
-                        email: user.email, 
-                    }
-                }) 
-            );
+            const populatedMembers = rows.map(({ member, name, email }) => ({
+                ...toDoc(member),
+                name,
+                email,
+            }) as Member);
 
-            return c. json ({
+            return c.json({
                 data: {
-                    ...members,
                     documents: populatedMembers,
+                    total: populatedMembers.length,
                 },
             });
         }
     )
+
     .delete(
         "/:memberId",
         sessionMiddleware,
-        async (c) =>{
+        async (c) => {
             const { memberId } = c.req.param();
-            const user = c.get("user");
-            const databases = c.get("databases");
 
-            const memberToDelete = await databases.getDocument(
-                DATABASE_ID,
-                MEMBERS_ID,
-                memberId,
-            );
+            const memberToDelete = await findById(members, memberId);
 
-            const allMembersInWorkspace = await databases.listDocuments(
-                DATABASE_ID,
-                MEMBERS_ID,
-                [Query.equal("workspaceId", memberToDelete.workspaceId)]
-            );
+            if (!memberToDelete) {
+                return c.json({ error: "Member not found" }, 404);
+            }
 
-            const member = await getMember({
-                databases,
-                workspaceId: memberToDelete.workspaceId,
-                userId: user.$id
-            });
+            const member = await requireMember(c, memberToDelete.workspaceId);
+            if (member instanceof Response) {
+                return member;
+            }
 
-            if (!member) {
+            if (member.$id !== memberToDelete.id && member.role !== MemberRole.ADMIN) {
                 return c.json({ error: "Unauthorized" }, 401);
             }
 
-            if (member.$id !== memberToDelete.$id && member.role !== MemberRole.ADMIN) {
-                return c.json({ error: "Unauthorized" }, 401);
+            const allMembersInWorkspace = await listWorkspaceMembers(memberToDelete.workspaceId);
+
+            if (allMembersInWorkspace.length === 1) {
+                return c.json({ error: "Cannot delete the only member" }, 400);
             }
 
-            if (allMembersInWorkspace. total === 1) { 
-                return c.json({ error: "Cannot delete the only member"}, 400);
-            }
-
-            // Check if trying to delete the last admin
-            const adminMembers = allMembersInWorkspace.documents.filter(
-                m => m.role === MemberRole.ADMIN
+            const adminMembers = allMembersInWorkspace.filter(
+                (m) => m.role === MemberRole.ADMIN
             );
 
             if (memberToDelete.role === MemberRole.ADMIN && adminMembers.length === 1) {
-                return c.json({ 
-                    error: "Cannot delete the only admin. Please transfer admin role to another member first." 
+                return c.json({
+                    error: "Cannot delete the only admin. Please transfer admin role to another member first."
                 }, 400);
             }
 
-            // Find an admin to reassign tasks to
-            const adminMember = allMembersInWorkspace.documents.find(
-                m => m.role === MemberRole.ADMIN && m.$id !== memberToDelete.$id
-            );
+            // An admin other than the deleted member takes over their tasks
+            const adminMember = adminMembers.find((m) => m.id !== memberToDelete.id);
 
-            if (adminMember) {
-                // Get all tasks assigned to the member being deleted
-                const userTasks = await databases.listDocuments(
-                    DATABASE_ID,
-                    TASKS_ID,
-                    [
-                        Query.equal("workspaceId", memberToDelete.workspaceId),
-                        Query.equal("assigneeId", memberToDelete.userId)
-                    ]
-                );
-
-                // Reassign all tasks to the admin
-                if (userTasks.documents.length > 0) {
-                    const reassignPromises = userTasks.documents.map(task =>
-                        databases.updateDocument(
-                            DATABASE_ID,
-                            TASKS_ID,
-                            task.$id,
-                            {
-                                assigneeId: adminMember.userId,
-                            }
-                        )
-                    );
-
-                    await Promise.all(reassignPromises);
+            await db.transaction(async (tx) => {
+                if (adminMember) {
+                    await tx
+                        .update(tasks)
+                        .set({ assigneeId: adminMember.id })
+                        .where(and(
+                            eq(tasks.workspaceId, memberToDelete.workspaceId),
+                            eq(tasks.assigneeId, memberToDelete.id),
+                        ));
                 }
-            }
 
-            await databases.deleteDocument(
-                DATABASE_ID, 
-                MEMBERS_ID,
-                memberId,
-            );
-
-            return c.json( { data: {$id: memberToDelete.$id} } );
-        }
-    )
-    .patch( 
-        "/:memberId",
-        sessionMiddleware, 
-        zValidator("json", z.object({ role: z.nativeEnum(MemberRole)})),
-        async (c) =>{
-            const { memberId } = c.req.param();
-            const { role } = c.req.valid("json");
-            const user = c.get("user");
-            const databases = c.get("databases");
-
-            const memberToUpdate = await databases.getDocument(
-                DATABASE_ID,
-                MEMBERS_ID,
-                memberId,
-            );
-
-            const allMembersInWorkspace = await databases.listDocuments(
-                DATABASE_ID,
-                MEMBERS_ID,
-                [Query.equal("workspaceId", memberToUpdate.workspaceId)]
-            );
-
-            const member = await getMember({
-                databases,
-                workspaceId: memberToUpdate.workspaceId,
-                userId: user.$id
+                await tx.delete(members).where(eq(members.id, memberId));
             });
 
-            if (!member) {
-                return c.json({ error: "Unauthorized" }, 401);
+            return c.json({ data: { $id: memberToDelete.id } });
+        }
+    )
+
+    .patch(
+        "/:memberId",
+        sessionMiddleware,
+        zValidator("json", z.object({ role: z.nativeEnum(MemberRole) })),
+        async (c) => {
+            const { memberId } = c.req.param();
+            const { role } = c.req.valid("json");
+
+            const memberToUpdate = await findById(members, memberId);
+
+            if (!memberToUpdate) {
+                return c.json({ error: "Member not found" }, 404);
             }
 
-            if ( member.role !== MemberRole.ADMIN) {
-                return c.json({ error: "Unauthorized" }, 401);
+            const member = await requireMember(c, memberToUpdate.workspaceId, { adminOnly: true });
+            if (member instanceof Response) {
+                return member;
             }
 
-            if (allMembersInWorkspace. total === 1) { 
-                return c.json({ error: "Cannot Downgrade the only member"}, 400);
+            const allMembersInWorkspace = await listWorkspaceMembers(memberToUpdate.workspaceId);
+
+            if (allMembersInWorkspace.length === 1) {
+                return c.json({ error: "Cannot Downgrade the only member" }, 400);
             }
 
-            // Check if trying to downgrade the last admin
-            const adminMembers = allMembersInWorkspace.documents.filter(
-                m => m.role === MemberRole.ADMIN
+            const adminMembers = allMembersInWorkspace.filter(
+                (m) => m.role === MemberRole.ADMIN
             );
 
             if (memberToUpdate.role === MemberRole.ADMIN && role === MemberRole.MEMBER && adminMembers.length === 1) {
-                return c.json({ 
-                    error: "Cannot downgrade the only admin. Please promote another member to admin first." 
+                return c.json({
+                    error: "Cannot downgrade the only admin. Please promote another member to admin first."
                 }, 400);
             }
 
-            await databases.updateDocument(
-                DATABASE_ID, 
-                MEMBERS_ID,
-                memberId,
-                {
-                    role,
-                }
-            );
+            await db.update(members).set({ role }).where(eq(members.id, memberId));
 
-            return c.json( { data: { $id: memberToUpdate.$id } } );
+            return c.json({ data: { $id: memberToUpdate.id } });
         }
     )
 
@@ -215,12 +151,10 @@ const app = new Hono()
         sessionMiddleware,
         zValidator("query", z.object({ workspaceId: z.string() })),
         async (c) => {
-            const databases = c.get("databases");
             const user = c.get("user");
             const { workspaceId } = c.req.valid("query");
 
             const userIsAdmin = await isAdmin({
-                databases,
                 workspaceId,
                 userId: user.$id,
             });
@@ -228,6 +162,7 @@ const app = new Hono()
             return c.json({ data: userIsAdmin });
         }
     )
+
     .post(
         "/leave-workspace",
         sessionMiddleware,
@@ -235,11 +170,8 @@ const app = new Hono()
         async (c) => {
             const { workspaceId } = c.req.valid("json");
             const user = c.get("user");
-            const databases = c.get("databases");
 
-            // Get the current member
             const member = await getMember({
-                databases,
                 workspaceId,
                 userId: user.$id,
             });
@@ -248,74 +180,48 @@ const app = new Hono()
                 return c.json({ error: "Not a member of this workspace" }, 400);
             }
 
-            // Check if this is the only admin
-            const allMembersInWorkspace = await databases.listDocuments(
-                DATABASE_ID,
-                MEMBERS_ID,
-                [Query.equal("workspaceId", workspaceId)]
-            );
+            const allMembersInWorkspace = await listWorkspaceMembers(workspaceId);
 
-            const adminMembers = allMembersInWorkspace.documents.filter(
-                m => m.role === MemberRole.ADMIN
+            const adminMembers = allMembersInWorkspace.filter(
+                (m) => m.role === MemberRole.ADMIN
             );
 
             if (member.role === MemberRole.ADMIN && adminMembers.length === 1) {
-                return c.json({ 
-                    error: "Cannot leave workspace as the only admin. Please transfer admin role to another member first." 
+                return c.json({
+                    error: "Cannot leave workspace as the only admin. Please transfer admin role to another member first."
                 }, 400);
             }
 
-            // Find an admin to reassign tasks to
-            // If the leaving member is not an admin, we can use any admin
-            // If the leaving member is an admin, we need a different admin
-            const adminMember = allMembersInWorkspace.documents.find(
-                m => m.role === MemberRole.ADMIN && 
-                     (member.role !== MemberRole.ADMIN || m.$id !== member.$id)
-            );
+            // An admin other than the leaving member takes over their tasks
+            const adminMember = adminMembers.find((m) => m.id !== member.$id);
 
             if (!adminMember) {
-                return c.json({ 
-                    error: "No admin found to reassign tasks to" 
+                return c.json({
+                    error: "No admin found to reassign tasks to"
                 }, 400);
             }
 
-            // Get all tasks assigned to the leaving member
-            const userTasks = await databases.listDocuments(
-                DATABASE_ID,
-                TASKS_ID,
-                [
-                    Query.equal("workspaceId", workspaceId),
-                    Query.equal("assigneeId", user.$id)
-                ]
-            );
+            const reassignedTasks = await db.transaction(async (tx) => {
+                const reassigned = await tx
+                    .update(tasks)
+                    .set({ assigneeId: adminMember.id })
+                    .where(and(
+                        eq(tasks.workspaceId, workspaceId),
+                        eq(tasks.assigneeId, member.$id),
+                    ))
+                    .returning({ id: tasks.id });
 
-            // Reassign all tasks to the admin
-            const reassignPromises = userTasks.documents.map(task =>
-                databases.updateDocument(
-                    DATABASE_ID,
-                    TASKS_ID,
-                    task.$id,
-                    {
-                        assigneeId: adminMember.userId,
-                    }
-                )
-            );
+                await tx.delete(members).where(eq(members.id, member.$id));
 
-            await Promise.all(reassignPromises);
+                return reassigned.length;
+            });
 
-            // Remove the member from the workspace
-            await databases.deleteDocument(
-                DATABASE_ID,
-                MEMBERS_ID,
-                member.$id
-            );
-
-            return c.json({ 
-                data: { 
+            return c.json({
+                data: {
                     message: "Successfully left workspace",
-                    reassignedTasks: userTasks.documents.length,
-                    newAssignee: adminMember.userId
-                } 
+                    reassignedTasks,
+                    newAssignee: adminMember.userId,
+                }
             });
         }
     );

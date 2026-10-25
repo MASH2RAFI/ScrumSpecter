@@ -7,10 +7,10 @@ import { EditProjectForm } from "@/features/projects/components/edit-project-for
 import { useProjectId } from "@/features/projects/hooks/use-project-id";
 
 export const ProjectIdSettingsClient = () => {
-    const projectId = useProjectId(); 
+    const projectId = useProjectId();
     const { data: initialValues, isLoading } = useGetProject({ projectId });
 
-    if (isLoading) { 
+    if (isLoading) {
         return <PageLoader />
     }
 

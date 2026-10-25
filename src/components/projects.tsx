@@ -10,12 +10,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { RiAddCircleFill } from "react-icons/ri";
 import { Loader } from "lucide-react";
+import { useSidebar } from "./sidebar-context";
 
 
-export const Projects = () => {   
+export const Projects = () => {
     const  pathname  = usePathname();
     const { open } = useCreateProjectModal();
     const workspaceId = useWorkspaceId();
+    const { collapsed } = useSidebar();
     const { isAdmin } = useIsAdmin({ workspaceId });
     const { data, isLoading, error } = useGetProjects({
         workspaceId,
@@ -25,10 +27,10 @@ export const Projects = () => {
 
     return (
         <div className="flex flex-col gap-y-2">
-            <div className="flex items-center justify-between">
-                <p className="text-xs uppercase font-medium text-muted-foreground">Projects</p>
+            <div className={cn("flex items-center", collapsed ? "justify-center" : "justify-between")}>
+                {!collapsed && <p className="text-xs uppercase font-medium text-muted-foreground">Projects</p>}
                 {isAdmin && (
-                    <RiAddCircleFill onClick={ open } className="size-5 text-muted-foreground cursor-pointer hover:text-primary transition-colors" /> 
+                    <RiAddCircleFill onClick={ open } className="size-5 text-muted-foreground cursor-pointer hover:text-primary transition-colors" />
                 )}
             </div>
             {isLoading ? (
@@ -44,25 +46,26 @@ export const Projects = () => {
                     const href = `/workspaces/${workspaceId}/projects/${project.$id}`;
                     const isActive = pathname === href;
                     return (
-                        <Link href={href} key={project.$id} > 
+                        <Link href={href} key={project.$id} title={collapsed ? project.name : undefined} aria-label={collapsed ? project.name : undefined}>
                             <div
                             className={cn(
                                 "flex items-center gap-2.5 p-2.5 rounded-md transition-colors cursor-pointer text-muted-foreground hover:text-primary hover:bg-accent",
+                                collapsed && "justify-center",
                                 isActive && "bg-primary/10 text-primary shadow-sm"
                             )}
-                            >   
+                            >
                                 <ProjectAvatar name = {project.name} />
-                                <span className="truncate text-foreground">{project.name}</span>
+                                {!collapsed && <span className="truncate text-foreground">{project.name}</span>}
                             </div>
                         </Link>
                     )
                 })
             ) : (
                 <div className="p-2 text-center">
-                    <p className="text-xs text-muted-foreground">No projects found</p>
+                    {!collapsed && <p className="text-xs text-muted-foreground">No projects found</p>}
                 </div>
             )}
-            
+
         </div>
     );
 }

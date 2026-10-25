@@ -1,29 +1,29 @@
 "use client";
 
 import { z } from "zod";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createWorkspaceWithProjectSchema } from "../schemas";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { UserPlus, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from "@/components/ui/form";
+import { Form } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { SimpleDatePicker } from "@/components/simple-date-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SprintDateField, SprintSettings, TextInputField } from "@/features/projects/components/project-form-fields";
+import { addDaysDDMMYYYY, formatDateDDMMYYYY } from "@/lib/sprint-utils";
+
+import { createWorkspaceWithProjectSchema } from "../schemas";
 import { useCreateWorkspaceWithProject } from "../api/use-create-workspace-with-project";
-import { TargetIcon, UserPlus, Plus } from "lucide-react";
-import { formatDateDDMMYYYY, convertDDMMYYYYToDate, convertDateToDDMMYYYY } from "@/lib/sprint-utils";
-import { toast } from "sonner";
+
+const INPUT_CLASS_NAME = "h-12 border-2 focus:border-primary/50 transition-colors duration-200";
+const SUBMIT_CLASS_NAME = "bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transition-all duration-200";
+const TAB_CLASS_NAME = "flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200";
+
+type FormValues = z.infer<typeof createWorkspaceWithProjectSchema>;
 
 interface CreateWorkspaceWithProjectFormProps {
     onCancel?: () => void;
@@ -34,18 +34,19 @@ export const CreateWorkspaceWithProjectForm = ({ }: CreateWorkspaceWithProjectFo
     const router = useRouter();
     const [inviteLink, setInviteLink] = useState("");
     const [isJoining, setIsJoining] = useState(false);
-    
-    const form = useForm<z.infer<typeof createWorkspaceWithProjectSchema>>({
+
+    const today = formatDateDDMMYYYY(new Date());
+    const form = useForm<FormValues>({
         resolver: zodResolver(createWorkspaceWithProjectSchema),
         defaultValues: {
             workspaceName: "",
             projectName: "",
-            sprintDuration: 30,
-            startingSprintDate: formatDateDDMMYYYY(new Date()),
+            currentSprintStartDate: today,
+            currentSprintEndDate: addDaysDDMMYYYY(today, 29),
         },
     });
 
-    const onSubmit = (values: z.infer<typeof createWorkspaceWithProjectSchema>) => {
+    const onSubmit = (values: FormValues) => {
         mutate({ form: values });
     };
 
@@ -65,7 +66,7 @@ export const CreateWorkspaceWithProjectForm = ({ }: CreateWorkspaceWithProjectFo
             
             if (workspaceIdIndex < parts.length && joinIndex < parts.length) {
                 const workspaceId = parts[workspaceIdIndex];
-                const code = parts[joinIndex];
+                const code = decodeURIComponent(parts[joinIndex]);
                 
                 // Make API call to join workspace
                 const response = await fetch(`/api/workspaces/${workspaceId}/join`, {
@@ -108,124 +109,38 @@ export const CreateWorkspaceWithProjectForm = ({ }: CreateWorkspaceWithProjectFo
             <CardContent className="p-10 pt-0">
                 <Tabs defaultValue="create" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 mb-8 bg-muted/30">
-                        <TabsTrigger 
-                            value="create" 
-                            className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200"
-                        >
+                        <TabsTrigger value="create" className={TAB_CLASS_NAME}>
                             <Plus className="h-4 w-4" />
                             Create Workspace
                         </TabsTrigger>
-                        <TabsTrigger 
-                            value="join" 
-                            className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200"
-                        >
+                        <TabsTrigger value="join" className={TAB_CLASS_NAME}>
                             <UserPlus className="h-4 w-4" />
                             Join Workspace
                         </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="create" className="space-y-6">
-                        <Form {...form}> 
-                            <form onSubmit={form.handleSubmit(onSubmit)}> 
+                        <Form {...form}>
+                            <form onSubmit={form.handleSubmit(onSubmit)}>
                                 <div className="flex flex-col gap-y-6">
-                                    <FormField
-                                        control={form.control} 
-                                        name="workspaceName" 
-                                        render={({ field }) => 
-                                            <FormItem> 
-                                                <FormLabel> 
-                                                    Workspace Name
-                                                </FormLabel> 
-                                                <FormControl>
-                                                    <Input 
-                                                        {...field}                                        
-                                                        placeholder="Enter workspace name"
-                                                        className="h-12 border-2 focus:border-primary/50 transition-colors duration-200"
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem> 
-                                        }
+                                    <TextInputField
+                                        control={form.control}
+                                        name="workspaceName"
+                                        label="Workspace Name"
+                                        placeholder="Enter workspace name"
+                                        className={INPUT_CLASS_NAME}
                                     />
-                                    
-                                    <FormField
-                                        control={form.control} 
-                                        name="projectName" 
-                                        render={({ field }) => 
-                                            <FormItem> 
-                                                <FormLabel> 
-                                                    Project Name
-                                                </FormLabel> 
-                                                <FormControl>
-                                                    <Input 
-                                                        {...field}                                        
-                                                        placeholder="Enter project name"
-                                                        className="h-12 border-2 focus:border-primary/50 transition-colors duration-200"
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem> 
-                                        }
+                                    <TextInputField
+                                        control={form.control}
+                                        name="projectName"
+                                        label="Project Name"
+                                        placeholder="Enter project name"
+                                        className={INPUT_CLASS_NAME}
                                     />
-                                    
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-2">
-                                            <TargetIcon className="h-4 w-4 text-primary" />
-                                            <h3 className="text-sm font-medium">Sprint Settings</h3>
-                                        </div>
-                                        
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <FormField
-                                                control={form.control} 
-                                                name="sprintDuration" 
-                                                render={({ field }) => 
-                                                    <FormItem> 
-                                                        <FormLabel> 
-                                                            Sprint Duration (days)
-                                                        </FormLabel> 
-                                                        <FormControl>
-                                                            <Input 
-                                                                {...field}
-                                                                type="number"
-                                                                min="1"
-                                                                max="365"
-                                                                placeholder="30"
-                                                                className="h-12 border-2 focus:border-primary/50 transition-colors duration-200"
-                                                                onChange={(e) => field.onChange(Number(e.target.value))}
-                                                            />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem> 
-                                                }
-                                            />
-                                            
-                                            <FormField
-                                                control={form.control} 
-                                                name="startingSprintDate" 
-                                                render={({ field }) => 
-                                                    <FormItem> 
-                                                        <FormControl>
-                                                            <SimpleDatePicker 
-                                                                value={field.value ? new Date(convertDDMMYYYYToDate(field.value)) : undefined}
-                                                                onChange={(date) => {
-                                                                    if (date) {
-                                                                        const formattedDate = convertDateToDDMMYYYY(date);
-                                                                        field.onChange(formattedDate);
-                                                                    } else {
-                                                                        field.onChange('');
-                                                                    }
-                                                                }}
-                                                                label="Starting Sprint Date"
-                                                                placeholder="Select starting date"
-                                                                size="lg"
-                                                            />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem> 
-                                                }
-                                            />
-                                        </div>
-                                    </div>
+                                    <SprintSettings>
+                                        <SprintDateField control={form.control} name="currentSprintStartDate" label="Sprint Start Date" />
+                                        <SprintDateField control={form.control} name="currentSprintEndDate" label="Sprint End Date" />
+                                    </SprintSettings>
                                 </div>
                                 <div className="mt-8 pt-8 border-t border-border/50">
                                     <div className="flex items-center justify-between">
@@ -233,7 +148,7 @@ export const CreateWorkspaceWithProjectForm = ({ }: CreateWorkspaceWithProjectFo
                                             type="submit"
                                             size="lg"
                                             disabled={isPending}
-                                            className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transition-all duration-200"
+                                            className={SUBMIT_CLASS_NAME}
                                         >
                                             {isPending ? "Creating..." : "Create"}
                                         </Button>
@@ -254,7 +169,7 @@ export const CreateWorkspaceWithProjectForm = ({ }: CreateWorkspaceWithProjectFo
                                         value={inviteLink}
                                         onChange={(e) => setInviteLink(e.target.value)}
                                         placeholder="Paste the invite link here..."
-                                        className="h-12 border-2 focus:border-primary/50 transition-colors duration-200"
+                                        className={INPUT_CLASS_NAME}
                                     />
                                     <p className="text-xs text-muted-foreground mt-2">
                                         The invite link should look like: /workspaces/.../join/...
@@ -269,7 +184,7 @@ export const CreateWorkspaceWithProjectForm = ({ }: CreateWorkspaceWithProjectFo
                                         size="lg"
                                         onClick={handleJoinWorkspace}
                                         disabled={isJoining || !inviteLink.trim()}
-                                        className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transition-all duration-200"
+                                        className={SUBMIT_CLASS_NAME}
                                     >
                                         {isJoining ? "Joining..." : "Join Workspace"}
                                     </Button>

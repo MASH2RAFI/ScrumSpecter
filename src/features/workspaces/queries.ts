@@ -1,34 +1,16 @@
-import { Query } from "node-appwrite";
+import { desc, eq } from "drizzle-orm";
 
-import { DATABASE_ID, MEMBERS_ID, WORKSPACES_ID } from "@/config";
-import { createSessionClient } from "@/lib/appwrite";
+import { db } from "@/lib/db";
+import { members, workspaces } from "@/lib/db/schema";
+import { toDocList } from "@/lib/db/types";
 
-export const getWorkspaces = async () => {
+export const listUserWorkspaces = async (userId: string) => {
+    const rows = await db
+        .select({ workspace: workspaces })
+        .from(workspaces)
+        .innerJoin(members, eq(members.workspaceId, workspaces.id))
+        .where(eq(members.userId, userId))
+        .orderBy(desc(workspaces.createdAt));
 
-    const { databases, account } = await createSessionClient();
-    const user = await account.get();
-    const members = await databases.listDocuments(
-            DATABASE_ID,
-            MEMBERS_ID,
-            [Query.equal("userId", user.$id)]
-        );
-        
-        if (members.total === 0) {
-            return {  documents: [], total: 0  };
-        }
-        
-        const workspaceIds = members.documents.map((member) => member.workspaceId);
-
-        const workspaces = await databases.listDocuments(
-            DATABASE_ID,
-            WORKSPACES_ID,
-            [
-                Query.orderDesc("$createdAt"),
-                Query.contains("$id", workspaceIds)
-            ]
-        );
-
-        return workspaces;
-
+    return toDocList(rows.map((row) => row.workspace));
 };
-

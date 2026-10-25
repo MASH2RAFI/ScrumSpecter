@@ -6,6 +6,7 @@ import { MemberAvatar } from "@/features/members/components/member-avatar";
 import { TaskDate } from "./task-date";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 import { cn } from "@/lib/utils";
+import { useTaskPanel } from "../hooks/use-task-panel";
 
 interface KanbanCardProps {
     task: Task;
@@ -20,16 +21,23 @@ const statusColorMap: Record<TaskStatus, string> = {
 };
 
 export const KanbanCard = ({ task }: KanbanCardProps) => {
+    const { open } = useTaskPanel();
+
     return (
-        <div className={cn(
+        // @hello-pangea/dnd swallows the click that ends a drag, so this only fires on a real click
+        <div onClick={() => open(task.$id)} className={cn(
+            "cursor-pointer",
             "bg-card p-2 sm:p-2.5 mb-1 sm:mb-1.5 rounded-unified shadow-unified space-unified-sm border border-border transition-unified hover:shadow-unified-md border-l-4 touch-manipulation",
             statusColorMap[task.status]
         )}>
             <div className="flex items-start justify-between gap-x-1 sm:gap-x-2">
                 <p className="text-xs sm:text-sm line-clamp-2 text-foreground flex-1 min-w-0">{task.name}</p>
-                <TaskActions id={task.$id} projectId={task.projectId}> 
+                {/* The menu handles its own clicks; don't also open the panel */}
+                <div onClick={(e) => e.stopPropagation()}>
+                <TaskActions id={task.$id} projectId={task.projectId}>
                     <MoreHorizontal className="size-4 sm:size-[18px] stroke-1 shrink-0 text-muted-foreground hover:text-foreground transition-unified min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] flex items-center justify-center" />
                 </TaskActions>
+                </div>
             </div>
             <DottedSeparator />
             <div className="flex items-center gap-x-1 sm:gap-x-1.5">

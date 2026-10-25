@@ -12,6 +12,7 @@ import { useConfirm } from "@/hooks/use-confirm";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { useEditTaskModal } from "../hooks/use-edit-task-modal";
 import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
+import { useTaskPanel } from "../hooks/use-task-panel";
 interface TaskActionsProps {
     id: string;
     projectId: string;
@@ -37,8 +38,10 @@ export const TaskActions = ({ id, projectId, children}: TaskActionsProps) => {
         mutate({ param: { taskId: id} }); 
     };
 
-    const onOpenTask = () => { 
-        router.push(`/workspaces/${workspaceId}/tasks/${id}`); 
+    const { open: openTaskPanel } = useTaskPanel();
+
+    const onOpenTask = () => {
+        openTaskPanel(id);
     };
 
     const onOpenProject = () => {

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { client } from "@/lib/rpc"; 
+import { ApiError } from "@/lib/api-error";
+import { client } from "@/lib/rpc";
 
 interface UseGetTaskProps {
     taskId: string;
@@ -8,24 +9,25 @@ interface UseGetTaskProps {
 
 export const useGetTask = ({
     taskId,
-} : UseGetTaskProps) => { 
+}: UseGetTaskProps) => {
     const query = useQuery({
-        queryKey: [ "task", taskId ],
-        queryFn: async () => { 
+        queryKey: ["task", taskId],
+        // Skip the request until the route has an id (e.g. no workspace selected yet)
+        enabled: Boolean(taskId),
+        queryFn: async () => {
             const response = await client.api.tasks[":taskId"].$get({
                 param: {
                     taskId
                 }
             });
 
-            if (!response.ok) { 
-                throw new Error("Failed to fetch task");
+            if (!response.ok) {
+                throw new ApiError("Failed to fetch task", response.status);
             }
-        const { data } = await response.json(); 
-        
-        return data;
+
+            const { data } = await response.json();
+            return data;
         },
     });
     return query;
 };
-    

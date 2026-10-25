@@ -1,6 +1,6 @@
-import { Models } from "node-appwrite";
+import { Document } from "@/lib/db/types";
 
-export type Workspace = Models.Document & {
+export type Workspace = Document & {
     name: string;
     inviteCode: string;
     userId: string;

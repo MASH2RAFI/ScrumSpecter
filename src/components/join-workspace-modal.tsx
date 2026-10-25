@@ -39,11 +39,11 @@ export const JoinWorkspaceModal = ({ isOpen, onClose }: JoinWorkspaceModalProps)
             const parts = inviteCode.trim().split('/');
             const workspaceIdIndex = parts.findIndex(part => part === 'workspaces') + 1;
             const joinIndex = parts.findIndex(part => part === 'join') + 1;
-            
+
             if (workspaceIdIndex < parts.length && joinIndex < parts.length) {
                 const workspaceId = parts[workspaceIdIndex];
-                const code = parts[joinIndex];
-                
+                const code = decodeURIComponent(parts[joinIndex]);
+
                 // Make API call to join workspace
                 const response = await fetch(`/api/workspaces/${workspaceId}/join`, {
                     method: 'POST',

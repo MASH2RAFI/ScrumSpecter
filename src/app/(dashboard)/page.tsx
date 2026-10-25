@@ -1,24 +1,13 @@
+import { redirect } from "next/navigation";
 
-"use client";
+import { getCurrent } from "@/features/auth/queries";
+import { redirectHome } from "@/features/workspaces/redirect-home";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useGetWorkspaces } from "@/features/workspaces/api/use-get-workspaces";
-import { PageLoader } from "@/components/page-loader";
+// Routes straight to the user's latest workspace on the server: no spinner, no client fetch
+export default async function Home() {
+    const user = await getCurrent();
 
-export default function Home() {
-    const router = useRouter();
-    const { data: workspaces, isLoading } = useGetWorkspaces();
+    if (!user) redirect("/sign-in");
 
-    useEffect(() => {
-        if (workspaces && !isLoading) {
-            if (workspaces.total === 0) {
-                router.push("/workspaces/create");
-            } else {
-                router.push(`/workspaces/${workspaces.documents[0].$id}`);
-            }
-        }
-    }, [workspaces, isLoading, router]);
-
-    return <PageLoader />;
+    return redirectHome(user.$id);
 }

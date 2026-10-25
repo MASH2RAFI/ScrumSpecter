@@ -1,63 +1,46 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
+import { desc, eq } from "drizzle-orm";
 import { sessionMiddleware } from "@/lib/session-middleware";
-import { getMember, isAdmin } from "@/features/members/utils";
-import { DATABASE_ID, PROJECTS_ID, TASKS_ID, WORKSPACES_ID } from "@/config";
-import { ID, Query } from "node-appwrite";
-import { createProjectSchema, createProjectFormSchema, updateProjectSchema, updateProjectFormSchema } from "../schemas";
+import { db } from "@/lib/db";
+import { findById } from "@/lib/db/find-by-id";
+import { projects, routines } from "@/lib/db/schema";
+import { generateRoutineTasks } from "@/lib/routines";
+import { toDoc } from "@/lib/db/types";
+import { MemberRole } from "@/features/members/types";
+import { requireAdmin, requireMember } from "@/features/members/utils";
+import { createProjectFormSchema, updateProjectFormSchema } from "../schemas";
 import { Project } from "../types";
-import { endOfMonth, startOfMonth, subMonths } from "date-fns";
-import { TaskStatus } from "@/features/tasks/types";
+
+const toProject = (project: typeof projects.$inferSelect) => toDoc(project) as Project;
 
 const app = new Hono()
-
     .post(
         "/",
         sessionMiddleware,
         zValidator("form", createProjectFormSchema),
-            async (c) => {
-                const databases = c.get("databases");
-                const user = c.get("user");
-                const { name, workspaceId, sprintDuration, sprintNumber, currentSprintStartDate, currentSprintEndDate } = c.req.valid("form");
+        async (c) => {
+            const { name, workspaceId, sprintDuration, sprintNumber, currentSprintStartDate, currentSprintEndDate } = c.req.valid("form");
 
-                const member = await getMember({
-                    databases,
+            const member = await requireAdmin(c, workspaceId, "Only admins can create projects");
+            if (member instanceof Response) {
+                return member;
+            }
+
+            const [project] = await db
+                .insert(projects)
+                .values({
+                    name,
                     workspaceId,
-                    userId: user.$id
-                });
+                    sprintDuration,
+                    sprintNumber,
+                    currentSprintStartDate,
+                    currentSprintEndDate,
+                })
+                .returning();
 
-                if (!member) {
-                    return c.json({ error: "Unauthorized" }, 401);
-                }
-
-                // Check if user is admin
-                const userIsAdmin = await isAdmin({
-                    databases,
-                    workspaceId,
-                    userId: user.$id
-                });
-
-                if (!userIsAdmin) {
-                    return c.json({ error: "Only admins can create projects" }, 403);
-                }
-                const project = await databases.createDocument(
-                    DATABASE_ID,
-                    PROJECTS_ID,
-                    ID.unique(),
-                    {
-                        name,
-                        workspaceId,
-                        sprintDuration,
-                        sprintNumber,
-                        currentSprintStartDate,
-                        currentSprintEndDate,
-                    }
-                );
-
-
-                return c.json({data: project});
+            return c.json({ data: toProject(project) });
         }
     )
 
@@ -66,414 +49,124 @@ const app = new Hono()
         sessionMiddleware,
         zValidator("query", z.object({ workspaceId: z.string() })),
         async (c) => {
-            const user = c.get("user");
-            const databases = c.get("databases");
             const { workspaceId } = c.req.valid("query");
 
             if (!workspaceId) {
                 return c.json({ error: "Missing workspaceId" }, 400);
             }
 
-            // First, verify that the workspace exists
-            try {
-                await databases.getDocument(
-                    DATABASE_ID,
-                    WORKSPACES_ID,
-                    workspaceId
-                );
-            } catch {
-                // If workspace doesn't exist, return empty projects list
-                return c.json({ 
-                    data: { 
-                        documents: [], 
-                        total: 0 
-                    } 
-                });
+            // Rows are only returned once membership is confirmed
+            const [member, rows] = await Promise.all([
+                requireMember(c, workspaceId),
+                db
+                    .select()
+                    .from(projects)
+                    .where(eq(projects.workspaceId, workspaceId))
+                    .orderBy(desc(projects.createdAt)),
+            ]);
+
+            if (member instanceof Response) {
+                return member;
             }
 
-            const member = await getMember({ 
-                databases,
-                workspaceId,
-                userId: user.$id,
-            });
-
-            if (!member) {
-                return c.json({ error: "Unauthorized" }, 401);
-            }
-
-            const projects = await databases.listDocuments<Project>(
-                DATABASE_ID,
-                PROJECTS_ID,
-                [
-                    Query.equal("workspaceId", workspaceId),
-                    Query.orderDesc("$createdAt"),
-                ],
-            );
-
-            return c.json({ data: projects });
-
+            return c.json({ data: { documents: rows.map(toProject), total: rows.length } });
         }
     )
 
-    .get( 
-        "/:projectId", 
-        sessionMiddleware, 
+    .get(
+        "/:projectId",
+        sessionMiddleware,
         async (c) => {
-            const user = c.get("user"); 
-            const databases = c.get("databases"); 
-            const { projectId } = c.req.param(); 
+            const { projectId } = c.req.param();
 
-            const project = await databases.getDocument<Project>(
-                DATABASE_ID, 
-                PROJECTS_ID, 
-                projectId, 
-            ); 
+            const project = await findById(projects, projectId);
 
-            // Verify that the workspace still exists
-            try {
-                await databases.getDocument(
-                    DATABASE_ID,
-                    WORKSPACES_ID,
-                    project.workspaceId
-                );
-            } catch (error) {
-                // If workspace doesn't exist, return 404
+            if (!project) {
                 return c.json({ error: "Project not found" }, 404);
             }
 
-            const member = await getMember({
-                databases,
-                workspaceId: project.workspaceId,
-                userId: user.$id,
-            });
-            if (!member) {
-                return c.json({ error: "Unauthorized" }, 401);
+            const member = await requireMember(c, project.workspaceId);
+            if (member instanceof Response) {
+                return member;
             }
-            return c.json({ data: project });
+
+            return c.json({ data: toProject(project) });
         }
-    ) 
+    )
 
     .patch(
-        "/:projectId", 
+        "/:projectId",
         sessionMiddleware,
         zValidator("form", updateProjectFormSchema),
         async (c) => {
-            const user = c.get("user");
-            const databases = c.get("databases");
             const { projectId } = c.req.param();
             const { name, sprintDuration, currentSprintStartDate, currentSprintEndDate, sprintNumber } = c.req.valid("form");
 
-            const existingProject = await databases.getDocument<Project>(
-                DATABASE_ID,
-                PROJECTS_ID,
-                projectId,
-            );
+            const existingProject = await findById(projects, projectId);
 
-            // Verify that the workspace still exists
-            try {
-                await databases.getDocument(
-                    DATABASE_ID,
-                    WORKSPACES_ID,
-                    existingProject.workspaceId
-                );
-            } catch (error) {
-                // If workspace doesn't exist, return 404
+            if (!existingProject) {
                 return c.json({ error: "Project not found" }, 404);
             }
 
-            const member = await getMember({
-                databases,
-                workspaceId: existingProject.workspaceId,
-                userId: user.$id,
-            });
-            
-            if (!member) {
-                return c.json({ error : "Unauthorized" }, 401 );
+            const member = await requireMember(c, existingProject.workspaceId);
+            if (member instanceof Response) {
+                return member;
             }
 
-            // Check if user is admin for startingSprintDate updates
-            if (currentSprintStartDate !== undefined) {
-                const userIsAdmin = await isAdmin({
-                    databases,
-                    workspaceId: existingProject.workspaceId,
-                    userId: user.$id
-                });
-
-                if (!userIsAdmin) {
-                    return c.json({ error: "Only admins can update the starting sprint date" }, 403);
-                }
+            if (currentSprintStartDate !== undefined && member.role !== MemberRole.ADMIN) {
+                return c.json({ error: "Only admins can update the starting sprint date" }, 403);
             }
-            
-            const project = await databases.updateDocument(
-                DATABASE_ID,
-                PROJECTS_ID,
-                projectId,
-                {
-                    name,
-                    sprintDuration,
-                    currentSprintStartDate,
-                    currentSprintEndDate,
-                    sprintNumber,
-                }
-            );
 
-        return c.json({ data: project });
-        })
+            const updateData = {
+                name,
+                sprintDuration,
+                currentSprintStartDate,
+                currentSprintEndDate,
+                sprintNumber,
+            };
+
+            // Drizzle rejects an update with nothing to set
+            if (Object.values(updateData).every((value) => value === undefined)) {
+                return c.json({ data: toProject(existingProject) });
+            }
+
+            const [project] = await db
+                .update(projects)
+                .set(updateData)
+                .where(eq(projects.id, projectId))
+                .returning();
+
+            // A new or extended sprint gets its routine tasks right away, not at the next cron
+            if (currentSprintEndDate !== undefined) {
+                await generateRoutineTasks(eq(routines.projectId, projectId));
+            }
+
+            return c.json({ data: toProject(project) });
+        }
+    )
 
     .delete(
         "/:projectId",
         sessionMiddleware,
         async (c) => {
-            const databases = c.get("databases");
-            const user = c.get("user");
             const { projectId } = c.req.param();
 
-            const existingProject = await databases.getDocument<Project>(
-                DATABASE_ID,
-                PROJECTS_ID,
-                projectId,
-            );
+            const existingProject = await findById(projects, projectId);
 
-            // Verify that the workspace still exists
-            try {
-                await databases.getDocument(
-                    DATABASE_ID,
-                    WORKSPACES_ID,
-                    existingProject.workspaceId
-                );
-            } catch (error) {
-                // If workspace doesn't exist, return 404
+            if (!existingProject) {
                 return c.json({ error: "Project not found" }, 404);
             }
 
-            const member = await getMember({
-                databases,
-                workspaceId: existingProject.workspaceId,
-                userId: user.$id,
-            });
-
-            if (!member) {
-                return c.json({ error: "Unauthorized" }, 401);
+            const member = await requireAdmin(c, existingProject.workspaceId, "Only admins can delete projects");
+            if (member instanceof Response) {
+                return member;
             }
 
-            // Check if user is admin
-            const userIsAdmin = await isAdmin({
-                databases,
-                workspaceId: existingProject.workspaceId,
-                userId: user.$id
-            });
+            // Tasks are removed by ON DELETE CASCADE
+            await db.delete(projects).where(eq(projects.id, projectId));
 
-            if (!userIsAdmin) {
-                return c.json({ error: "Only admins can delete projects" }, 403);
-            }
-
-            // 1. Delete all tasks in the project
-            const tasks = await databases.listDocuments(
-                DATABASE_ID,
-                TASKS_ID,
-                [Query.equal("projectId", projectId)]
-            );
-            
-            for (const task of tasks.documents) {
-                await databases.deleteDocument(
-                    DATABASE_ID,
-                    TASKS_ID,
-                    task.$id
-                );
-            }
-
-            // 2. Delete the project itself
-            await databases.deleteDocument( 
-                DATABASE_ID, 
-                PROJECTS_ID, 
-                projectId, 
-            );
-
-            return c.json({ data: { $id: existingProject.$id } });
-
-        }
-    )
-
-    .get( 
-        "/:projectId/analytics", 
-        sessionMiddleware, 
-        async (c) => {
-            const user = c.get("user"); 
-            const databases = c.get("databases"); 
-            const { projectId } = c.req.param(); 
-
-            const project = await databases.getDocument<Project>(
-                DATABASE_ID, 
-                PROJECTS_ID, 
-                projectId, 
-            ); 
-
-            // Verify that the workspace still exists
-            try {
-                await databases.getDocument(
-                    DATABASE_ID,
-                    WORKSPACES_ID,
-                    project.workspaceId
-                );
-            } catch (error) {
-                // If workspace doesn't exist, return 404
-                return c.json({ error: "Project not found" }, 404);
-            }
-
-            const member = await getMember({
-                databases,
-                workspaceId: project.workspaceId,
-                userId: user.$id,
-            });
-            if (!member) {
-                return c.json({ error: "Unauthorized" }, 401);
-            }
-
-            const now = new Date(); 
-            const thisMonthStart = startOfMonth(now); 
-            const thisMonthEnd = endOfMonth(now); 
-            const lastMonthStart = startOfMonth(subMonths(now, 1)); 
-            const lastMonthEnd = endOfMonth(subMonths(now, 1)); 
-
-            const thisMonthTasks = await databases.listDocuments( 
-                DATABASE_ID,
-                TASKS_ID,
-                [
-                    Query.equal("projectId", projectId),
-                    Query.greaterThanEqual("$createdAt", thisMonthStart.toISOString()),
-                    Query.lessThanEqual("$createdAt", thisMonthEnd.toISOString())
-                ]
-            )
-
-            const lastMonthTasks = await databases.listDocuments( 
-                DATABASE_ID,
-                TASKS_ID,
-                [
-                    Query.equal("projectId", projectId),
-                    Query.greaterThanEqual("$createdAt", lastMonthStart.toISOString()),
-                    Query.lessThanEqual("$createdAt", lastMonthEnd.toISOString())
-                ]
-            )
-
-            const taskCount = thisMonthTasks.total;
-            const taskDifference = taskCount-lastMonthTasks.total;
-
-            const thisMonthAssignedTasks = await databases.listDocuments( 
-                DATABASE_ID,
-                TASKS_ID,
-                [
-                    Query.equal("projectId", projectId),
-                    Query.equal("assigneeId", member.$id),
-                    Query.greaterThanEqual("$createdAt", thisMonthStart.toISOString()),
-                    Query.lessThanEqual("$createdAt", thisMonthEnd.toISOString())
-                ]
-            )
-
-            const lastMonthAssignedTasks = await databases.listDocuments( 
-                DATABASE_ID,
-                TASKS_ID,
-                [
-                    Query.equal("projectId", projectId),
-                    Query.equal("assigneeId", member.$id),
-                    Query.greaterThanEqual("$createdAt", lastMonthStart.toISOString()),
-                    Query.lessThanEqual("$createdAt", lastMonthEnd.toISOString())
-                ]
-            )
-
-            const assignedTaskCount = thisMonthAssignedTasks.total;
-            const assignedTaskDifference = assignedTaskCount-lastMonthAssignedTasks.total;
-
-            const thisMonthIncompleteTasks = await databases.listDocuments( 
-                DATABASE_ID,
-                TASKS_ID,
-                [
-                    Query.equal("projectId", projectId),
-                    Query.notEqual("status", TaskStatus.DONE), 
-                    Query.greaterThanEqual("$createdAt", thisMonthStart.toISOString()),
-                    Query.lessThanEqual("$createdAt", thisMonthEnd.toISOString())
-                ]
-            )
-
-            const lastMonthIncompleteTasks = await databases.listDocuments( 
-                DATABASE_ID,
-                TASKS_ID,
-                [
-                    Query.equal("projectId", projectId),
-                    Query.notEqual("status", TaskStatus.DONE), 
-                    Query.greaterThanEqual("$createdAt", lastMonthStart.toISOString()),
-                    Query.lessThanEqual("$createdAt", lastMonthEnd.toISOString())
-                ]
-            )
-
-            const incompleteTaskCount = thisMonthIncompleteTasks.total;
-            const incompleteTaskDifference = incompleteTaskCount-lastMonthIncompleteTasks.total;
-
-            const thisMonthCompletedTasks = await databases.listDocuments( 
-                DATABASE_ID,
-                TASKS_ID,
-                [
-                    Query.equal("projectId", projectId),
-                    Query.equal("status", TaskStatus.DONE), 
-                    Query.greaterThanEqual("$createdAt", thisMonthStart.toISOString()),
-                    Query.lessThanEqual("$createdAt", thisMonthEnd.toISOString())
-                ]
-            )
-
-            const lastMonthCompletedTasks = await databases.listDocuments( 
-                DATABASE_ID,
-                TASKS_ID,
-                [
-                    Query.equal("projectId", projectId),
-                    Query.equal("status", TaskStatus.DONE), 
-                    Query.greaterThanEqual("$createdAt", lastMonthStart.toISOString()),
-                    Query.lessThanEqual("$createdAt", lastMonthEnd.toISOString())
-                ]
-            )
-
-            const completedTaskCount = thisMonthCompletedTasks.total;
-            const completedTaskDifference = completedTaskCount-lastMonthCompletedTasks.total;
-
-            const thisMonthOverdueTasks = await databases.listDocuments( 
-                DATABASE_ID,
-                TASKS_ID,
-                [
-                    Query.equal("projectId", projectId),
-                    Query.notEqual("status", TaskStatus.DONE), 
-                    Query.lessThan("dueDate", now.toISOString()),
-                    Query.greaterThanEqual("$createdAt", thisMonthStart.toISOString()),
-                    Query.lessThanEqual("$createdAt", thisMonthEnd.toISOString())
-                ]
-            )
-
-            const lastMonthOverdueTasks = await databases.listDocuments( 
-                DATABASE_ID,
-                TASKS_ID,
-                [
-                    Query.equal("projectId", projectId),
-                    Query.notEqual("status", TaskStatus.DONE), 
-                    Query.lessThan("dueDate", now.toISOString()),
-                    Query.greaterThanEqual("$createdAt", lastMonthStart.toISOString()),
-                    Query.lessThanEqual("$createdAt", lastMonthEnd.toISOString())
-                ]
-            )
-
-            const overdueTaskCount = thisMonthOverdueTasks.total;
-            const overdueTaskDifference = overdueTaskCount-lastMonthOverdueTasks.total;
-
-            return c.json({
-                data: {
-                    taskCount,
-                    taskDifference,
-                    assignedTaskCount,
-                    assignedTaskDifference,
-                    completedTaskCount,
-                    completedTaskDifference,
-                    incompleteTaskCount,
-                    incompleteTaskDifference,
-                    overdueTaskCount,
-                    overdueTaskDifference,
-                }
-            })
+            return c.json({ data: { $id: existingProject.id } });
         }
     );
+
 export default app;

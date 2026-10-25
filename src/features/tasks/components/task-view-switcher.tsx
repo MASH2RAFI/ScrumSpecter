@@ -8,7 +8,7 @@ import {
     TabsList,
     TabsTrigger
 } from "@/components/ui/tabs"
-import { Loader, PlusIcon } from "lucide-react";
+import { Loader, PlusIcon, RepeatIcon } from "lucide-react";
 import { useCreateTaskModal } from "../hooks/use-create-task-modal";
 import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
 import { useGetTasks } from "../api/use-get-tasks";
@@ -19,7 +19,8 @@ import { useTaskFilters } from "../hooks/use-task-filters";
 import { DataTable } from "./data-table";
 import { getColumns } from "./columns";
 import { Datakanban } from "./data-kanban";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
+import { splitByRoutineWindow } from "../routine-window";
 import { useBulkUpdateTasks } from "../api/use-bulk-update-tasks";
 import { DataCalendar } from "./data-calendar";
 import { useProjectId } from "@/features/projects/hooks/use-project-id";
@@ -35,7 +36,8 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
             status,
             assigneeId,
             projectId,
-            dueDate
+            dueDate,
+            search,
         }] = useTaskFilters();
         
         const workspaceId = useWorkspaceId();
@@ -58,9 +60,16 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
             status,
             assigneeId,
             projectId: paramProjectId || projectId,
-            dueDate
+            dueDate,
+            search,
         });
 
+
+    // Routine tasks beyond the coming week only clutter the list views; the calendar keeps them all
+    const { visible: listTasks, hidden: hiddenRoutineTasks } = useMemo(
+        () => splitByRoutineWindow(tasks?.documents ?? []),
+        [tasks]
+    );
 
     const onKanbanChange = useCallback((
         tasks: { $id: string; status: TaskStatus; position: number }[]
@@ -129,11 +138,17 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
 
                 ):(
                     <>
+                        {hiddenRoutineTasks > 0 && view !== "calendar" && (
+                            <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <RepeatIcon className="size-3.5 text-primary" />
+                                {hiddenRoutineTasks} later routine {hiddenRoutineTasks === 1 ? "task" : "tasks"} this sprint {hiddenRoutineTasks === 1 ? "is" : "are"} on the Calendar
+                            </p>
+                        )}
                         <TabsContent value="table" className="mt-0">
-                            <DataTable columns={getColumns(tasks?.documents ?? [])} data={tasks?.documents ?? [] } />
+                            <DataTable columns={getColumns(listTasks)} data={listTasks} />
                         </TabsContent>
                         <TabsContent value="kanban" className="mt-0">
-                            <Datakanban onChange={onKanbanChange} data={tasks?.documents??[]}/>
+                            <Datakanban onChange={onKanbanChange} data={listTasks}/>
                         </TabsContent>
                         <TabsContent value="calendar" className="mt-0 h-full overflow-auto">
                             <div className="h-full min-h-[600px]">

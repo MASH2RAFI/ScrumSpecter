@@ -1,4 +1,4 @@
-import { useQueryState, parseAsBoolean, parseAsString } from "nuqs";
+import { useQueryState, useQueryStates, parseAsBoolean, parseAsInteger, parseAsIsoDateTime, parseAsString } from "nuqs";
 import { TaskStatus } from "../types";
 
 export const useCreateTaskModal = () => {
@@ -12,9 +12,18 @@ export const useCreateTaskModal = () => {
         parseAsString.withDefault(TaskStatus.TODO).withOptions({ clearOnDefault: true })
     );
 
-    const open = (status?: TaskStatus) => {
+    // Set when a task is created by selecting a time range on the calendar
+    const [{ start: defaultStart, duration: defaultDuration }, setDefaultTime] = useQueryStates({
+        start: parseAsIsoDateTime,
+        duration: parseAsInteger,
+    });
+
+    const open = (status?: TaskStatus, time?: { start: Date; durationMinutes: number }) => {
         if (status) {
             setDefaultStatus(status);
+        }
+        if (time) {
+            setDefaultTime({ start: time.start, duration: time.durationMinutes });
         }
         setIsOpen(true);
     };
@@ -22,6 +31,7 @@ export const useCreateTaskModal = () => {
     const close = () => {
         setIsOpen(false);
         setDefaultStatus(TaskStatus.TODO);
+        setDefaultTime({ start: null, duration: null });
     };
     
     return {
@@ -30,6 +40,8 @@ export const useCreateTaskModal = () => {
         close,
         setIsOpen,
         defaultStatus: defaultStatus as TaskStatus,
+        defaultStart,
+        defaultDuration,
     };
 
 };

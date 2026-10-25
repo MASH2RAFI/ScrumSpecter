@@ -49,7 +49,7 @@ export const NeuralBackground = ({ className = "" }: NeuralBackgroundProps) => {
     // Create nodes
     const nodes: Node[] = [];
     const nodeCount = Math.min(50, Math.floor((canvas.width * canvas.height) / 15000));
-    
+
     for (let i = 0; i < nodeCount; i++) {
       nodes.push({
         x: Math.random() * canvas.width,
@@ -96,8 +96,19 @@ export const NeuralBackground = ({ className = "" }: NeuralBackgroundProps) => {
       }
     };
 
-    // Animation loop
-    const animate = () => {
+    // Purely decorative, so it must never compete with the app: 30 fps cap,
+    // paused in hidden tabs, started only once the browser is idle
+    const FRAME_INTERVAL = 1000 / 30;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let lastFrame = 0;
+
+    const animate = (now = 0) => {
+      if (!reducedMotion) {
+        animationRef.current = requestAnimationFrame(animate);
+      }
+      if (now - lastFrame < FRAME_INTERVAL) return;
+      lastFrame = now;
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const colors = getThemeColors();
 
@@ -188,8 +199,21 @@ export const NeuralBackground = ({ className = "" }: NeuralBackgroundProps) => {
           ctx.stroke();
         }
       });
+    };
 
-      animationRef.current = requestAnimationFrame(animate);
+    const stop = () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = undefined;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stop();
+      } else if (!animationRef.current) {
+        animate();
+      }
     };
 
     // Mouse event handlers
@@ -204,17 +228,26 @@ export const NeuralBackground = ({ className = "" }: NeuralBackgroundProps) => {
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseleave", handleMouseLeave);
 
-    // Start animation
-    animate();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Safari has no requestIdleCallback
+    const canIdle = typeof window.requestIdleCallback === "function";
+    const startHandle = canIdle
+      ? window.requestIdleCallback(() => animate(), { timeout: 2000 })
+      : setTimeout(() => animate(), 300) as unknown as number;
 
     // Cleanup
     return () => {
       window.removeEventListener("resize", resizeCanvas);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseleave", handleMouseLeave);
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (canIdle) {
+        window.cancelIdleCallback(startHandle);
+      } else {
+        clearTimeout(startHandle);
       }
+      stop();
     };
   }, [isClient, theme]);
 

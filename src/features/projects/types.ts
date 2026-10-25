@@ -1,6 +1,6 @@
-import { Models } from "node-appwrite";
+import { Document } from "@/lib/db/types";
 
-export type Project = Models.Document & {
+export type Project = Document & {
     name: string;
     workspaceId: string;
     sprintDuration?: number; // in days

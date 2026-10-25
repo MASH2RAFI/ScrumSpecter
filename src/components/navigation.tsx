@@ -1,11 +1,12 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { SettingsIcon, UsersIcon, BarChart3Icon } from "lucide-react";
+import { SettingsIcon, UsersIcon, BarChart3Icon, RepeatIcon } from "lucide-react";
 import Link from "next/link";
 import { GoHome, GoHomeFill, GoCheckCircle, GoCheckCircleFill } from "react-icons/go";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { usePathname } from "next/navigation";
+import { useSidebar } from "./sidebar-context";
 
 const routes = [
     {
@@ -23,6 +24,14 @@ const routes = [
         activeIcon: GoCheckCircleFill,
         color: "text-emerald-600",
         activeColor: "text-emerald-700",
+    },
+    {
+        label: "Routines",
+        href: "/routines",
+        icon: RepeatIcon,
+        activeIcon: RepeatIcon,
+        color: "text-cyan-600",
+        activeColor: "text-cyan-700",
     },
     {
         label: "Members",
@@ -51,9 +60,10 @@ const routes = [
 ];
 
 export const Navigation = () => {
-    
+
     const workspaceId = useWorkspaceId();
     const pathname = usePathname();
+    const { collapsed } = useSidebar();
 
     // Show all routes - members and settings are visible to all users
     const filteredRoutes = routes;
@@ -67,13 +77,14 @@ export const Navigation = () => {
                 const Icon = isActive ? item.activeIcon : item.icon;
                 const iconColor = isActive ? item.activeColor : item.color;
                 return (
-                    <Link key={item.href} href={fullHref}>
+                    <Link key={item.href} href={fullHref} title={collapsed ? item.label : undefined} aria-label={collapsed ? item.label : undefined}>
                         <div className={cn(
                             "flex items-center gap-2.5 p-2.5 rounded-md font-medium transition-colors text-muted-foreground hover:bg-accent",
+                            collapsed && "justify-center",
                             isActive && "bg-primary/10 text-primary shadow-sm"
                         )}>
-                            <Icon className={cn("size-5", iconColor)} />
-                            {item.label}
+                            <Icon className={cn("size-5 shrink-0", iconColor)} />
+                            {!collapsed && item.label}
                         </div>
                     </Link>
                 )

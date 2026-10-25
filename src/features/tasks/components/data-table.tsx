@@ -56,9 +56,10 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="w-full">
-        <div className="overflow-x-auto rounded-md border">
+        {/* Scrolls inside its own box so the header can stay pinned */}
+        <div className="max-h-[70vh] overflow-auto rounded-md border">
             <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10 bg-background shadow-[0_1px_0_hsl(var(--border))]">
                     {table.getHeaderGroups().map((headerGroup) => (
                         <TableRow key={headerGroup.id}>
                             {headerGroup.headers.map((header) => {

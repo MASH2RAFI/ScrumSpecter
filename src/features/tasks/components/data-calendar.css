@@ -1,33 +1,26 @@
 /* Enhanced Calendar Styling - No Scrolling */
 .calendar-container {
-  @apply rounded-unified-lg transition-unified flex flex-col;
+  @apply rounded-xl transition-all duration-200 ease-in-out flex flex-col;
   @apply bg-gradient-to-br from-background via-background to-muted/20;
   @apply shadow-2xl border border-border/50;
   @apply backdrop-blur-sm;
   height: auto !important;
   overflow: visible !important;
+  animation: fadeInUp 0.6s ease-out;
 }
 
-.rbc-calendar {
-  @apply flex flex-col;
-  @apply bg-transparent;
-  height: auto !important;
-  overflow: visible !important;
-}
-
-.rbc-header { 
+.rbc-header {
     @apply text-sm;
     @apply font-bold;
     @apply py-5;
     @apply px-4;
     @apply text-foreground;
-    @apply border-b-0;
     @apply bg-gradient-to-r from-primary/10 via-primary/5 to-accent/10;
     @apply text-center;
     @apply shadow-lg;
     @apply rounded-t-lg;
     @apply backdrop-blur-sm;
-    @apply border-b border-primary/20;
+    @apply border-b;
     @apply relative;
 }
 
@@ -35,13 +28,13 @@
     content: '';
     @apply absolute inset-0 bg-gradient-to-r from-primary/5 to-accent/5 rounded-t-lg;
     @apply opacity-50;
-} 
+}
 
-.rbc-header + .rbc-header { 
+.rbc-header + .rbc-header {
     @apply border-l border-border/50;
-} 
+}
 
-.rbc-button-link { 
+.rbc-button-link {
     @apply text-sm;
     @apply font-bold;
     @apply text-foreground;
@@ -67,17 +60,15 @@
     @apply opacity-100;
 }
 
-.rbc-month-row{ 
+.rbc-month-row{
     @apply min-h-[140px]; /* Increased for better task visibility */
-    @apply border-t border-border/30;
+    @apply border-t;
     @apply border-x-0;
-    @apply transition-all duration-300;
     @apply flex-1;
     @apply bg-gradient-to-b from-transparent to-muted/5;
     @apply hover:bg-gradient-to-b hover:from-primary/5 hover:to-accent/5;
     @apply hover:shadow-lg;
     @apply relative;
-    @apply z-10;
     @apply isolate;
     height: auto !important;
     overflow: visible !important;
@@ -105,37 +96,32 @@
 }
 
 .rbc-month-view {
-    @apply border-none;
-  @apply rounded-unified-lg;
-  @apply shadow-2xl;
+  @apply border-none;
+  @apply rounded-xl;
   @apply transition-all duration-300;
-  @apply flex;
-  @apply flex-col;
   @apply bg-gradient-to-br from-background via-background to-muted/10;
   @apply backdrop-blur-sm;
-  @apply overflow-hidden;
   height: auto !important;
   overflow: visible !important;
 }
 
 .rbc-date-cell {
   @apply relative;
-  @apply transition-all duration-200;
   @apply cursor-pointer;
   @apply rounded-lg;
-  @apply border border-transparent;
+  @apply border;
   @apply bg-gradient-to-br from-transparent to-muted/10;
   @apply hover:bg-gradient-to-br hover:from-primary/10 hover:to-accent/10;
   @apply hover:shadow-md;
   @apply hover:border-primary/30;
   @apply flex flex-col;
-  @apply min-h-[80px];
-  @apply z-20;
   @apply isolate;
   padding: 4px 2px !important;
   height: auto !important;
   min-height: 80px !important;
   contain: layout !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
 }
 
 .rbc-date-cell::before {
@@ -151,7 +137,9 @@
 }
 
 .rbc-today {
-    @apply bg-gradient-to-br from-blue-100/80 to-blue-200/60 dark:from-blue-950/40 dark:to-blue-900/30;
+    /* react-big-calendar paints today #eaf6ff; clear it so the theme gradient below shows (it made dark mode unreadable) */
+    background-color: transparent;
+    @apply bg-gradient-to-br from-blue-100/80 to-blue-200/60 dark:from-blue-950/60 dark:to-blue-900/40;
     @apply relative;
     @apply shadow-lg;
     @apply border border-blue-300/50 dark:border-blue-700/50;
@@ -173,22 +161,22 @@
     @apply opacity-0 hover:opacity-100 transition-opacity duration-200;
 }
 
-/* Enhanced Dark Mode and Responsive Styling */
+/* Theme colours (light and dark via CSS variables) */
 .rbc-calendar {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  @apply rounded-unified-lg;
+  @apply rounded-xl;
 }
 
 .rbc-month-view {
   background-color: hsl(var(--background));
   border-color: hsl(var(--border));
-  @apply shadow-unified;
+  @apply shadow-sm;
 }
 
 .rbc-date-cell {
   border-color: hsl(var(--border));
-  @apply transition-unified;
+  @apply transition-all duration-200 ease-in-out;
 }
 
 .rbc-off-range-bg {
@@ -203,19 +191,17 @@
 .rbc-header {
   border-color: hsl(var(--border));
   background-color: hsl(var(--muted) / 0.3);
-  @apply backdrop-blur-sm;
 }
 
 .rbc-month-row {
   border-color: hsl(var(--border));
-  @apply transition-unified;
+  @apply transition-all duration-200 ease-in-out;
 }
 
 .rbc-day-bg {
   border-color: hsl(var(--border));
-  @apply transition-unified;
+  @apply transition-all duration-200 ease-in-out;
 }
-
 
 .rbc-event {
   background-color: transparent !important;
@@ -224,6 +210,8 @@
   @apply shadow-none;
   overflow: visible !important;
   max-height: none !important;
+  position: relative;
+  z-index: 6;
 }
 
 .rbc-event:hover {
@@ -232,22 +220,12 @@
 
 /* Extra Small Mobile (320px and below) */
 @media (max-width: 320px) {
-  .rbc-date-cell {
-    @apply min-h-[60px];
-    @apply p-0.5;
-  }
-  
-  .rbc-events-container {
-    @apply gap-0.5;
-    @apply mt-0.5;
-  }
-  
   .rbc-event {
     @apply text-[8px];
     @apply p-0.5;
     @apply leading-tight;
   }
-  
+
   .rbc-month-row {
     @apply min-h-[80px];
   }
@@ -255,22 +233,12 @@
 
 /* Small Mobile (321px - 480px) */
 @media (min-width: 321px) and (max-width: 480px) {
-  .rbc-date-cell {
-    @apply min-h-[70px];
-    @apply p-1;
-  }
-  
-  .rbc-events-container {
-    @apply gap-1;
-    @apply mt-1;
-  }
-  
   .rbc-event {
     @apply text-[9px];
     @apply p-1;
     @apply leading-tight;
   }
-  
+
   .rbc-month-row {
     @apply min-h-[90px];
   }
@@ -281,205 +249,57 @@
   .calendar-container {
     @apply mx-1;
     @apply rounded-lg;
+    @apply shadow-lg;
+    @apply min-w-[320px];
   }
-  
+
   .rbc-calendar {
     @apply text-xs;
   }
-  
-  .rbc-month-row {
-    @apply min-h-[100px];
-    @apply border-t border-border/20;
-  }
-  
+
   .rbc-date-cell {
-    @apply p-1;
     @apply text-xs;
-    @apply min-h-[80px];
+    @apply touch-manipulation;
   }
-  
+
   .rbc-header {
     @apply py-2 px-1;
-    @apply text-xs;
     @apply font-semibold;
+    @apply min-h-[32px];
+    @apply flex items-center justify-center;
+    font-size: 10px;
+    line-height: 1rem;
   }
-  
+
   .rbc-button-link {
     @apply text-xs;
     @apply font-bold;
     @apply px-1 py-0.5;
   }
-  
-  .rbc-events-container {
-    @apply space-y-1;
-    @apply mt-1;
-  }
-  
+
   .rbc-event {
-    @apply text-xs;
-    @apply p-1;
+    @apply text-[8px];
+    @apply p-0.5;
     @apply rounded-sm;
-  }
-  
-  .rbc-month-view .rbc-row-content {
-    @apply min-h-[80px];
-  }
-  
-  .rbc-month-view .rbc-row-content .rbc-row {
-    @apply min-h-[80px];
-  }
-  
-  /* Mobile-specific event styling */
-  .rbc-event {
-    @apply text-[10px];
     @apply leading-tight;
-    @apply p-1;
-    @apply rounded-sm;
     @apply shadow-sm;
+    @apply touch-manipulation;
+    @apply active:scale-95;
   }
-  
-  /* Mobile popup positioning */
+
   .mobile-popup {
     @apply fixed;
-    @apply top-4;
-    @apply left-4;
-    @apply right-4;
-    @apply z-50;
-    @apply max-h-[80vh];
-    @apply overflow-y-auto;
-  }
-
-  /* Mobile-specific calendar optimizations */
-  .calendar-container {
-    @apply mx-1;
-    @apply rounded-lg;
-    @apply shadow-lg;
-    @apply min-w-[320px];
-  }
-
-  .rbc-header {
-    @apply py-2;
-    @apply px-1;
-    @apply text-[10px];
-    @apply font-semibold;
-    @apply min-h-[32px];
-    @apply flex items-center justify-center;
-  }
-
-  .rbc-date-cell {
-    @apply min-h-[70px];
-    @apply p-0.5;
-    @apply text-xs;
-    @apply relative;
-    @apply touch-manipulation;
-  }
-
-  .rbc-date-cell .rbc-day-bg {
-    @apply min-h-[60px];
-    @apply rounded-sm;
-    @apply transition-colors duration-200;
-  }
-
-  .rbc-date-cell .rbc-day-bg:hover {
-    @apply bg-muted/20;
-  }
-
-  .rbc-events-container {
-    @apply min-h-[50px];
-    @apply gap-0.5;
-    @apply mt-1;
-    @apply flex flex-col;
-  }
-
-  .rbc-event {
-    @apply text-[8px];
-    @apply p-0.5;
-    @apply rounded-sm;
-    @apply leading-tight;
-    @apply touch-manipulation;
-    @apply active:scale-95;
-  }
-
-  .rbc-toolbar {
-    @apply flex-col;
-    @apply gap-2;
-    @apply p-2;
-  }
-
-  .rbc-toolbar-label {
-    @apply text-sm;
-    @apply font-semibold;
-    @apply order-2;
-  }
-
-  .rbc-btn-group {
-    @apply order-1;
-    @apply w-full;
-    @apply justify-center;
-  }
-
-  .rbc-btn-group button {
-    @apply text-xs;
-    @apply px-2;
-    @apply py-1;
-    @apply min-h-[32px];
-  }
-
-  /* Mobile task cards */
-  .event-card {
-    @apply text-[8px];
-    @apply p-1;
-    @apply rounded-sm;
-    @apply leading-tight;
-    @apply min-h-[20px];
-    @apply touch-manipulation;
-    @apply active:scale-95;
-    @apply transition-transform duration-150;
-  }
-
-  .grouped-event-card {
-    @apply text-[8px];
-    @apply p-1;
-    @apply rounded-sm;
-    @apply leading-tight;
-    @apply min-h-[20px];
-    @apply touch-manipulation;
-    @apply active:scale-95;
-    @apply transition-transform duration-150;
-  }
-
-  /* Mobile popup improvements */
-  .mobile-popup {
     @apply top-2;
     @apply left-2;
     @apply right-2;
+    @apply z-50;
     @apply max-h-[90vh];
+    @apply overflow-y-auto;
     @apply text-sm;
     @apply rounded-lg;
     @apply shadow-2xl;
     @apply border-2;
     @apply border-border;
-  }
-
-  .mobile-popup .task-item {
-    @apply p-4;
-    @apply text-sm;
-    @apply min-h-[48px];
-    @apply touch-manipulation;
-    @apply active:scale-[0.98];
-    @apply transition-transform duration-150;
-  }
-
-  .mobile-popup .task-item h4 {
-    @apply text-base;
-    @apply font-semibold;
-    @apply mb-1;
-  }
-
-  .mobile-popup .task-item p {
-    @apply text-sm;
-    @apply mt-1;
-    @apply opacity-80;
   }
 
   /* Touch-friendly buttons */
@@ -491,116 +311,51 @@
     @apply active:scale-95;
   }
 
-  /* Mobile dropdown improvements */
-  .task-dropdown {
-    @apply max-w-[calc(100vw-1rem)];
-    @apply left-2;
-    @apply right-2;
-    @apply text-sm;
-    @apply rounded-lg;
-    @apply shadow-2xl;
-    @apply border-2;
-    @apply border-border;
-  }
-
-  .task-dropdown .task-item {
-    @apply p-4;
-    @apply text-sm;
-    @apply min-h-[48px];
-    @apply touch-manipulation;
-    @apply active:scale-[0.98];
-    @apply transition-transform duration-150;
-  }
-
-  /* Mobile calendar scroll improvements */
-  .rbc-month-view {
-    @apply overflow-x-auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Mobile date cell improvements */
-  .rbc-date-cell .rbc-day-bg {
-    @apply cursor-pointer;
-    @apply select-none;
-  }
-
-  /* Mobile month row improvements */
   .rbc-month-row {
     @apply min-h-[80px];
-    @apply border-b border-border/20;
+    @apply border-t border-b border-border/20;
   }
 }
 
 /* Tablet (641px - 1024px) */
 @media (min-width: 641px) and (max-width: 1024px) {
-  .rbc-date-cell {
-    @apply min-h-[90px];
-    @apply p-2;
-  }
-  
-  .rbc-events-container {
-    @apply gap-1.5;
-    @apply mt-1.5;
-  }
-  
   .rbc-event {
     @apply text-xs;
     @apply p-2;
   }
-  
+
   .rbc-month-row {
-    @apply min-h-[110px];
+    @apply min-h-[10px];
   }
 }
 
 /* Desktop (1025px and above) */
 @media (min-width: 1025px) {
-  .rbc-date-cell {
-    @apply min-h-[100px];
-    @apply p-3;
-  }
-  
-  .rbc-events-container {
-    @apply gap-2;
-    @apply mt-2;
-  }
-  
   .rbc-event {
     @apply text-sm;
     @apply p-3;
   }
-  
+
   .rbc-month-row {
     @apply min-h-[120px];
-  }
-}
-
-@media (min-width: 641px) and (max-width: 1024px) {
-  .rbc-month-row {
-    @apply min-h-[10px];
   }
 }
 
 /* Calendar Layout */
 .rbc-month-view .rbc-row {
   @apply flex-1;
+  overflow: visible !important;
 }
 
 .rbc-month-view .rbc-row-content {
   @apply flex-1;
-}
-
-.rbc-month-view .rbc-row-content .rbc-row {
-  @apply flex-1;
-}
-
-.rbc-month-view .rbc-row-content {
   @apply min-h-[10px];
   height: auto !important;
   overflow: visible !important;
 }
 
 .rbc-month-view .rbc-row-content .rbc-row {
+  @apply flex-1;
   height: auto !important;
   min-height: 40px !important;
   overflow: visible !important;
@@ -617,130 +372,6 @@
   flex-direction: column !important;
 }
 
-/* Allow month rows to expand naturally */
-.rbc-month-row {
-  overflow: visible !important;
-}
-
-.rbc-month-row .rbc-row-content {
-  overflow: visible !important;
-}
-
-/* Consistent gap between date and events */
-.rbc-date-cell .rbc-events-container {
-  margin-top: 4px !important; /* Decreased margin for smaller height */
-  @apply space-y-1; /* Reduced vertical spacing between events */
-}
-
-.rbc-date-cell .rbc-events-container .rbc-event {
-  margin-bottom: 2px !important; /* Reduced margin for more compact layout */
-}
-
-.rbc-date-cell .rbc-addons-dnd .rbc-event {
-  margin-bottom: 2px !important; /* Reduced margin for more compact layout */
-}
-
-/* Better handling of multiple events */
-.rbc-date-cell .rbc-events-container {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 2px !important; /* Reduced gap for more compact layout */
-  position: relative !important;
-  overflow: visible !important;
-  flex: 1 !important;
-  width: 100% !important;
-  min-height: 20px !important;
-  height: auto !important;
-  z-index: 30 !important;
-  isolation: isolate !important;
-}
-
-/* Ensure events show properly without height restrictions */
-.rbc-date-cell .rbc-events-container .rbc-event {
-  margin-bottom: 2px !important; /* Reduced margin for more compact layout */
-  flex-shrink: 0 !important;
-  height: auto !important;
-  min-height: auto !important;
-  max-height: none !important;
-  overflow: visible !important;
-  position: relative !important;
-  z-index: 40 !important;
-  isolation: isolate !important;
-  contain: layout !important;
-}
-
-/* Show task count indicator for days with many tasks */
-.rbc-date-cell .rbc-events-container::after {
-  content: attr(data-total-events);
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-  color: white;
-  font-size: 8px;
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-weight: 700;
-  opacity: 0.95;
-  pointer-events: none;
-  z-index: 50;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-  min-width: 14px;
-  text-align: center;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-/* Hide count indicator if there are few tasks */
-.rbc-date-cell .rbc-events-container[data-total-events="0"]::after,
-.rbc-date-cell .rbc-events-container[data-total-events="1"]::after,
-.rbc-date-cell .rbc-events-container[data-total-events="2"]::after {
-  display: none;
-}
-
-/* Show count indicator for 3+ tasks */
-.rbc-date-cell .rbc-events-container[data-total-events="3"]::after,
-.rbc-date-cell .rbc-events-container[data-total-events="4"]::after,
-.rbc-date-cell .rbc-events-container[data-total-events="5"]::after {
-  display: block;
-}
-
-/* Improve visual hierarchy for multiple tasks */
-.rbc-date-cell .rbc-events-container .rbc-event:nth-child(1) {
-  z-index: 5;
-  opacity: 1;
-}
-
-.rbc-date-cell .rbc-events-container .rbc-event:nth-child(2) {
-  z-index: 4;
-  opacity: 0.95;
-}
-
-.rbc-date-cell .rbc-events-container .rbc-event:nth-child(3) {
-  z-index: 3;
-  opacity: 0.9;
-}
-
-.rbc-date-cell .rbc-events-container .rbc-event:nth-child(4) {
-  z-index: 2;
-  opacity: 0.85;
-}
-
-.rbc-date-cell .rbc-events-container .rbc-event:nth-child(n+5) {
-  z-index: 1;
-  opacity: 0.8;
-}
-
-/* Add enhanced shadow for better depth and visual appeal */
-.rbc-date-cell .rbc-events-container .rbc-event {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.rbc-date-cell .rbc-events-container .rbc-event:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
-}
-
 /* Make date numbers more visually appealing */
 .rbc-date-cell .rbc-button-link {
   padding: 4px 6px !important;
@@ -750,6 +381,7 @@
   text-align: center !important;
   border-radius: 4px !important;
   transition: all 0.2s ease !important;
+  pointer-events: auto !important;
 }
 
 .rbc-date-cell .rbc-button-link:hover {
@@ -757,78 +389,13 @@
   transform: scale(1.05) !important;
 }
 
-/* Consistent spacing in date cells */
-.rbc-date-cell {
-  overflow: visible !important;
-}
-
-/* Ensure events are visible */
-.rbc-date-cell .rbc-events-container {
-  overflow: visible !important;
-  max-height: none !important;
-  display: flex !important; /* Changed to flex for better layout */
-  flex-direction: column !important;
-  gap: 2px !important; /* Reduced gap between events for more compact layout */
-}
-
-.rbc-date-cell .rbc-events-container .rbc-event {
-  overflow: visible !important;
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
 /* Prevent any nested scrolling in calendar cells */
 .rbc-date-cell * {
   overflow: visible !important;
 }
 
-/* Ensure events don't create scroll containers */
-.rbc-event {
-  overflow: visible !important;
-  max-height: none !important;
-}
-
-/* Ensure all containers allow natural expansion */
-.rbc-date-cell {
-  overflow: visible !important;
-}
-
-.rbc-date-cell .rbc-events-container {
-  overflow: visible !important;
-  max-height: none !important;
-  position: static !important;
-}
-
-/* Ensure no scroll containers exist in the calendar */
-.rbc-month-view .rbc-row-content {
-  overflow: visible !important;
-}
-
-.rbc-month-view .rbc-row {
-  overflow: visible !important;
-}
-
-/* Allow clicks on day cells */
-.rbc-date-cell {
-  pointer-events: auto !important;
-}
-
-.rbc-date-cell .rbc-button-link {
-  pointer-events: auto !important;
-}
-
-.rbc-date-cell .rbc-event {
-  pointer-events: auto !important;
-}
-
-/* Animation and Transitions */
 .rbc-calendar * {
-  @apply transition-unified;
-}
-
-/* Enhanced Visual Effects */
-.rbc-calendar * {
+  @apply transition-all duration-200 ease-in-out;
   @apply transition-all duration-200;
 }
 
@@ -853,17 +420,6 @@
   z-index: 4;
 }
 
-.rbc-events-container {
-  position: relative;
-  z-index: 5;
-}
-
-.rbc-event {
-  position: relative;
-  z-index: 6;
-}
-
-/* Add subtle animation to calendar */
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -875,11 +431,6 @@
   }
 }
 
-.calendar-container {
-  animation: fadeInUp 0.6s ease-out;
-}
-
-/* Enhanced scrollbar styling */
 .calendar-container::-webkit-scrollbar {
   width: 6px;
 }
@@ -892,19 +443,17 @@
   @apply bg-primary/30 rounded-full hover:bg-primary/50;
 }
 
-/* Add glow effect to active elements */
 .rbc-date-cell:active {
   @apply ring-4 ring-primary/20;
   @apply scale-95;
 }
 
-/* Enhanced focus states */
 .rbc-button-link:focus {
   @apply outline-none ring-2 ring-primary/50;
   @apply scale-110;
 }
 
-/* Add subtle pattern overlay */
+/* Subtle pattern overlay */
 .rbc-month-view::before {
   content: '';
   @apply absolute inset-0 opacity-[0.02];
@@ -913,4 +462,137 @@
   @apply pointer-events-none;
 }
 
-/* No scrolling - all content visible */
+/* Today: the date card sits above .rbc-today, so highlight the card itself.
+   Primary-based tint + outline works in light and dark; the number uses primary too. */
+.rbc-date-cell.rbc-now {
+  background-image: none;
+  background-color: hsl(var(--primary) / 0.12);
+  border-color: hsl(var(--primary) / 0.6);
+  box-shadow: inset 0 0 0 1px hsl(var(--primary) / 0.35);
+}
+
+.rbc-date-cell.rbc-now,
+.rbc-date-cell.rbc-now > button,
+.rbc-date-cell.rbc-now > a {
+  color: hsl(var(--primary));
+  @apply font-bold;
+}
+
+/* Day under a dragged task card */
+.rbc-day-bg.rbc-drop-target {
+  background-color: hsl(var(--primary) / 0.15);
+  box-shadow: inset 0 0 0 2px hsl(var(--primary));
+}
+
+/* ---------- Week / day time grid ---------- */
+.calendar-view-week .rbc-time-view,
+.calendar-view-day .rbc-time-view {
+  border-color: hsl(var(--border));
+  @apply rounded-xl overflow-hidden;
+}
+
+.rbc-time-header-content,
+.rbc-time-content,
+.rbc-time-content > * + * > *,
+.rbc-timeslot-group,
+.rbc-day-slot .rbc-time-slot,
+.rbc-time-header.rbc-overflowing,
+.rbc-time-view .rbc-header {
+  border-color: hsl(var(--border)) !important;
+}
+
+.rbc-time-view .rbc-header {
+  color: hsl(var(--foreground));
+  @apply py-2 text-sm font-semibold;
+}
+
+.rbc-time-gutter .rbc-label,
+.rbc-time-header-gutter {
+  color: hsl(var(--muted-foreground));
+  @apply text-xs;
+}
+
+.rbc-time-view .rbc-today {
+  background-image: none;
+  background-color: hsl(var(--primary) / 0.06);
+  box-shadow: none;
+  border: none;
+}
+.rbc-time-view .rbc-today::before,
+.rbc-time-view .rbc-today::after {
+  content: none;
+}
+
+/* "Now" line */
+.rbc-current-time-indicator {
+  background-color: hsl(var(--destructive));
+  height: 2px;
+}
+
+/* Timed blocks and all-day chips: solid status colours, readable in both themes */
+.calendar-view-week .rbc-event,
+.calendar-view-day .rbc-event {
+  overflow: hidden !important;
+  border: none !important;
+  @apply rounded-md shadow-sm text-white;
+  background-color: hsl(var(--primary)) !important;
+}
+.calendar-view-week .rbc-event.rbc-task-backlog,
+.calendar-view-day .rbc-event.rbc-task-backlog { background-color: #db2777 !important; }
+.calendar-view-week .rbc-event.rbc-task-todo,
+.calendar-view-day .rbc-event.rbc-task-todo { background-color: #dc2626 !important; }
+.calendar-view-week .rbc-event.rbc-task-in_progress,
+.calendar-view-day .rbc-event.rbc-task-in_progress { background-color: #d97706 !important; }
+.calendar-view-week .rbc-event.rbc-task-in_review,
+.calendar-view-day .rbc-event.rbc-task-in_review { background-color: #2563eb !important; }
+.calendar-view-week .rbc-event.rbc-task-done,
+.calendar-view-day .rbc-event.rbc-task-done { background-color: #059669 !important; }
+
+.calendar-view-week .rbc-event-label,
+.calendar-view-day .rbc-event-label {
+  display: none; /* the block shows its own time range */
+}
+
+/* Selection while dragging across empty time to create a task */
+.rbc-slot-selection {
+  background-color: hsl(var(--primary) / 0.25);
+  color: hsl(var(--primary-foreground));
+  @apply rounded-md;
+}
+
+/* Resize handle at the bottom of a block */
+.rbc-addons-dnd-resize-ns-icon {
+  border-top-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Week/day need a fixed height with an internally scrolling grid (the month rules above force
+   height:auto/overflow:visible on .calendar-container, which would stack all 24 hours down the page) */
+.calendar-container.calendar-view-week,
+.calendar-container.calendar-view-day {
+  height: 720px !important;
+  overflow: hidden !important;
+}
+
+.calendar-view-week .rbc-time-content,
+.calendar-view-day .rbc-time-content {
+  overflow-y: auto !important;
+}
+
+/* Week/day blocks: content fills the whole block so the resize handles sit on its edges */
+.calendar-view-week .rbc-day-slot .rbc-event,
+.calendar-view-day .rbc-day-slot .rbc-event {
+  padding: 0 !important;
+}
+
+.calendar-view-week .rbc-day-slot .rbc-event-content,
+.calendar-view-day .rbc-day-slot .rbc-event-content {
+  height: 100% !important;
+  overflow: hidden;
+}
+
+.calendar-view-week .rbc-addons-dnd-resize-ns-anchor,
+.calendar-view-day .rbc-addons-dnd-resize-ns-anchor {
+  height: 8px;
+  cursor: ns-resize;
+  z-index: 1;
+}

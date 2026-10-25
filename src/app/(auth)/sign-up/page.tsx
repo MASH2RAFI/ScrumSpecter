@@ -1,14 +1,19 @@
 
-import { SignUpCard } from "@/features/auth/components/sign-up-card";
-import { redirect } from "next/navigation";
 import { getCurrent } from "@/features/auth/queries";
-const SignUpPage = async () => {
+import { redirectHome } from "@/features/workspaces/redirect-home";
+import { SignUpCard } from "@/features/auth/components/sign-up-card";
+import { isGoogleAuthEnabled } from "@/lib/google-oauth";
 
-        const user = await getCurrent();
-    
-        if (user) redirect("/"); 
+interface SignUpPageProps {
+    searchParams: { error?: string };
+}
 
-    return <SignUpCard />
+const SignUpPage = async ({ searchParams }: SignUpPageProps) => {
+    const user = await getCurrent();
+
+    if (user) return redirectHome(user.$id);
+
+    return <SignUpCard googleEnabled={isGoogleAuthEnabled()} error={searchParams.error} />;
 };
 
 export default SignUpPage;

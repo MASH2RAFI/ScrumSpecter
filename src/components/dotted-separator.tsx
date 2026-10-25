@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { useTheme } from "next-themes";
 
 interface DottedSeparatorProps {
     className?: string;
@@ -20,18 +19,15 @@ export const DottedSeparator = ({
     gapSize = "6px",
     direction = "horizontal"
 }: DottedSeparatorProps) => {
-    const { theme, resolvedTheme } = useTheme();
-    const currentTheme = resolvedTheme || theme || "light";
-    
-    // Use theme-aware colors if no color is provided
-    const dotColor = color || (currentTheme === "dark" ? "#52525b" : "#d4d4d8");
+    // A CSS variable (light/dark in globals.css) renders the same on server and client
+    const dotColor = color || "var(--dotted-separator)";
     const isHorizontal = direction === "horizontal";
     return(
         <div className={cn(
             isHorizontal ? "w-full flex items-center" : "h-full flex flex-col items-center",
             className,
         )}>
-            <div 
+            <div
                 className={isHorizontal ? "flex-grow" : "flex-grow-0"}
                 style={{
                     width: isHorizontal ? "100%" : height,

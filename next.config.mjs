@@ -9,8 +9,10 @@ const nextConfig = {
   // Enable compression
   compress: true,
   
-  // Enable SWC minification
-  swcMinify: true,
+  // Native argon2 binding must be required at runtime, not bundled
+  experimental: {
+    serverComponentsExternalPackages: ["@node-rs/argon2"],
+  },
   
   // Optimize headers
   async headers() {

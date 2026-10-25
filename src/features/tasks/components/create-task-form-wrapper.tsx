@@ -14,7 +14,7 @@ export const CreateTaskFormWrapper = ({
     onCancel
 }: CreateTaskFormWrapperProps) => {
     const workspaceId = useWorkspaceId();
-    const { defaultStatus } = useCreateTaskModal();
+    const { defaultStatus, defaultStart, defaultDuration } = useCreateTaskModal();
 
     const { data: projects, isLoading: isLoadingProjects } = useGetProjects({ workspaceId });
     const { data: members, isLoading: isLoadingMembers } = useGetMembers({ workspaceId });
@@ -48,6 +48,8 @@ export const CreateTaskFormWrapper = ({
                 projectOptions={ projectOptions ?? [] }
                 memberOptions={ memberOptions ?? [] }
                 defaultStatus={defaultStatus}
+                defaultStart={defaultStart}
+                defaultDuration={defaultDuration}
             />
         </div>
     );

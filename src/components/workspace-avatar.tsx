@@ -1,6 +1,6 @@
 // import Image from "next/image";
 
-import { cn } from "@/lib/utils"; 
+import { cn } from "@/lib/utils";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
@@ -31,5 +31,5 @@ export const WorkspaceAvatar = ({
                 {name[0]}
             </AvatarFallback>
         </Avatar>
-    ) 
+    )
 }

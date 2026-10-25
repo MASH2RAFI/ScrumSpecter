@@ -6,11 +6,11 @@ import { useGetWorkspaceInfo } from "@/features/workspaces/api/use-get-workspace
 import { JoinWorkspaceForm } from "@/features/workspaces/components/join-workspace-form";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 
-export const WorkspaceIdJoinClient = () => { 
-    const workspaceId = useWorkspaceId(); 
+export const WorkspaceIdJoinClient = () => {
+    const workspaceId = useWorkspaceId();
     const { data: initialValues, isLoading, error } = useGetWorkspaceInfo({ workspaceId });
 
-    if (isLoading) { 
+    if (isLoading) {
         return <PageLoader />
     }
 
@@ -23,8 +23,8 @@ export const WorkspaceIdJoinClient = () => {
     }
 
     return(
-        <div className="w-full lg:max-w-xl"> 
-            <JoinWorkspaceForm initialValues={initialValues} /> 
+        <div className="w-full lg:max-w-xl">
+            <JoinWorkspaceForm initialValues={initialValues} />
         </div>
     )
-}; 
+};

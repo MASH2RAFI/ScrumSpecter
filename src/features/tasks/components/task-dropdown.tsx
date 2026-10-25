@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
-import { Task, TaskStatus } from "../types";
+import { Task } from "../types";
+import { useDismiss } from "../hooks/use-dismiss";
+import { calendarStatusColorMap, calendarStatusIconMap, pluralize } from "./calendar-utils";
 import { MemberAvatar } from "@/features/members/components/member-avatar";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 import { cn } from "@/lib/utils";
@@ -18,60 +20,12 @@ interface TaskDropdownProps {
   position: { x: number; y: number };
 }
 
-const statusColorMap: Record<TaskStatus, string> = {
-  [TaskStatus.BACKLOG]: "border-l-slate-500 bg-slate-100/80 dark:bg-slate-900/20",
-  [TaskStatus.TODO]: "border-l-red-500 bg-red-100/80 dark:bg-red-950/20",
-  [TaskStatus.IN_PROGRESS]: "border-l-amber-500 bg-amber-100/80 dark:bg-amber-950/20",
-  [TaskStatus.IN_REVIEW]: "border-l-blue-600 bg-blue-100/80 dark:bg-blue-950/20",
-  [TaskStatus.DONE]: "border-l-emerald-600 bg-emerald-100/80 dark:bg-emerald-950/20",
-};
-
-const statusIconMap: Record<TaskStatus, string> = {
-  [TaskStatus.BACKLOG]: "📋",
-  [TaskStatus.TODO]: "📝",
-  [TaskStatus.IN_PROGRESS]: "⚡",
-  [TaskStatus.IN_REVIEW]: "👀",
-  [TaskStatus.DONE]: "✅",
-};
-
-
 export const TaskDropdown = ({ tasks, date, isOpen, onClose, position }: TaskDropdownProps) => {
-  const [isVisible, setIsVisible] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const workspaceId = useWorkspaceId();
 
-  useEffect(() => {
-    if (isOpen) {
-      setIsVisible(true);
-    } else {
-      setIsVisible(false);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscape);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isOpen, onClose]);
+  useDismiss(dropdownRef, isOpen, onClose);
 
   const handleTaskClick = (taskId: string) => {
     if (taskId && workspaceId) {
@@ -80,8 +34,7 @@ export const TaskDropdown = ({ tasks, date, isOpen, onClose, position }: TaskDro
     }
   };
 
-
-  if (!isOpen || !isVisible) {
+  if (!isOpen) {
     return null;
   }
 
@@ -115,7 +68,7 @@ export const TaskDropdown = ({ tasks, date, isOpen, onClose, position }: TaskDro
               {format(date, 'MMMM d, yyyy')}
             </h3>
             <p className="text-sm text-muted-foreground">
-              {tasks.length} task{tasks.length !== 1 ? 's' : ''}
+              {pluralize(tasks.length, "task")}
             </p>
           </div>
           <button
@@ -135,13 +88,13 @@ export const TaskDropdown = ({ tasks, date, isOpen, onClose, position }: TaskDro
             onClick={() => handleTaskClick(task.$id)}
             className={cn(
               "p-3 rounded-lg border border-border/50 border-l-4 cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all duration-200 group",
-              statusColorMap[task.status]
+              calendarStatusColorMap[task.status]
             )}
           >
             <div className="flex items-start justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <span className="text-sm opacity-70 flex-shrink-0">
-                  {statusIconMap[task.status]}
+                  {calendarStatusIconMap[task.status]}
                 </span>
                 <p className="font-medium text-foreground truncate group-hover:text-primary transition-colors">
                   {task.name}

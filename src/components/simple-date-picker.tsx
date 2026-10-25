@@ -15,11 +15,11 @@ interface SimpleDatePickerProps {
     size?: "sm" | "md" | "lg";
 };
 
-export const SimpleDatePicker = ({ 
-    value, 
-    onChange, 
-    className, 
-    placeholder = "Select date", 
+export const SimpleDatePicker = ({
+    value,
+    onChange,
+    className,
+    placeholder = "Select date",
     disabled = false,
     label,
     hasError = false,
@@ -33,28 +33,28 @@ export const SimpleDatePicker = ({
         const checkMobile = () => {
             setIsMobile(window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
         };
-        
+
         checkMobile();
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
-    
+
     // Fixed: Convert Date to YYYY-MM-DD format for input (in local timezone)
     const formatDateForInput = (date: Date | undefined): string => {
         if (!date) return '';
-        
+
         // Get the date in local timezone
         const year = date.getFullYear();
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
         const day = date.getDate().toString().padStart(2, '0');
-        
+
         return `${year}-${month}-${day}`;
     };
 
     // Fixed: Convert YYYY-MM-DD to Date (treat as local date)
     const parseDateFromInput = (dateString: string): Date | undefined => {
         if (!dateString) return undefined;
-        
+
         // Parse as local date (creates date at midnight local time)
         const [year, month, day] = dateString.split('-').map(Number);
         return new Date(year, month - 1, day);
@@ -134,7 +134,7 @@ export const SimpleDatePicker = ({
                     inputMode="none" // Prevent virtual keyboard on mobile
                     autoComplete="off"
                 />
-                
+
                 {/* Calendar icon for mobile - acts as a trigger */}
                 {isMobile && !disabled && (
                     <button
@@ -148,15 +148,15 @@ export const SimpleDatePicker = ({
                             cursor: 'pointer',
                         }}
                     >
-                        <svg 
-                            xmlns="http://www.w3.org/2000/svg" 
-                            width="16" 
-                            height="16" 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            strokeWidth="2" 
-                            strokeLinecap="round" 
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
                             strokeLinejoin="round"
                             className="text-muted-foreground"
                         >

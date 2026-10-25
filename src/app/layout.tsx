@@ -4,11 +4,7 @@ import { Inter } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/components/query-providor";
-import { PerformanceMonitor } from "@/components/performance-monitor";
 import { ThemeProvider } from "@/components/theme-provider";
-import { NeuralBackground } from "@/components/neural-background";
-import { AuthGuard } from "@/components/auth-guard";
-import { PersonalTodoWidget } from "@/components/personal-todo-list";
 
 import "./globals.css";
 
@@ -35,9 +31,6 @@ export const metadata: Metadata = {
     title: "ScrumSpecter",
     description: "A modern project management and task tracking application",
   },
-  icons: {
-    icon: "/favicon.ico",
-  },
 };
 
 export const viewport: Viewport = {
@@ -52,10 +45,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.className} suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      </head>
       <body className={cn("antialiased min-h-screen")}>
         <ThemeProvider
           attribute="class"
@@ -65,13 +54,8 @@ export default function RootLayout({
           storageKey="scrumspecter-theme"
         >
           <QueryProvider>
-            <AuthGuard>
-              <NeuralBackground />
-              <PerformanceMonitor />
-              <Toaster />
-              {children}
-              <PersonalTodoWidget />
-            </AuthGuard>
+            <Toaster />
+            {children}
           </QueryProvider>
         </ThemeProvider>
       </body>

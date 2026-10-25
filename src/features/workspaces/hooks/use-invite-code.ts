@@ -1,6 +1,7 @@
-import { useParams } from "next/navigation"; 
+import { useParams } from "next/navigation";
 
-export const useInviteCode = () => { 
+export const useInviteCode = () => {
     const params = useParams();
-    return params.inviteCode as string;
+    // useParams keeps percent-encoding, so an "@" in older codes arrives as "%40"
+    return decodeURIComponent(params.inviteCode as string);
 };

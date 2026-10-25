@@ -1,12 +1,20 @@
+import "server-only";
 
-import { createSessionClient } from "@/lib/appwrite";
+import { cookies } from "next/headers";
+
+import { getUserFromToken } from "@/lib/auth";
+import { AUTH_COOKIE } from "./constants";
 
 export const getCurrent = async () => {
-    try{
-        const { account } = await createSessionClient();
-        return await account.get();
-    }
-    catch {
+    try {
+        const session = cookies().get(AUTH_COOKIE);
+
+        if (!session?.value) {
+            return null;
+        }
+
+        return await getUserFromToken(session.value);
+    } catch {
         return null;
     }
 };

@@ -1,87 +1,55 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { BarChart3Icon, TrendingUpIcon, TargetIcon, CalendarIcon } from "lucide-react";
 import { useGetTasks } from "@/features/tasks/api/use-get-tasks";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
-import { TaskStatus } from "@/features/tasks/types";
+import { calculateAverageVelocity, calculateVelocity, getProjectPointStats } from "@/lib/sprint-utils";
 
-interface Sprint {
-    id: string;
-    name: string;
-    storyPoints: number;
-    completedPoints: number;
-    velocity: number;
-}
+import { StatCard } from "./analytics-shared";
+
+const TREND_STYLES = {
+    increasing: { color: "text-green-600", icon: "↗" },
+    decreasing: { color: "text-red-600", icon: "↘" },
+    stable: { color: "text-blue-600", icon: "→" },
+} as const;
 
 export const VelocityTracker = () => {
     const workspaceId = useWorkspaceId();
     const { data: tasks } = useGetTasks({ workspaceId });
     const { data: projects } = useGetProjects({ workspaceId });
-    
-    const [sprints, setSprints] = useState<Sprint[]>([]);
 
-    useEffect(() => {
-        if (tasks?.documents && projects?.documents) {
-            // Group tasks by project and calculate velocity for each project
-            const projectVelocity = projects.documents.map(project => {
-                const projectTasks = tasks.documents.filter(task => task.projectId === project.$id);
-                const totalStoryPoints = projectTasks.reduce((sum, task) => sum + (task.storyPoints || 0), 0);
-                const completedTasks = projectTasks.filter(task => task.status === TaskStatus.DONE);
-                const completedPoints = completedTasks.reduce((sum, task) => sum + (task.storyPoints || 0), 0);
-                const velocity = totalStoryPoints > 0 ? Math.round((completedPoints / totalStoryPoints) * 100) : 0;
-                
-                return {
-                    id: project.$id,
-                    name: project.name,
-                    storyPoints: totalStoryPoints,
-                    completedPoints,
-                    velocity,
-                };
-            });
-            
-            setSprints(projectVelocity);
-        }
+    // One "sprint" entry per project
+    const sprints = useMemo(() => {
+        if (!tasks?.documents || !projects?.documents) return [];
+        return projects.documents.map(project => {
+            const { totalStoryPoints, completedStoryPoints } = getProjectPointStats(tasks.documents, project.$id);
+            return {
+                id: project.$id,
+                name: project.name,
+                storyPoints: totalStoryPoints,
+                completedPoints: completedStoryPoints,
+                velocity: calculateVelocity(completedStoryPoints, totalStoryPoints),
+            };
+        });
     }, [tasks, projects]);
 
+    const averageVelocity = calculateAverageVelocity(sprints.map(s => s.velocity));
 
-    const getAverageVelocity = () => {
-        if (sprints.length === 0) return 0;
-        const totalVelocity = sprints.reduce((sum, sprint) => sum + sprint.velocity, 0);
-        return Math.round(totalVelocity / sprints.length);
-    };
-
-    const getVelocityTrend = () => {
+    const getVelocityTrend = (): keyof typeof TREND_STYLES => {
         if (sprints.length < 2) return "stable";
         const recent = sprints.slice(-3);
         const avgRecent = recent.reduce((sum, sprint) => sum + sprint.velocity, 0) / recent.length;
-        const avgOverall = getAverageVelocity();
-        
-        if (avgRecent > avgOverall * 1.1) return "increasing";
-        if (avgRecent < avgOverall * 0.9) return "decreasing";
+
+        if (avgRecent > averageVelocity * 1.1) return "increasing";
+        if (avgRecent < averageVelocity * 0.9) return "decreasing";
         return "stable";
     };
 
-    const getTrendColor = () => {
-        const trend = getVelocityTrend();
-        switch (trend) {
-            case "increasing": return "text-green-600";
-            case "decreasing": return "text-red-600";
-            default: return "text-blue-600";
-        }
-    };
-
-    const getTrendIcon = () => {
-        const trend = getVelocityTrend();
-        switch (trend) {
-            case "increasing": return "↗";
-            case "decreasing": return "↘";
-            default: return "→";
-        }
-    };
+    const velocityTrend = getVelocityTrend();
 
     return (
         <div className="space-y-6">
@@ -97,52 +65,35 @@ export const VelocityTracker = () => {
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <Card>
-                            <CardContent className="p-4">
-                                <div className="flex items-center gap-2">
-                                    <TargetIcon className="h-4 w-4 text-primary" />
-                                    <span className="text-sm font-medium">Average Velocity</span>
-                                </div>
-                                <p className="text-2xl font-bold text-primary">
-                                    {getAverageVelocity()}%
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardContent className="p-4">
-                                <div className="flex items-center gap-2">
-                                    <TrendingUpIcon className="h-4 w-4 text-green-600" />
-                                    <span className="text-sm font-medium">Velocity Trend</span>
-                                </div>
-                                <p className={`text-2xl font-bold ${getTrendColor()}`}>
-                                    {getTrendIcon()} {getVelocityTrend()}
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardContent className="p-4">
-                                <div className="flex items-center gap-2">
-                                    <CalendarIcon className="h-4 w-4 text-primary" />
-                                    <span className="text-sm font-medium">Total Sprints</span>
-                                </div>
-                                <p className="text-2xl font-bold text-primary">
-                                    {sprints.length}
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardContent className="p-4">
-                                <div className="flex items-center gap-2">
-                                    <BarChart3Icon className="h-4 w-4 text-purple-600" />
-                                    <span className="text-sm font-medium">Best Velocity</span>
-                                </div>
-                                <p className="text-2xl font-bold text-purple-600">
-                                    {sprints.length > 0 ? Math.max(...sprints.map(s => s.velocity)) : 0}%
-                                </p>
-                            </CardContent>
-                        </Card>
+                        <StatCard
+                            icon={TargetIcon}
+                            iconClassName="text-primary"
+                            label="Average Velocity"
+                            value={`${averageVelocity}%`}
+                            valueClassName="text-primary"
+                        />
+                        <StatCard
+                            icon={TrendingUpIcon}
+                            iconClassName="text-green-600"
+                            label="Velocity Trend"
+                            value={`${TREND_STYLES[velocityTrend].icon} ${velocityTrend}`}
+                            valueClassName={TREND_STYLES[velocityTrend].color}
+                        />
+                        <StatCard
+                            icon={CalendarIcon}
+                            iconClassName="text-primary"
+                            label="Total Sprints"
+                            value={sprints.length}
+                            valueClassName="text-primary"
+                        />
+                        <StatCard
+                            icon={BarChart3Icon}
+                            iconClassName="text-purple-600"
+                            label="Best Velocity"
+                            value={`${sprints.length > 0 ? Math.max(...sprints.map(s => s.velocity)) : 0}%`}
+                            valueClassName="text-purple-600"
+                        />
                     </div>
-
 
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold">Sprint History</h3>
@@ -194,7 +145,7 @@ export const VelocityTracker = () => {
                                         <span>25%</span>
                                         <span>0%</span>
                                     </div>
-                                    
+
                                     {/* Chart area */}
                                     <div className="ml-8 h-full relative">
                                         {/* Velocity bars */}
@@ -214,17 +165,17 @@ export const VelocityTracker = () => {
                                                 </div>
                                             ))}
                                         </div>
-                                        
+
                                         {/* Average line */}
                                         <div
                                             className="absolute w-full border-t-2 border-dashed border-yellow-500"
                                             style={{
-                                                bottom: `${getAverageVelocity()}%`
+                                                bottom: `${averageVelocity}%`
                                             }}
                                         ></div>
                                     </div>
                                 </div>
-                                
+
                                 <div className="flex gap-4 text-sm">
                                     <div className="flex items-center gap-2">
                                         <div className="w-3 h-3 bg-primary rounded"></div>

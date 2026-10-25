@@ -12,16 +12,11 @@ import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 export const AnalyticsClient = () => {
     const workspaceId = useWorkspaceId();
     const { isAdmin } = useIsAdmin({ workspaceId });
-    
+
     const tabTriggerClassName = "flex items-center gap-2 bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground";
-    
+
     return (
         <div className="h-full flex flex-col space-y-4">
-            <div className="flex items-center gap-2">
-                <BarChart3Icon className="h-6 w-6 text-primary" />
-                <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
-            </div>
-            
             <Tabs defaultValue={isAdmin ? "capacity" : "burndown"} className="flex-1 flex flex-col">
                 <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-transparent p-0`}>
                     {isAdmin && (
@@ -45,21 +40,21 @@ export const AnalyticsClient = () => {
                         </TabsTrigger>
                     )}
                 </TabsList>
-                
+
                 {isAdmin && (
                     <TabsContent value="capacity" className="flex-1 mt-6">
                         <CapacityCalculator />
                     </TabsContent>
                 )}
-                
+
                 <TabsContent value="burndown" className="flex-1 mt-6">
                     <BurndownChart />
                 </TabsContent>
-                
+
                 <TabsContent value="velocity" className="flex-1 mt-6">
                     <VelocityTracker />
                 </TabsContent>
-                
+
                 {isAdmin && (
                     <TabsContent value="sprint-report" className="flex-1 mt-6">
                         <SprintReportGenerator />

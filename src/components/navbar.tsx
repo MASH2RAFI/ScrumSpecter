@@ -1,17 +1,30 @@
 "use client"
 
 import { UserButton } from "@/features/auth/components/user-button";
+import { PersonalTodoWidget } from "@/components/personal-todo-list";
 import { MobileSidebar } from "./mobile-sidebar";
 import { usePathname } from "next/navigation";
 
 const pathnameMap =  {
-    "tasks": { 
-        title: "My Tasks", 
+    "tasks": {
+        title: "My Tasks",
         description: "View all of your tasks here",
     },
-    "projects": { 
-        title: "My Project", 
-        description: "View tasks of your project here" 
+    "projects": {
+        title: "My Project",
+        description: "View tasks of your project here"
+    },
+    "members": {
+        title: "Members",
+        description: "Manage who is in this workspace",
+    },
+    "settings": {
+        title: "Settings",
+        description: "Workspace name, invite link and danger zone",
+    },
+    "routines": {
+        title: "Routines",
+        description: "Set up tasks that repeat every week",
     },
     "analytics": {
         title: "Analytics Dashboard",
@@ -19,17 +32,17 @@ const pathnameMap =  {
     },
 };
 
-const defaultMap = { 
+const defaultMap = {
     title: "Home",
     description: "Monitor all of your projects and tasks here",
 }
 
 export const Navbar = () => {
-    const pathname = usePathname(); 
+    const pathname = usePathname();
     const pathnameParts = pathname.split("/");
     const pathnameKey = pathnameParts[3] as keyof typeof pathnameMap;
     const { title, description } = pathnameMap[pathnameKey] || defaultMap;
-    
+
     return (
         <nav className="sticky top-0 z-40 pt-3 pb-3 px-4 sm:px-6 flex items-center justify-between bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-unified border-b border-border/50">
             <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
@@ -44,6 +57,7 @@ export const Navbar = () => {
                 </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
+                <PersonalTodoWidget />
                 <UserButton />
             </div>
         </nav>

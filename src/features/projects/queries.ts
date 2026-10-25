@@ -1,19 +1,28 @@
-import { Query } from "node-appwrite";
+import { desc, eq } from "drizzle-orm";
 
-import { DATABASE_ID, PROJECTS_ID } from "@/config";
-import { createSessionClient } from "@/lib/appwrite";
+import { getCurrent } from "@/features/auth/queries";
+import { getMember } from "@/features/members/utils";
+import { db } from "@/lib/db";
+import { projects } from "@/lib/db/schema";
+import { toDocList } from "@/lib/db/types";
 
 export const getProjects = async ({ workspaceId }: { workspaceId: string }) => {
-    const { databases } = await createSessionClient();
-    
-    const projects = await databases.listDocuments(
-        DATABASE_ID,
-        PROJECTS_ID,
-        [
-            Query.equal("workspaceId", workspaceId),
-            Query.orderDesc("$createdAt")
-        ]
-    );
+    const user = await getCurrent();
 
-    return projects;
+    if (!user) {
+        throw new Error("Unauthorized");
+    }
+
+    // Non-members see nothing, as with the old Appwrite document permissions
+    if (!(await getMember({ workspaceId, userId: user.$id }))) {
+        return toDocList([] as (typeof projects.$inferSelect)[]);
+    }
+
+    const rows = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.workspaceId, workspaceId))
+        .orderBy(desc(projects.createdAt));
+
+    return toDocList(rows);
 };

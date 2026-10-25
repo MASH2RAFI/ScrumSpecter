@@ -1,33 +1,23 @@
-"use client"
+import { cn } from "@/lib/utils"
 
-import { useTheme } from "next-themes"
+import { LogoMark } from "./logo"
 
 interface ThemeLogoProps {
   height?: number
+  // Kept for existing callers; the lockup sizes itself from `height`
   width?: number
   className?: string
 }
 
-export const ThemeLogo = ({ height = 50, width = 100, className }: ThemeLogoProps) => {
-  const { theme, resolvedTheme } = useTheme()
-  const currentTheme = resolvedTheme || theme || "light"
-  const fillColor = currentTheme === "dark" ? "#60A5FA" : "#297AFF"
-
-  return (
-    <div className={className}>
-      <svg 
-        width={width} 
-        height={height} 
-        viewBox="0 0 50 40" 
-        fill="none" 
-        xmlns="http://www.w3.org/2000/svg"
-        className="transition-colors duration-200"
-      >
-        <path 
-          d="M43 31L31 40H5L7 35L12 31H29L32 35L40 11L45 7H50L43 31ZM43 5L38 9H21L18 5L10 29L5 33H0L7 9L19 0H45L43 5ZM24 13H35L29 31L26 27H15L21 9L24 13Z" 
-          fill={fillColor}
-        />
-      </svg>
-    </div>
-  )
-}
+// Mark + wordmark, styled like the site's gradient headings; works in light and dark
+export const ThemeLogo = ({ height = 50, className }: ThemeLogoProps) => (
+  <div className={cn("inline-flex items-center gap-2.5", className)}>
+    <LogoMark size={Math.round(height * 0.8)} />
+    <span
+      className="font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent"
+      style={{ fontSize: Math.round(height * 0.44) }}
+    >
+      ScrumSpecter
+    </span>
+  </div>
+)
