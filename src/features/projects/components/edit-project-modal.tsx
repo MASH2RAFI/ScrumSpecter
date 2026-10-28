@@ -4,7 +4,7 @@ import { ResponsiveModal } from "@/components/responsive-modal";
 
 import { useGetProject } from "../api/use-get-project";
 import { useEditProjectModal } from "../hooks/use-edit-project-modal";
-import { EditProjectForm } from "./edit-project-form";
+import { LazyEditProjectForm } from "@/components/lazy-parts";
 import { FormSkeleton } from "@/components/page-skeletons";
 
 export const EditProjectModal = () => {
@@ -30,5 +30,5 @@ const EditProjectModalContent = ({ projectId, onClose }: { projectId: string; on
         return <p className="p-7 text-sm text-muted-foreground">Project not found</p>;
     }
 
-    return <EditProjectForm key={project.$id} initialValues={project} onCancel={onClose} />;
+    return <LazyEditProjectForm key={project.$id} initialValues={project} onCancel={onClose} />;
 };

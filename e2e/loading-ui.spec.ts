@@ -36,7 +36,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         // Compile the pages first, so the held requests below are the only thing being waited on
         const warm = await browser.newPage({ viewport });
         await signInBrowser(warm, user, baseURL!);
-        for (const { path } of PAGES) await warm.goto(`/workspaces/${workspaceId}${path()}`, { timeout: 120_000 });
+        // Only to get them compiled: an interrupted visit doesn't matter here
+        for (const { path } of PAGES) await warm.goto(`/workspaces/${workspaceId}${path()}`, { timeout: 120_000 }).catch(() => {});
         await warm.close();
 
         for (const { name, path } of PAGES) {

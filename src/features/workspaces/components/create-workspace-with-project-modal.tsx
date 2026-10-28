@@ -1,7 +1,7 @@
 "use client";
 
 import { ResponsiveModal } from "@/components/responsive-modal";
-import { CreateWorkspaceWithProjectForm } from "./create-workspace-with-project-form";
+import { LazyCreateWorkspaceForm } from "@/components/lazy-parts";
 import { useCreateWorkspaceModal } from "../hooks/use-create-workspace-modal";
 
 export const CreateWorkspaceWithProjectModal = () => {
@@ -9,7 +9,7 @@ export const CreateWorkspaceWithProjectModal = () => {
 
     return (
         <ResponsiveModal title="Create workspace" open={isOpen} onOpenChange={setIsOpen}>
-            <CreateWorkspaceWithProjectForm onCancel={close}/>
+            <LazyCreateWorkspaceForm onCancel={close}/>
         </ResponsiveModal>
     );
 };

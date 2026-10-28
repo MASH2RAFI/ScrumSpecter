@@ -1,6 +1,7 @@
 import { ClientOnly } from "@/components/client-only";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { DashboardSkeleton } from "@/components/page-skeletons";
+import { PrefetchOnIdle } from "@/components/lazy-parts";
 import { NotificationSettingsModal } from "@/features/notifications/components/notification-settings-modal";
 import { PreferencesSync } from "@/features/auth/components/preferences-sync";
 import { CreateProjectModal } from "@/features/projects/components/create-project-modal";
@@ -31,6 +32,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <TaskPanel />
             <NotificationSettingsModal />
             <PreferencesSync />
+            <PrefetchOnIdle />
             <DashboardShell>{children}</DashboardShell>
         </div>
         </ClientOnly>

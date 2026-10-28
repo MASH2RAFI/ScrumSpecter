@@ -1,6 +1,7 @@
 "use client";
 
 import { UserButton } from "@/features/auth/components/user-button";
+import { ClientOnly } from "@/components/client-only";
 import { NeuralBackground } from "@/components/neural-background";
 import { ThemeLogo } from "@/components/theme-logo";
 import { ThemeSwitch } from "@/components/theme-switch";
@@ -29,10 +30,14 @@ const StandloneLayout = ({ children }: StandloneLayoutProps) => {
                             <Link href="/">
                                 <ThemeLogo height={50} width={100} />
                             </Link>
-                            <div className="flex items-center gap-2">
-                                <ThemeSwitch />
-                                <UserButton />
-                            </div>
+                            {/* Both read browser-only state (theme, the cached signed-in user), so they're
+                                drawn after hydration; the placeholder keeps the header from shifting */}
+                            <ClientOnly fallback={<div className="h-10 w-[140px]" aria-hidden />}>
+                                <div className="flex items-center gap-2">
+                                    <ThemeSwitch />
+                                    <UserButton />
+                                </div>
+                            </ClientOnly>
                         </>
                     ) : (
                         <>

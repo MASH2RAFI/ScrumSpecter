@@ -3,7 +3,7 @@ import { z } from "zod";
 import { endNotBeforeStart, sprintDatesFields } from "@/features/projects/schemas";
 
 export const createWorkspaceSchema = z.object({
-    name: z.string().trim().min(1, "Required"),
+    name: z.string().trim().min(1, "Required").max(100, "At most 100 characters"),
 });
 
 const HH_MM = /^([01]\d|2[0-3]):[0-5]\d$/;

@@ -37,7 +37,8 @@ test("Home's stat cards count the tasks and open the matching list", async ({ br
     await expect(page.getByRole("img", { name: /Website: 25% of 8 story points done/ })).toBeVisible();
 
     await done.click();
-    await expect(page).toHaveURL(/\/tasks\?status=DONE/);
+    // The first visit to My Tasks compiles it, which can be slow while other tests run
+    await expect(page).toHaveURL(/\/tasks\?status=DONE/, { timeout: 60_000 });
     await expect(page.getByRole("cell", { name: "Ship logo", exact: true })).toBeVisible();
     await expect(page.getByRole("cell", { name: "Write copy", exact: true })).toHaveCount(0);
     expect(errors, errors.join("\n")).toEqual([]);

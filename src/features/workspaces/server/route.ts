@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -14,10 +15,32 @@ import { MemberRole } from "@/features/members/types";
 import { getMember, handOverPlaceholder, requireMember, requireRole } from "@/features/members/utils";
 import { canEditWork, canManageWorkspace } from "@/features/members/permissions";
 import { MAX_SCRIPT_LENGTH, planScript } from "./bulk-input";
-import { applyPlan, loadContext } from "./bulk-apply";
+import { applyPlan, countPlan, finishPlan, loadContext, newWorkspaceContext, writePlan } from "./bulk-apply";
 import { isValidTimeZone } from "@/lib/time-zone";
 import { createWorkspaceSchema, holidayChangeSchema, holidayRangeSchema, inviteLimitsSchema, updateWorkspaceSchema } from "../schemas";
 import { listUserWorkspaces } from "../queries";
+
+// A workspace with its creator as admin; `memberId` lets bulk setup refer to that member up front
+const insertWorkspace = async (tx: Parameters<Parameters<typeof db.transaction>[0]>[0], userId: string, name: string, memberId?: string) => {
+    const [created] = await tx
+        .insert(workspaces)
+        .values({
+            name,
+            userId,
+            inviteCode: generateInviteCode(6),
+            viewerInviteCode: generateInviteCode(10),
+        })
+        .returning();
+
+    await tx.insert(members).values({
+        ...(memberId ? { id: memberId } : {}),
+        userId,
+        workspaceId: created.id,
+        role: MemberRole.ADMIN,
+    });
+
+    return created;
+};
 
 const getWorkspace = async (workspaceId: string) => {
     const workspace = await findById(workspaces, workspaceId);
@@ -77,27 +100,49 @@ const app = new Hono()
             const user = c.get("user");
             const { name } = c.req.valid("form");
 
-            const workspace = await db.transaction(async (tx) => {
-                const [created] = await tx
-                    .insert(workspaces)
-                    .values({
-                        name,
-                        userId: user.$id,
-                        inviteCode: generateInviteCode(6),
-                        viewerInviteCode: generateInviteCode(10),
-                    })
-                    .returning();
-
-                await tx.insert(members).values({
-                    userId: user.$id,
-                    workspaceId: created.id,
-                    role: MemberRole.ADMIN,
-                });
-
-                return created;
-            });
+            const workspace = await db.transaction((tx) => insertWorkspace(tx, user.$id, name));
 
             return c.json({ data: toDoc(workspace) });
+        }
+    )
+
+    // Getting started with bulk input: checks a script against a workspace that doesn't exist
+    // yet, and on apply creates it (with the signed-in user as admin) and runs the script.
+    // All or nothing: if the script can't be applied, the new workspace is removed again.
+    .post(
+        "/setup",
+        sessionMiddleware,
+        zValidator("json", z.object({
+            name: createWorkspaceSchema.shape.name,
+            script: z.string().max(MAX_SCRIPT_LENGTH),
+            apply: z.boolean().default(false),
+        })),
+        async (c) => {
+            const user = c.get("user");
+            const { name, script, apply } = c.req.valid("json");
+            const timeZone = isValidTimeZone(user.preferences.timeZone) ? user.preferences.timeZone : "Asia/Dhaka";
+
+            const memberId = randomUUID();
+            const { results, plan } = planScript(script, newWorkspaceContext(memberId, user, timeZone));
+            const valid = results.length > 0 && results.every((result) => result.ok);
+
+            if (!apply || !valid) {
+                return c.json({ data: { results, applied: false, counts: null, workspaceId: null } });
+            }
+
+            // The workspace, its admin and every command commit together, or not at all
+            const workspace = await db.transaction(async (tx) => {
+                const created = await insertWorkspace(tx, user.$id, name, memberId);
+                await writePlan(tx, created.id, plan);
+                return created;
+            });
+            try {
+                await finishPlan(workspace.id, plan);
+            } catch (error) {
+                // The data is saved; the daily routines job fills in any tasks missed here
+                console.error("Routine tasks after bulk setup:", error);
+            }
+            return c.json({ data: { results, applied: true, counts: countPlan(plan), workspaceId: workspace.id } });
         }
     )
 

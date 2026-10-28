@@ -19,13 +19,12 @@ import { useTaskFilters } from "../hooks/use-task-filters";
 import { DataTable } from "./data-table";
 import { TaskBulkBar } from "./task-bulk-bar";
 import { getColumns } from "./columns";
-import { Datakanban } from "./data-kanban";
 import { useCallback, useMemo } from "react";
 import { splitByRoutineWeek } from "../routine-window";
 import { useGetRoutines } from "@/features/routines/api/use-get-routines";
 import { usePreferences } from "@/features/auth/hooks/use-preferences";
 import { useBulkUpdateTasks } from "../api/use-bulk-update-tasks";
-import { DataCalendar } from "./data-calendar";
+import { LazyCalendar, LazyKanban } from "@/components/lazy-parts";
 import { useProjectId } from "@/features/projects/hooks/use-project-id";
 import { Task, TaskStatus } from "../types";
 import { Loading, TableSkeleton } from "@/components/page-skeletons";
@@ -165,11 +164,11 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
                             />
                         </TabsContent>
                         <TabsContent value="kanban" className="mt-0">
-                            <Datakanban onChange={onKanbanChange} data={kanbanTasks}/>
+                            <LazyKanban onChange={onKanbanChange} data={kanbanTasks}/>
                         </TabsContent>
                         <TabsContent value="calendar" className="mt-0 h-full overflow-auto">
                             <div className="h-full min-h-[600px]">
-                                <DataCalendar data={calendarTasks} />
+                                <LazyCalendar data={calendarTasks} />
                             </div>
                         </TabsContent>
                     </>                    

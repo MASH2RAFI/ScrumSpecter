@@ -11,7 +11,7 @@ import { useCreateRoutine } from "../api/use-create-routine";
 import { useGetRoutines } from "../api/use-get-routines";
 import { useUpdateRoutine } from "../api/use-update-routine";
 import { useRoutineModal } from "../hooks/use-routine-modal";
-import { RoutineForm } from "./routine-form";
+import { LazyRoutineForm } from "@/components/lazy-parts";
 import { FormSkeleton } from "@/components/page-skeletons";
 
 export const RoutineModal = () => {
@@ -31,7 +31,7 @@ export const RoutineModal = () => {
             {isLoading ? (
                 <FormSkeleton fields={5} className="p-0" />
             ) : (
-                <RoutineForm
+                <LazyRoutineForm
                     // Remount per routine so the form picks up its values
                     key={editing?.$id ?? "new"}
                     initialValues={editing}

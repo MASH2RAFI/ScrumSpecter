@@ -2,7 +2,7 @@
 
 import { ResponsiveModal } from "@/components/responsive-modal";
 
-import { EditTaskFormWrapper } from "./edit-task-form-wrapper";
+import { LazyEditTaskForm } from "@/components/lazy-parts";
 import { useEditTaskModal } from "../hooks/use-edit-task-modal";
 
 export const EditTaskModal = () => {
@@ -11,7 +11,7 @@ export const EditTaskModal = () => {
     return (
         <ResponsiveModal title="Edit task" open={!!taskId} onOpenChange={close}>
             {taskId && (
-                <EditTaskFormWrapper id={taskId} onCancel={close}/>                
+                <LazyEditTaskForm id={taskId} onCancel={close}/>                
             )}
         </ResponsiveModal>
     );

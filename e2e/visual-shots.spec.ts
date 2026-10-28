@@ -65,6 +65,13 @@ test("design screenshots", async ({ browser, baseURL }) => {
                 await page.waitForTimeout(1800);
                 await page.screenshot({ path: `${out}/${name}-${theme}-${size}.png`, fullPage: name === "home" });
             }
+            // Getting started: the default tab and bulk input
+            for (const [name, query] of [["get-started", ""], ["get-started-bulk", "?start=bulk"]] as const) {
+                await page.goto(`/workspaces/create${query}`, { timeout: 120_000 });
+                await page.waitForTimeout(1500);
+                await page.screenshot({ path: `${out}/${name}-${theme}-${size}.png` });
+            }
+
             // Overlays: the phone menu, the task panel and the new-task form
             await page.goto(`/workspaces/${workspace.$id}/tasks`, { timeout: 120_000 });
             await expect(page.getByRole("status")).toHaveCount(0, { timeout: 60_000 });

@@ -6,8 +6,7 @@ import { PageError } from "@/components/page-error";
 import { useGetWorkspace } from "../api/use-get-workspace";
 import { useWorkspaceId } from "../hooks/use-workspace-id";
 import { useWorkspacePanel } from "../hooks/use-workspace-panel";
-import { WorkspaceSettings } from "./edit-workspace-form";
-import { MembersList } from "./members-list";
+import { LazyMembersList, LazyWorkspaceSettings } from "@/components/lazy-parts";
 import { FormSkeleton } from "@/components/page-skeletons";
 
 export const WorkspacePanelModal = () => {
@@ -21,7 +20,7 @@ export const WorkspacePanelModal = () => {
             onOpenChange={(open) => !open && close()}
             className={panel === "settings" ? "sm:max-w-2xl" : undefined}
         >
-            {panel === "members" && <MembersList onClose={close} />}
+            {panel === "members" && <LazyMembersList onClose={close} />}
             {panel === "settings" && <WorkspaceSettingsPanel workspaceId={workspaceId} />}
         </ResponsiveModal>
     );
@@ -40,5 +39,5 @@ const WorkspaceSettingsPanel = ({ workspaceId }: { workspaceId: string }) => {
         return <PageError message="Workspace not found" />;
     }
 
-    return <WorkspaceSettings workspace={workspace} />;
+    return <LazyWorkspaceSettings workspace={workspace} />;
 };

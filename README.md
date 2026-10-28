@@ -12,7 +12,7 @@ Sprint planning and task tracking for small agile teams. Live at [scrumspecter.v
   - bulk edit from the table;
   - Undo after deleting or moving a task.
 - **Home ("My work"):** your overdue tasks and those due today and tomorrow, with a countdown to each one's end time.
-- **Routines:** tasks that repeat weekly. They're created for each of their weekdays through the end of the sprint, and they skip days off.
+- **Routines:** tasks that repeat weekly. They're created for each of their weekdays through the end of the sprint, and they skip days off. Each routine chooses which task views (table, kanban, calendar) list its tasks; Home and My work always do.
 - **Roles:**
 
   | | Admin | Supervisor | Reviewer | Assignee | Viewer |
@@ -34,7 +34,8 @@ Sprint planning and task tracking for small agile teams. Live at [scrumspecter.v
   - 6 PM summary of tomorrow's tasks;
   - a reminder 30 minutes before a task ends;
   - change-request decisions.
-- **Bulk input** (Settings → Bulk input): add many projects, tasks, routines, days off and placeholders at once, one command per line. Every line is checked before anything is saved, and "Copy AI prompt" lets an AI assistant write the commands.
+- **Getting started** (`/workspaces/create`): create a workspace, join one by pasting an invite link, or set a new one up from bulk commands. `?start=join` or `?start=bulk` opens a tab directly.
+- **Bulk input** (Settings → Bulk input, or the getting-started page for a new workspace): add many projects, tasks, routines, days off and placeholders at once, one command per line. Every line is checked before anything is saved, and "Copy AI prompt" lets an AI assistant write the commands.
 - **Analytics:** capacity calculator, burndown chart, velocity tracker and a sprint report generator (Markdown).
 - **Accounts:**
   - email and password or Google sign-in;
@@ -51,7 +52,9 @@ Sprint planning and task tracking for small agile teams. Live at [scrumspecter.v
 
 ## Stack
 
-Next.js 14 (App Router), TypeScript, Tailwind CSS with shadcn/ui, a [Hono](https://hono.dev) API under `/api` with typed client calls (`src/lib/rpc.ts`), TanStack Query (cached in the browser), and Drizzle ORM with self-hosted PostgreSQL 17. It's hosted on Vercel.
+Next.js 14 (App Router), TypeScript, Tailwind CSS with shadcn/ui, a [Hono](https://hono.dev) API under `/api` with typed client calls (`src/lib/rpc.ts`), TanStack Query (cached in the browser), Motion for animation, and Drizzle ORM with self-hosted PostgreSQL 17. It's hosted on Vercel.
+
+The kanban and calendar views and the popup forms load on first use (`src/components/lazy-parts.tsx`), and are prefetched in the background once a page is idle.
 
 ```
 src/
@@ -80,8 +83,12 @@ e2e/                 Playwright end-to-end tests
 ### Tests
 
 `npm run test:e2e` starts its own in-memory Postgres (PGlite, `e2e/db-server.mjs`) and its own `next dev` (build folder `.next-e2e`), so it never touches a real database. It covers:
-- **the API:** auth, roles, change requests, bulk input and edit, invites, cron jobs;
-- **the browser:** sign-up, views, the welcome tour, roles and change requests, phone layouts.
+- **the API:** auth, roles, change requests, bulk input and edit, bulk workspace setup, invites, routine views, cron jobs;
+- **the browser:** sign-up and getting started, views, the welcome tour, roles and change requests, the task panel opening and closing from every entry point, loading skeletons, the Home dashboard, every page with and without reduced motion, phone layouts.
+
+Two runs take screenshots instead of checking things:
+- `VISUAL_SHOTS=<folder> npx playwright test e2e/visual-shots.spec.ts` saves every page in light and dark, at desktop and phone size;
+- `SKELETON_SHOTS=<folder> npx playwright test e2e/loading-ui.spec.ts` saves each page's loading skeleton.
 
 ## Environment
 
@@ -114,7 +121,12 @@ Data and auth live in Postgres on `minipi`. The compose stack is in the `docker/
    - nightly backups in `backups/` (`backup.sh`, 03:00, kept 14 days).
 3. **Users:** the app connects as `scrumspecter_app`. Its password is in the Pi's `docker/postgres/app-password`.
    - That user owns only the `scrumspecter` database and isn't a superuser, so it can't read files or run programs on the server.
-   - It's the only user allowed in over TCP.
+   - Once Vercel uses it too, `pg_hba.conf` will allow only this user over TCP. Until then the superuser can still connect over TCP as well.
    - The `scrumspecter` superuser only works inside the container: `docker exec scrumspecter-postgres psql -U scrumspecter`.
-4. **Migrations:** `npm run db:migrate` applies `drizzle/`. After any change to `src/lib/db/schema.ts`, run `npm run db:generate` first.
+4. **Migrations:** after any change to `src/lib/db/schema.ts`, run `npm run db:generate` to write a migration into `drizzle/`. To apply migrations on the Pi:
+   1. Open a tunnel: `ssh -f -N -L 15432:127.0.0.1:5432 mashrafi@100.85.55.98`. The migration tool can't connect through Funnel, which needs TLS from the first byte.
+   2. Run as the app user, so anything new is owned by it: `DATABASE_URL="postgres://scrumspecter_app:<password>@127.0.0.1:15432/scrumspecter" npx drizzle-kit migrate`.
+   3. Close the tunnel.
+
+   Deploy the matching code right after, because the live site expects the database to match it.
 5. **Vercel:** set the variables above (`DATABASE_SSL=direct`). Funnel routes connections by TLS SNI and drops Postgres's plaintext `SSLRequest`, so Vercel connects with direct TLS (`src/lib/db/pool-config.ts`, which needs Postgres 17+).

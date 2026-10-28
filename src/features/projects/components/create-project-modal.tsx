@@ -1,7 +1,7 @@
 "use client";
 
 import { ResponsiveModal } from "@/components/responsive-modal";
-import { CreateProjectForm } from "./create-project-form";
+import { LazyCreateProjectForm } from "@/components/lazy-parts";
 import { useCreateProjectModal } from "../hooks/use-create-project-modal";
 
 export const CreateProjectModal = () => {
@@ -9,7 +9,7 @@ export const CreateProjectModal = () => {
 
     return (
         <ResponsiveModal title="Create project" open={isOpen} onOpenChange={setIsOpen}>
-            <CreateProjectForm onCancel={close}/>
+            <LazyCreateProjectForm onCancel={close}/>
         </ResponsiveModal>
     );
 };

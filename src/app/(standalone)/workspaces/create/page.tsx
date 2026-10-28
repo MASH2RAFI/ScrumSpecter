@@ -1,5 +1,5 @@
 import { getCurrent } from "@/features/auth/queries";
-import { CreateWorkspaceWithProjectForm } from "@/features/workspaces/components/create-workspace-with-project-form";
+import { GettingStarted } from "@/features/workspaces/components/getting-started";
 import { redirect } from "next/navigation";
 
 const WorkspaceCreatePage = async () => {
@@ -8,8 +8,8 @@ const WorkspaceCreatePage = async () => {
     if (!user) redirect("/sign-in");
 
     return (
-        <div className="w-full lg:max-w-xl">
-            <CreateWorkspaceWithProjectForm />
+        <div className="w-full lg:max-w-2xl">
+            <GettingStarted />
         </div>
     );
 };
