@@ -20,6 +20,8 @@ export const preferencesSchema = z.object({
     remindBeforeEnd: z.boolean(),
     // The welcome tour on first sign-in; new accounts start with it on, everyone else off
     showTutorial: z.boolean(),
+    // Projects whose tasks My Tasks leaves out (the eye beside each project there)
+    hiddenProjects: z.array(z.string().min(1).max(64)).max(200),
 });
 
 export type UserPreferences = z.infer<typeof preferencesSchema>;
@@ -32,6 +34,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
     remindDayBefore: true,
     remindBeforeEnd: true,
     showTutorial: false,
+    hiddenProjects: [],
 };
 
 // Stored values may be partial or from an older shape; anything invalid falls back to the default

@@ -62,7 +62,9 @@ export const PrefetchOnIdle = () => {
     const { isViewer, isLoading } = usePermissions({ workspaceId: workspaceId ?? "" });
 
     useEffect(() => {
-        if (isLoading || lowData()) return;
+        // Production only: in development each import compiles on demand, and that burst of
+        // compiling right after a page loads can cancel a navigation in progress
+        if (process.env.NODE_ENV !== "production" || isLoading || lowData()) return;
         let cancelled = false;
         const parts = [...VIEWS, ...SHARED_PANELS, ...(isViewer ? [] : EDITING_FORMS)];
         // One at a time, so the downloads never compete with what the page itself is fetching.

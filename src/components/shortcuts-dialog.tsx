@@ -13,6 +13,8 @@ export const ShortcutsDialog = ({ open, onOpenChange }: { open: boolean; onOpenC
         { keys: ["["], label: "Keep the sidebar open / auto-hide it" },
         { keys: ["?"], label: "Show these shortcuts" },
         { keys: ["Esc"], label: "Close a popup or panel" },
+        { keys: ["Shift", "Click"], label: "Select a range of rows in the table" },
+        { keys: [isMac() ? "⌘" : "Ctrl", "Click"], label: "Add or remove one row in the table" },
     ];
 
     return (

@@ -17,14 +17,13 @@ import { useGetMembers } from "@/features/members/api/use-get-members";
 import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useCreateProjectModal } from "@/features/projects/hooks/use-create-project-modal";
-import { useGetTasks } from "@/features/tasks/api/use-get-tasks";
+import { useCurrentWeek, useGetTaskSummary, useGetTasks } from "@/features/tasks/api/use-get-tasks";
 import { Task } from "@/features/tasks/types";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
-import { calculateVelocity, formatDateDDMMYYYY, getProjectPointStats, sprintLengthInDays } from "@/lib/sprint-utils";
+import { calculateVelocity, formatDateDDMMYYYY, sprintLengthInDays } from "@/lib/sprint-utils";
 import { AlertTriangleIcon, CalendarIcon, ClockIcon, ListChecksIcon, PlusIcon } from "lucide-react";
 import { useCurrent } from "@/features/auth/api/use-current";
 import { usePreferences } from "@/features/auth/hooks/use-preferences";
-import { splitByRoutineWeek } from "@/features/tasks/routine-window";
 import { TaskStatusMenu } from "@/features/tasks/components/task-status-menu";
 import { formatTime, formatTimeRange, taskCountdown, taskEndAt } from "@/features/tasks/task-time";
 import { useNow } from "@/hooks/use-now";
@@ -47,11 +46,14 @@ const getSprintSummary = (startDate: string, endDate: string) => {
     return `${plural(daysLeft)} left • ${plural(totalDays)} sprint`;
 };
 
-const SprintProgress = ({ tasks, projectId }: { tasks: Task[]; projectId: string }) => {
-    const { projectTasks, completedTasks, totalStoryPoints, completedStoryPoints } = getProjectPointStats(tasks, projectId);
+// One project's totals from the server (GET /api/tasks/summary)
+type ProjectStats = { projectId: string; tasks: number; doneTasks: number; points: number; donePoints: number; overdue: number };
+
+const SprintProgress = ({ stats }: { stats?: ProjectStats }) => {
+    const totalStoryPoints = stats?.points ?? 0;
+    const completedStoryPoints = stats?.donePoints ?? 0;
     const percent = calculateVelocity(completedStoryPoints, totalStoryPoints);
-    const now = Date.now();
-    const overdue = projectTasks.filter((task) => task.status !== "DONE" && task.dueDate && new Date(task.dueDate).getTime() < now).length;
+    const overdue = stats?.overdue ?? 0;
 
     return (
         <div className="space-y-2">
@@ -61,7 +63,7 @@ const SprintProgress = ({ tasks, projectId }: { tasks: Task[]; projectId: string
             </div>
             <Meter value={percent / 100} label="Story points completed" />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{completedTasks.length}/{projectTasks.length} tasks done</span>
+                <span>{stats?.doneTasks ?? 0}/{stats?.tasks ?? 0} tasks done</span>
                 {overdue > 0 && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 font-medium text-destructive">
                         <AlertTriangleIcon className="size-3" />
@@ -181,52 +183,60 @@ export const WorkspaceIdClient = () => {
     const { open: openCreateProject } = useCreateProjectModal();
     const { canEditWork } = usePermissions({ workspaceId });
 
-    const { data: tasks, isLoading: isLoadingTasks, error: tasksError } = useGetTasks({ workspaceId });
+    // Only what Home shows, however large the workspace: counts from the server, this week's
+    // tasks for the chart, and the signed-in person's open tasks due by the end of tomorrow
+    const week = useCurrentWeek();
+    const { data: summary, isLoading: isLoadingSummary, error: summaryError } = useGetTaskSummary({ workspaceId });
     const { data: projects, isLoading: isLoadingProjects, error: projectsError } = useGetProjects({ workspaceId });
     const { data: members, isLoading: isLoadingMembers, error: membersError } = useGetMembers({ workspaceId });
     const { data: currentUser } = useCurrent();
     const { weekStart } = usePreferences();
-    const { data: workspace } = useGetWorkspace({ workspaceId });
-    const now = useNow();
+    const memberId = members?.documents.find((member) => member.userId === currentUser?.$id)?.$id;
+    const { data: weekTasks } = useGetTasks({ workspaceId, scope: "home", ...week, from: week.weekFrom, to: week.weekTo });
+    const dayAfterTomorrow = new Date();
+    dayAfterTomorrow.setHours(0, 0, 0, 0);
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+    const { data: myTasks } = useGetTasks({
+        workspaceId, scope: "home", ...week, assigneeId: memberId, openOnly: true,
+        to: dayAfterTomorrow.toISOString(), enabled: Boolean(memberId),
+    });
 
-    useRedirectOnAccessError(tasksError, projectsError, membersError);
+    useRedirectOnAccessError(summaryError, projectsError, membersError);
 
     // Keep showing the loader while an access-error redirect happens
-    if (isLoadingTasks || isLoadingProjects || isLoadingMembers || [tasksError, projectsError, membersError].some(isAccessError)) {
+    if (isLoadingSummary || isLoadingProjects || isLoadingMembers || [summaryError, projectsError, membersError].some(isAccessError)) {
         return <PageSkeleton />
     }
 
-    if (!tasks || !projects || !members) {
+    if (!summary || !projects || !members) {
         return <PageError message="Failed to load workspace data" />
     }
 
-    // Routine tasks only for this week; sprint progress still counts the whole sprint
-    const listTasks = splitByRoutineWeek(tasks.documents, weekStart).visible;
-    const memberId = members.documents.find((member) => member.userId === currentUser?.$id)?.$id;
+    const statsFor = (projectId: string) => summary.projects.find((row) => row.projectId === projectId);
 
     return (
         <Stagger className="flex flex-col gap-6">
             <StaggerItem><EnableRemindersCard /></StaggerItem>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <StatCards tasks={listTasks} workspaceId={workspaceId} dayEnd={workspace?.workDayEnd} now={now} />
+                <StatCards counts={summary} workspaceId={workspaceId} />
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <StaggerItem className="lg:col-span-2">
-                    <WeekChart tasks={listTasks} memberId={memberId} weekStart={weekStart} />
+                    <WeekChart tasks={weekTasks?.documents ?? []} memberId={memberId} weekStart={weekStart} />
                 </StaggerItem>
                 <StaggerItem>
-                    <SprintDonut tasks={tasks.documents} projects={projects.documents} />
+                    <SprintDonut stats={summary.projects} projects={projects.documents} />
                 </StaggerItem>
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <StaggerItem className="lg:col-span-2">
-                    <MyWork tasks={listTasks} memberId={memberId} />
+                    <MyWork tasks={myTasks?.documents ?? []} memberId={memberId} />
                 </StaggerItem>
                 <StaggerItem>
-                    <TeamCard members={members.documents} tasks={listTasks} />
+                    <TeamCard members={members.documents} openByMember={summary.openByMember} />
                 </StaggerItem>
             </div>
 
@@ -255,7 +265,7 @@ export const WorkspaceIdClient = () => {
                                     ? getSprintSummary(project.currentSprintStartDate, project.currentSprintEndDate)
                                     : `Sprint ${project.sprintNumber || 1} • ${project.sprintDuration || 14} days`}
                             >
-                                <SprintProgress tasks={tasks.documents} projectId={project.$id} />
+                                <SprintProgress stats={statsFor(project.$id)} />
                                 {project.currentSprintStartDate && project.currentSprintEndDate && (
                                     <div className="flex items-center gap-2 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
                                         <CalendarIcon className="size-3.5 text-primary" />

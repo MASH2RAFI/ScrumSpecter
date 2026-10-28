@@ -23,7 +23,7 @@ import { TaskTimeFields } from "@/features/tasks/components/task-time-fields";
 import { DEFAULT_DURATION_MINUTES } from "@/features/tasks/task-time";
 
 import { routineFieldsSchema } from "../schemas";
-import { Routine, ROUTINE_VIEWS, WEEKDAYS } from "../types";
+import { Routine, WEEKDAYS } from "../types";
 import { usePreferences } from "@/features/auth/hooks/use-preferences";
 import { isoWeekdayOrder } from "@/lib/week";
 
@@ -56,9 +56,6 @@ export const RoutineForm = ({ initialValues, isPending, onSubmit, onCancel, proj
             storyPoints: initialValues?.storyPoints ?? 1,
             startTime: initialValues?.startTime ?? "",
             durationMinutes: initialValues?.startTime ? initialValues.durationMinutes ?? DEFAULT_DURATION_MINUTES : undefined,
-            showInTable: initialValues?.showInTable ?? true,
-            showInKanban: initialValues?.showInKanban ?? true,
-            showInCalendar: initialValues?.showInCalendar ?? true,
         },
     });
 
@@ -136,28 +133,6 @@ export const RoutineForm = ({ initialValues, isPending, onSubmit, onCancel, proj
                                 </FormItem>
                             )}
                         />
-                        <div className="space-y-2">
-                            <p className="text-sm font-medium" id="routine-views-label">Show its tasks in</p>
-                            <div className="flex flex-wrap gap-2" role="group" aria-labelledby="routine-views-label">
-                                {ROUTINE_VIEWS.map(({ key, label }) => {
-                                    const shown = form.watch(key) !== false;
-                                    return (
-                                        <Button
-                                            key={key}
-                                            type="button"
-                                            size="sm"
-                                            variant={shown ? "primary" : "outline"}
-                                            aria-pressed={shown}
-                                            className={cn(!shown && "text-muted-foreground")}
-                                            onClick={() => form.setValue(key, !shown, { shouldDirty: true })}
-                                        >
-                                            {label}
-                                        </Button>
-                                    );
-                                })}
-                            </div>
-                            <p className="text-xs text-muted-foreground">Home and My work always show them.</p>
-                        </div>
                         <div className="space-y-1">
                             <TaskTimeFields />
                             {form.watch("startTime") && timeZone !== viewerTimeZone && (

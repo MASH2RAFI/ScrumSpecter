@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, arrayContains, desc, eq, ilike, inArray, max, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, max, ne } from "drizzle-orm";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { db } from "@/lib/db";
 import { findById } from "@/lib/db/find-by-id";
@@ -13,6 +13,7 @@ import { MemberRole } from "@/features/members/types";
 import { requireMember, requireRole } from "@/features/members/utils";
 import { Project } from "@/features/projects/types";
 import { bulkEditSchema, createTaskSchema, restoreTasksSchema } from "../schemas";
+import { baseFilters, countTasks, hiddenRoutineCount, listQuerySchema, orderFor, routineRule, selectTasks, taskSummary } from "./task-list";
 import { PopulatedAssignee, Task, TaskStatus } from "../types";
 
 const MEMBER_NOT_FOUND = "Member not found in the workspace";
@@ -156,70 +157,43 @@ const app = new Hono()
         }
     )
 
+    // Tasks for a workspace; see task-list.ts for the optional paging, ranges and view scopes
     .get(
         "/",
         sessionMiddleware,
-        zValidator(
-            "query",
-            z.object({
-                workspaceId: z.string(),
-                projectId: z.string().nullish(),
-                assigneeId: z.string().nullish(),
-                status: z.nativeEnum(TaskStatus).nullish(),
-                search: z.string().nullish(),
-                dueDate: z.string().nullish(),
-            })
-        ),
+        zValidator("query", listQuerySchema),
         async (c) => {
-            const {
-                workspaceId,
-                projectId,
-                status,
-                search,
-                assigneeId,
-                dueDate,
-            } = c.req.valid("query");
+            const q = c.req.valid("query");
+            const filters = baseFilters(q);
+            const rule = routineRule(q);
+            const where = and(...filters, rule);
 
-            const filters: SQL[] = [eq(tasks.workspaceId, workspaceId)];
+            // Kanban (with no status filter): every open task, but only the most recently
+            // finished Done ones, as that column only ever grows
+            const capDone = q.scope === "kanban" && q.doneLimit && !q.status;
+            const page = q.limit !== undefined;
 
-            if (projectId) {
-                filters.push(eq(tasks.projectId, projectId));
-            }
-
-            if (status) {
-                filters.push(eq(tasks.status, status));
-            }
-
-            if (assigneeId) {
-                filters.push(arrayContains(tasks.assigneeIds, [assigneeId]));
-            }
-
-            if (dueDate) {
-                filters.push(eq(tasks.dueDate, new Date(dueDate)));
-            }
-
-            if (search) {
-                filters.push(ilike(tasks.name, `%${search}%`));
-            }
-
-            // Tasks with their project, run alongside the membership check; rows are only
-            // returned once membership is confirmed
-            const [member, rows] = await Promise.all([
-                requireMember(c, workspaceId, { error: MEMBER_NOT_FOUND }),
-                db
-                    .select({ task: tasks, project: projects })
-                    .from(tasks)
-                    .leftJoin(projects, eq(projects.id, tasks.projectId))
-                    .where(and(...filters))
-                    .orderBy(desc(tasks.createdAt)),
-            ]);
-
+            const member = await requireMember(c, q.workspaceId, { error: MEMBER_NOT_FOUND });
             if (member instanceof Response) {
                 return member;
             }
 
-            const people = await loadAssignees(rows.map(({ task }) => task));
-            const populatedTasks = rows.map(({ task, project }) => ({
+            const [rows, total, doneRows, doneTotal, hiddenRoutineTasks] = await Promise.all([
+                (() => {
+                    const query = selectTasks(capDone ? and(where, ne(tasks.status, TaskStatus.DONE)) : where).orderBy(...orderFor(q));
+                    return page ? query.limit(q.limit!).offset(q.offset ?? 0) : query;
+                })(),
+                page ? countTasks(where) : null,
+                capDone
+                    ? selectTasks(and(where, eq(tasks.status, TaskStatus.DONE))).orderBy(desc(tasks.updatedAt)).limit(q.doneLimit!)
+                    : [],
+                capDone ? countTasks(and(where, eq(tasks.status, TaskStatus.DONE))) : null,
+                q.scope === "table" || q.scope === "kanban" ? hiddenRoutineCount(q, filters) : 0,
+            ]);
+
+            const all = [...rows, ...doneRows];
+            const people = await loadAssignees(all.map(({ task }) => task));
+            const documents = all.map(({ task, project }) => ({
                 ...toTaskDoc(task),
                 project: project ? toDoc(project) as Project : undefined,
                 ...withAssignees(task, people),
@@ -227,10 +201,32 @@ const app = new Hono()
 
             return c.json({
                 data: {
-                    documents: populatedTasks,
-                    total: populatedTasks.length,
+                    documents,
+                    // Every match, not just this page (or this many Done ones)
+                    total: total ?? (capDone ? rows.length + (doneTotal ?? 0) : documents.length),
+                    doneTotal,
+                    hiddenRoutineTasks,
                 },
             });
+        }
+    )
+
+    // Home's numbers for this week, counted in the database
+    .get(
+        "/summary",
+        sessionMiddleware,
+        zValidator("query", z.object({
+            workspaceId: z.string(),
+            weekFrom: z.string().datetime({ offset: true }),
+            weekTo: z.string().datetime({ offset: true }),
+        })),
+        async (c) => {
+            const { workspaceId, weekFrom, weekTo } = c.req.valid("query");
+            const member = await requireMember(c, workspaceId, { error: MEMBER_NOT_FOUND });
+            if (member instanceof Response) {
+                return member;
+            }
+            return c.json({ data: await taskSummary(workspaceId, weekFrom, weekTo) });
         }
     )
 

@@ -6,7 +6,6 @@ import { TargetIcon } from "lucide-react";
 import { CountUp, EASE, m } from "@/components/motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TaskStatus, type Task } from "@/features/tasks/types";
 import type { Project } from "@/features/projects/types";
 
 const SIZE = 140;
@@ -21,19 +20,20 @@ const SEGMENTS = [
     { key: "todo", label: "Not started", color: "var(--ramp-low)" },
 ] as const;
 
+// One project's totals, as the server counts them (GET /api/tasks/summary)
+export type ProjectPoints = { projectId: string; points: number; donePoints: number; progressPoints: number };
+
 // Story points of one project's sprint by state, as a ring that draws itself in
-export const SprintDonut = ({ tasks, projects }: { tasks: Task[]; projects: Project[] }) => {
+export const SprintDonut = ({ stats, projects }: { stats: ProjectPoints[]; projects: Project[] }) => {
     const [projectId, setProjectId] = useState(projects[0]?.$id ?? "");
     const project = projects.find((p) => p.$id === projectId) ?? projects[0];
 
-    const points = { done: 0, progress: 0, todo: 0 };
-    for (const task of tasks) {
-        if (task.projectId !== project?.$id) continue;
-        const value = task.storyPoints ?? 0;
-        if (task.status === TaskStatus.DONE) points.done += value;
-        else if (task.status === TaskStatus.IN_PROGRESS || task.status === TaskStatus.IN_REVIEW) points.progress += value;
-        else points.todo += value;
-    }
+    const row = stats.find((s) => s.projectId === project?.$id);
+    const points = {
+        done: row?.donePoints ?? 0,
+        progress: row?.progressPoints ?? 0,
+        todo: (row?.points ?? 0) - (row?.donePoints ?? 0) - (row?.progressPoints ?? 0),
+    };
     const total = points.done + points.progress + points.todo;
     const percent = total ? Math.round((points.done / total) * 100) : 0;
 

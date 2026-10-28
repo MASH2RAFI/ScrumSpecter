@@ -5,10 +5,10 @@ import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { BarChart3Icon, TrendingUpIcon, TargetIcon, CalendarIcon } from "lucide-react";
-import { useGetTasks } from "@/features/tasks/api/use-get-tasks";
+import { useGetTaskSummary } from "@/features/tasks/api/use-get-tasks";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
-import { calculateAverageVelocity, calculateVelocity, getProjectPointStats } from "@/lib/sprint-utils";
+import { calculateAverageVelocity, calculateVelocity } from "@/lib/sprint-utils";
 
 import { StatCard } from "./analytics-shared";
 
@@ -20,14 +20,17 @@ const TREND_STYLES = {
 
 export const VelocityTracker = () => {
     const workspaceId = useWorkspaceId();
-    const { data: tasks } = useGetTasks({ workspaceId });
+    // Points per project, counted by the server
+    const { data: summary } = useGetTaskSummary({ workspaceId });
     const { data: projects } = useGetProjects({ workspaceId });
 
     // One "sprint" entry per project
     const sprints = useMemo(() => {
-        if (!tasks?.documents || !projects?.documents) return [];
+        if (!summary || !projects?.documents) return [];
         return projects.documents.map(project => {
-            const { totalStoryPoints, completedStoryPoints } = getProjectPointStats(tasks.documents, project.$id);
+            const row = summary.projects.find((p) => p.projectId === project.$id);
+            const totalStoryPoints = row?.points ?? 0;
+            const completedStoryPoints = row?.donePoints ?? 0;
             return {
                 id: project.$id,
                 name: project.name,
@@ -36,7 +39,7 @@ export const VelocityTracker = () => {
                 velocity: calculateVelocity(completedStoryPoints, totalStoryPoints),
             };
         });
-    }, [tasks, projects]);
+    }, [summary, projects]);
 
     const averageVelocity = calculateAverageVelocity(sprints.map(s => s.velocity));
 

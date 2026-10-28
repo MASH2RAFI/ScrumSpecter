@@ -78,9 +78,25 @@ const byTimeThenName = (a: Task, b: Task) =>
 
 interface DataCalendarProps {
     data: Task[];
+    // The dates on screen, [from, to), so only those tasks need loading
+    onRangeChange?: (from: Date, to: Date) => void;
 }
 
-export const DataCalendar = ({ data }: DataCalendarProps) => {
+// What the grid shows: whole weeks around the month, the week, or the day
+const visibleRange = (date: Date, view: CalendarView, weekStart: 0 | 1 | 6) => {
+    if (view === "month") {
+        const from = startOfWeek(startOfMonth(date), { weekStartsOn: weekStart });
+        return { from, to: addDays(startOfWeek(endOfMonth(date), { weekStartsOn: weekStart }), 7) };
+    }
+    if (view === "week") {
+        const { start, end } = weekRange(date, weekStart);
+        return { from: start, to: end };
+    }
+    const from = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    return { from, to: addDays(from, 1) };
+};
+
+export const DataCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
     const [value, setValue] = useState(new Date());
     // Moving to another month/week slides the grid in from that side
     const [gridScope, animateGrid] = useAnimate<HTMLDivElement>();
@@ -97,6 +113,11 @@ export const DataCalendar = ({ data }: DataCalendarProps) => {
     const [view, setView] = useQueryState("cal", parseAsStringEnum<CalendarView>(CALENDAR_VIEWS).withDefault("month"));
     const { prefs, update: updatePrefs } = useCalendarPrefs();
     const { weekStart, timeFormat } = usePreferences();
+    useEffect(() => {
+        if (!onRangeChange) return;
+        const { from, to } = visibleRange(value, view, weekStart);
+        onRangeChange(from, to);
+    }, [value, view, weekStart, onRangeChange]);
     const hour12 = timeFormat === "12h";
     const { open: openCreateTask } = useCreateTaskModal();
     const { open: openTask } = useTaskPanel();

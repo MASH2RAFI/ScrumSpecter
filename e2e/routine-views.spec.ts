@@ -64,20 +64,46 @@ test("the views follow the routine's settings", async ({ browser, baseURL }) => 
     await page.getByRole("button", { name: "week", exact: true }).click();
     await expect(page.locator(".rbc-calendar").getByText("Standup").first()).toBeVisible();
 
-    // The routine form shows and changes the setting
+    // The routine's card shows and changes the setting directly (not in the edit form)
     await page.goto(`/workspaces/${workspaceId}/routines`, { timeout: 90_000 });
-    await expect(page.getByText("Hidden from Kanban")).toBeVisible();
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
-    const views = page.getByRole("group", { name: "Show its tasks in" });
+    const views = page.getByRole("group", { name: "Show Standup's tasks in" });
     await expect(views.getByRole("button", { name: "Kanban" })).toHaveAttribute("aria-pressed", "false");
+    await expect(views.getByRole("button", { name: "Table" })).toHaveAttribute("aria-pressed", "true");
     await views.getByRole("button", { name: "Table" }).click();
     await expect(views.getByRole("button", { name: "Table" })).toHaveAttribute("aria-pressed", "false");
-    await page.getByRole("button", { name: "Save routine" }).click();
-    await expect(page.getByText("Hidden from Table, Kanban")).toBeVisible();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await expect(page.getByText("Show its tasks in")).toHaveCount(0);
+    await page.keyboard.press("Escape");
 
     await page.goto(`/workspaces/${workspaceId}/tasks`, { timeout: 90_000 });
     await expect(page.getByRole("tab", { name: "Table" })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("button", { name: standup })).toHaveCount(0);
+    expect(errors, errors.join("\n")).toEqual([]);
+    await page.close();
+});
+
+test("My Tasks: the eye beside a project hides its tasks there", async ({ browser, baseURL }) => {
+    const res = await admin.api.post("/api/projects", { multipart: { name: "Marketing", workspaceId } });
+    const marketingId = (await res.json()).data.$id;
+    await admin.api.post("/api/tasks", { data: { workspaceId, projectId: marketingId, assigneeIds: [memberId], name: "Launch post", status: "TODO", dueDate: new Date().toISOString() } });
+
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const errors = watchConsole(page);
+    await signInBrowser(page, admin, baseURL!);
+    await page.goto(`/workspaces/${workspaceId}/tasks?task-view=table`, { timeout: 90_000 });
+    await expect(page.getByRole("button", { name: "Launch post", exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Hide Marketing from My Tasks" }).click();
+    await expect(page.getByRole("button", { name: "Launch post", exact: true })).toHaveCount(0);
+    // Saved on the account
+    await expect.poll(async () => (await (await admin.api.get("/api/account")).json()).data.preferences.hiddenProjects).toEqual([marketingId]);
+    // Picking the project explicitly still shows it
+    await page.goto(`/workspaces/${workspaceId}/tasks?task-view=table&projectId=${marketingId}`, { timeout: 90_000 });
+    await expect(page.getByRole("button", { name: "Launch post", exact: true })).toBeVisible();
+
+    await page.goto(`/workspaces/${workspaceId}/tasks?task-view=table`, { timeout: 90_000 });
+    await page.getByRole("button", { name: "Show Marketing in My Tasks" }).click();
+    await expect(page.getByRole("button", { name: "Launch post", exact: true })).toBeVisible();
     expect(errors, errors.join("\n")).toEqual([]);
     await page.close();
 });

@@ -127,9 +127,34 @@ export const RoutinesClient = () => {
                                             </span>
                                         )}
                                     </p>
-                                    {ROUTINE_VIEWS.some(({ key }) => !routine[key]) && (
+                                    {/* Which task views list this routine's tasks; editors switch them right here */}
+                                    {canEditWork ? (
+                                        <div className="flex flex-wrap items-center gap-1.5 pt-1" role="group" aria-label={`Show ${routine.name}'s tasks in`}>
+                                            <span className="mr-1 text-xs text-muted-foreground">Show in</span>
+                                            {ROUTINE_VIEWS.map(({ key, label }) => {
+                                                const shown = routine[key];
+                                                return (
+                                                    <button
+                                                        key={key}
+                                                        type="button"
+                                                        aria-pressed={shown}
+                                                        disabled={isUpdating}
+                                                        onClick={() => updateRoutine({ param: { routineId: routine.$id }, json: { [key]: !shown } })}
+                                                        className={cn(
+                                                            "min-h-0 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors duration-200 ease-out disabled:opacity-60",
+                                                            shown
+                                                                ? "border-primary/30 bg-accent text-accent-foreground"
+                                                                : "border-border text-muted-foreground line-through hover:text-foreground",
+                                                        )}
+                                                    >
+                                                        {label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : ROUTINE_VIEWS.some(({ key }) => !routine[key]) && (
                                         <p className="text-xs text-muted-foreground">
-                                            Hidden from {ROUTINE_VIEWS.filter(({ key }) => !routine[key]).map(({ label }) => label).join(", ")}
+                                            Shows in {ROUTINE_VIEWS.filter(({ key }) => routine[key]).map(({ label }) => label).join(", ") || "Home and My work only"}
                                         </p>
                                     )}
                                 </div>

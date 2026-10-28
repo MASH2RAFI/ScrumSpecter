@@ -168,7 +168,9 @@ export const RequestsClient = () => {
     const { data: requests, isLoading } = useGetChangeRequests({ workspaceId });
     const { data: projects } = useGetProjects({ workspaceId });
     const { data: members } = useGetMembers({ workspaceId });
-    const { data: tasks } = useGetTasks({ workspaceId });
+    // Only the tasks the requests are about (their current values, shown next to the proposed ones)
+    const taskIds = Array.from(new Set((requests ?? []).flatMap((request) => request.taskId ? [request.taskId] : [])));
+    const { data: tasks } = useGetTasks({ workspaceId, ids: taskIds });
 
     if (isLoading) return <PageSkeleton />;
     if (!requests) return <PageError message="Failed to load change requests" />;

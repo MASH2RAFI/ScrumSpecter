@@ -21,3 +21,12 @@ Data and auth live in Postgres on `minipi`. The compose stack is in the `docker/
 
    Deploy the matching code right after, because the live site expects the database to match it.
 5. **Vercel:** set the variables above (`DATABASE_SSL=direct`). Funnel routes connections by TLS SNI and drops Postgres's plaintext `SSLRequest`, so Vercel connects with direct TLS (`src/lib/db/pool-config.ts`, which needs Postgres 17+).
+
+## Reminders job
+
+Vercel's free cron runs only once a day, so the Pi calls `GET /api/cron/reminders` every 5 minutes. Each call sends due reminders, then moves tasks still in To Do after they ended to Backlog.
+
+- **Crontab** (`crontab -l` on the Pi): `*/5 * * * * sh /home/mashrafi/docker/postgres/reminders.sh`, next to the 03:00 backup line.
+- **Script:** `~/docker/postgres/reminders.sh` calls `https://scrumspecter.vercel.app/api/cron/reminders` with `Authorization: Bearer <CRON_SECRET>`.
+- **Secret:** read from `~/docker/postgres/cron-secret` (owner-only). It must match `CRON_SECRET` on Vercel.
+- **Log:** only failures are written, to `~/docker/postgres/reminders.log`, which keeps the last 200 lines. An empty or missing log means every run worked.

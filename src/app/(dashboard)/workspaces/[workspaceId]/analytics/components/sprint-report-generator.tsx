@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FileTextIcon, DownloadIcon, UsersIcon, TargetIcon } from "lucide-react";
-import { useGetTasks } from "@/features/tasks/api/use-get-tasks";
+import { useGetTaskSummary, useGetTasks } from "@/features/tasks/api/use-get-tasks";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useGetMembers } from "@/features/members/api/use-get-members";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
@@ -213,15 +213,17 @@ const buildReportHtml = (report: SprintReport) => {
 
 export const SprintReportGenerator = () => {
     const workspaceId = useWorkspaceId();
-    const { data: tasks } = useGetTasks({ workspaceId });
     const { data: projects } = useGetProjects({ workspaceId });
     const { data: members } = useGetMembers({ workspaceId });
 
     const [selectedProject, setSelectedProject] = useState<string>("");
+    // Just the chosen project's tasks; the other projects' velocities come from the summary
+    const { data: tasks } = useGetTasks({ workspaceId, projectId: selectedProject, enabled: Boolean(selectedProject) });
+    const { data: summary } = useGetTaskSummary({ workspaceId });
     const [report, setReport] = useState<SprintReport>(EMPTY_REPORT);
 
     useEffect(() => {
-        if (selectedProject && tasks?.documents && projects?.documents && members?.documents) {
+        if (selectedProject && tasks?.documents && summary && projects?.documents && members?.documents) {
             const project = projects.documents.find(p => p.$id === selectedProject);
             const { projectTasks, completedTasks, totalStoryPoints, completedStoryPoints } =
                 getProjectPointStats(tasks.documents, selectedProject);
@@ -232,8 +234,8 @@ export const SprintReportGenerator = () => {
 
             const allProjects = projects.documents;
             const projectVelocities = allProjects.map(p => {
-                const stats = getProjectPointStats(tasks.documents, p.$id);
-                return calculateVelocity(stats.completedStoryPoints, stats.totalStoryPoints);
+                const row = summary.projects.find((stats) => stats.projectId === p.$id);
+                return calculateVelocity(row?.donePoints ?? 0, row?.points ?? 0);
             });
             const averageVelocity = calculateAverageVelocity(projectVelocities);
 
@@ -260,7 +262,7 @@ export const SprintReportGenerator = () => {
                 },
             });
         }
-    }, [selectedProject, tasks, projects, members]);
+    }, [selectedProject, tasks, summary, projects, members]);
 
     const calculateReportVelocity = () => {
         if (report.totalStoryPoints > 0) {

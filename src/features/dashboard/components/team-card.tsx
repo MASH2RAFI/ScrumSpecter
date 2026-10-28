@@ -7,14 +7,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { MemberAvatar } from "@/features/members/components/member-avatar";
 import { ROLE_LABELS } from "@/features/members/permissions";
 import type { Member } from "@/features/members/types";
-import { TaskStatus, type Task } from "@/features/tasks/types";
 import { useWorkspacePanel } from "@/features/workspaces/hooks/use-workspace-panel";
 
 // Who's in the workspace and how much each has on their plate
-export const TeamCard = ({ members, tasks }: { members: Member[]; tasks: Task[] }) => {
+export const TeamCard = ({ members, openByMember }: { members: Member[]; openByMember: Record<string, number> }) => {
     const { open } = useWorkspacePanel();
-    const openCount = (memberId: string) =>
-        tasks.filter((task) => task.status !== TaskStatus.DONE && task.assigneeIds?.includes(memberId)).length;
+    const openCount = (memberId: string) => openByMember[memberId] ?? 0;
     const rows = members
         .map((member) => ({ member, open: openCount(member.$id) }))
         .sort((a, b) => b.open - a.open || a.member.name.localeCompare(b.member.name))

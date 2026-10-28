@@ -36,8 +36,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/home-dark-desktop.png" />
-    <img src="docs/screenshots/home-light-desktop.png" alt="ScrumSpecter home: your overdue tasks and the ones due today and tomorrow" width="900" />
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/desktop/home.png" />
+    <img src="docs/screenshots/light/desktop/home.png" alt="ScrumSpecter home: counts, this week, sprint progress, my work and the team" width="900" />
   </picture>
 </p>
 
@@ -54,19 +54,59 @@
 
 ## 🖼️ Screenshots
 
+<sub>Every screenshot follows your GitHub theme: light here in light mode, dark in dark mode.</sub>
+
 | Kanban | Table |
 |:-:|:-:|
-| <img src="docs/screenshots/kanban-light-desktop.png" alt="Kanban board" /> | <img src="docs/screenshots/tasks-dark-desktop.png" alt="Table view" /> |
+| <picture>  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/desktop/kanban.png" />  <img src="docs/screenshots/light/desktop/kanban.png" alt="Kanban board" /></picture> | <picture>  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/desktop/table.png" />  <img src="docs/screenshots/light/desktop/table.png" alt="Table view" /></picture> |
 | **Task panel** | **Analytics** |
-| <img src="docs/screenshots/panel-dark-desktop.png" alt="Task detail panel" /> | <img src="docs/screenshots/analytics-light-desktop.png" alt="Analytics: burndown and velocity" /> |
+| <picture>  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/desktop/task-panel.png" />  <img src="docs/screenshots/light/desktop/task-panel.png" alt="Task detail panel" /></picture> | <picture>  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/desktop/analytics.png" />  <img src="docs/screenshots/light/desktop/analytics.png" alt="Analytics: team velocity" /></picture> |
 
 <p align="center">
-  <img src="docs/screenshots/home-dark-phone.png" alt="Home on a phone" width="220" />
-  &nbsp;
-  <img src="docs/screenshots/kanban-light-phone.png" alt="Kanban on a phone" width="220" />
-  &nbsp;
-  <img src="docs/screenshots/menu-dark-phone.png" alt="Menu on a phone" width="220" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/desktop/routines.png" />
+    <img src="docs/screenshots/light/desktop/routines.png" alt="Weekly routines, each choosing the views its tasks show in" width="700" />
+  </picture>
 </p>
+<p align="center"><sub>Routines: each one picks whether its tasks show in the table, kanban and calendar</sub></p>
+
+### 📱 On a phone
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/mobile/home-1.png" />
+    <img src="docs/screenshots/light/mobile/home-1.png" alt="Home on a phone: task counts" width="200" />
+  </picture>
+  &nbsp;&nbsp;
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/mobile/home-2.png" />
+    <img src="docs/screenshots/light/mobile/home-2.png" alt="Home on a phone: this week and sprint progress" width="200" />
+  </picture>
+  &nbsp;&nbsp;
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/mobile/home-3.png" />
+    <img src="docs/screenshots/light/mobile/home-3.png" alt="Home on a phone: my work and the team" width="200" />
+  </picture>
+</p>
+<p align="center"><sub>Home, scrolling down: task counts · this week and sprint progress · my work and the team</sub></p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/mobile/home-4.png" />
+    <img src="docs/screenshots/light/mobile/home-4.png" alt="Home on a phone: projects" width="200" />
+  </picture>
+  &nbsp;&nbsp;
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/mobile/kanban.png" />
+    <img src="docs/screenshots/light/mobile/kanban.png" alt="Kanban on a phone" width="200" />
+  </picture>
+  &nbsp;&nbsp;
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/mobile/menu.png" />
+    <img src="docs/screenshots/light/mobile/menu.png" alt="The menu on a phone" width="200" />
+  </picture>
+</p>
+<p align="center"><sub>Projects · the kanban board · the menu</sub></p>
 
 <p align="center"><sub>Works on phones and installs as an app. Light and dark themes throughout.</sub></p>
 
@@ -80,10 +120,11 @@
   - story points, due dates, optional time blocks (start time and duration), descriptions, and up to 20 assignees;
   - five statuses: Backlog, To Do, In Progress, In Review and Done;
   - three views: a table, a kanban board and a calendar, all with drag and drop;
-  - bulk edit from the table;
+  - in the table, clicking a row opens the task in a side panel; Shift-click selects a range of rows and Ctrl/⌘-click adds or removes one, for bulk edit;
   - Undo after deleting or moving a task.
 - **Home ("My work"):** your overdue tasks and those due today and tomorrow, with a countdown to each one's end time.
-- **Routines:** tasks that repeat weekly. They're created for each of their weekdays through the end of the sprint, and they skip days off. Each routine chooses which task views (table, kanban, calendar) list its tasks; Home and My work always do.
+- **My Tasks:** an eye beside each project hides or shows its tasks there. The choice is saved to your account; picking a project in the filter still shows it.
+- **Routines:** tasks that repeat weekly. They're created for each of their weekdays through the end of the sprint, and they skip days off. Each routine chooses which task views (table, kanban, calendar) list its tasks, with toggles right on its card on the Routines page; Home and My work always do.
 - **Days off and working hours:** public holidays come from a country feed, and you can add your own days off. Working hours frame the routines week and decide when unfinished To Do tasks move to Backlog.
 
 </details>
@@ -163,7 +204,15 @@
 
 Next.js 14 (App Router), TypeScript, Tailwind CSS with shadcn/ui, a [Hono](https://hono.dev) API under `/api` with typed client calls (`src/lib/rpc.ts`), TanStack Query (cached in the browser), Motion for animation, and Drizzle ORM with self-hosted PostgreSQL 17. It's hosted on Vercel.
 
-The kanban and calendar views and the popup forms load on first use (`src/components/lazy-parts.tsx`), and are prefetched in the background once a page is idle.
+The kanban and calendar views and the popup forms load on first use (`src/components/lazy-parts.tsx`), and are prefetched in the background once a page is idle (in production builds).
+
+Views load only the tasks they show, so large workspaces stay fast (`src/features/tasks/server/task-list.ts`):
+- the table loads 25 per page, sorted on the server;
+- kanban loads every open task and the 100 most recently finished;
+- the calendar loads the dates on screen, plus undated tasks;
+- Home's numbers come from `GET /api/tasks/summary`.
+
+Routine rules (this week only, per-view toggles) are applied on the server too.
 
 ```mermaid
 flowchart LR
@@ -205,9 +254,10 @@ e2e/                 Playwright end-to-end tests
 - **the API:** auth, roles, change requests, bulk input and edit, bulk workspace setup, invites, routine views, cron jobs;
 - **the browser:** sign-up and getting started, views, the welcome tour, roles and change requests, the task panel opening and closing from every entry point, loading skeletons, the Home dashboard, every page with and without reduced motion, phone layouts.
 
-Two runs take screenshots instead of checking things:
+Three runs take screenshots instead of checking things:
 - `VISUAL_SHOTS=<folder> npx playwright test e2e/visual-shots.spec.ts` saves every page in light and dark, at desktop and phone size;
-- `SKELETON_SHOTS=<folder> npx playwright test e2e/loading-ui.spec.ts` saves each page's loading skeleton.
+- `SKELETON_SHOTS=<folder> npx playwright test e2e/loading-ui.spec.ts` saves each page's loading skeleton;
+- `README_SHOTS=<folder> npx playwright test e2e/readme-shots.spec.ts`, then `node scripts/readme-screenshots.mjs <folder>`, regenerates this README's screenshots in `docs/screenshots/{light,dark}/{desktop,mobile}/`. The script cuts the long phone capture of Home into framed phone screens. It needs ImageMagick.
 
 ## 🔑 Environment
 

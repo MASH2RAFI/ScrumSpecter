@@ -161,7 +161,7 @@ const STEPS: { title: string; items: StepItem[] }[] = [
         title: "Work in the View That Suits You",
         items: [
             { icon: HomeIcon, bg: "bg-slate-100 dark:bg-slate-900/30", color: "text-slate-600 dark:text-slate-400", label: "Home:", text: "What's overdue, due today and due tomorrow, with countdowns" },
-            { icon: ListTodoIcon, bg: "bg-sky-100 dark:bg-sky-900/30", color: "text-sky-600 dark:text-sky-400", label: "Table View:", text: "Sort, filter, search and edit many tasks at once" },
+            { icon: ListTodoIcon, bg: "bg-sky-100 dark:bg-sky-900/30", color: "text-sky-600 dark:text-sky-400", label: "Table View:", text: "Sort, filter and search; click a row to open it, or Shift-click a range to edit many at once" },
             { icon: KanbanIcon, bg: "bg-cyan-100 dark:bg-cyan-900/30", color: "text-cyan-600 dark:text-cyan-400", label: "Kanban View:", text: "Drag tasks between Backlog, To Do, In Progress, In Review and Done" },
             { icon: CalendarDaysIcon, bg: "bg-emerald-100 dark:bg-emerald-900/30", color: "text-emerald-600 dark:text-emerald-400", label: "Calendar View:", text: "Drag tasks onto days and times, or stretch them to change their length" },
         ],

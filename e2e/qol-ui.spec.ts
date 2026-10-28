@@ -271,6 +271,40 @@ test("bulk edit: tick tasks, change status, undo", async () => {
     }
 });
 
+test("table: Shift-click selects a range, Ctrl-click toggles, a plain row click opens the task", async () => {
+    for (const n of [1, 2, 3, 4, 5]) {
+        await createTask(admin.api, { workspaceId: workspace.$id, projectId, assigneeId: memberId, name: `Range ${n}` });
+    }
+    await page.goto(`/workspaces/${workspace.$id}/tasks?task-view=table`, { timeout: 90_000 });
+    await page.getByPlaceholder("Search tasks...").fill("Range");
+    const rows = page.getByRole("row").filter({ hasText: /Range \d/ });
+    await expect(rows).toHaveCount(5);
+    // A plain cell in each row (the due date), away from its buttons
+    const cell = (i: number) => rows.nth(i).getByRole("cell").nth(4);
+    const bar = page.getByRole("toolbar", { name: "Bulk actions" });
+
+    await rows.nth(0).getByRole("checkbox", { name: "Select task" }).click();
+    await rows.nth(3).getByRole("checkbox", { name: "Select task" }).click({ modifiers: ["Shift"] });
+    await expect(bar.getByText("4 selected")).toBeVisible();
+    await cell(1).click({ modifiers: ["ControlOrMeta"] });
+    await expect(bar.getByText("3 selected")).toBeVisible();
+    await cell(4).click({ modifiers: ["Shift"] });
+    await expect(bar.getByText("5 selected")).toBeVisible();
+    // Selecting never opens the panel
+    await expect(page).not.toHaveURL(/[?&]task=/);
+
+    // A row's own menu isn't a row click
+    const name = (await rows.nth(2).getByRole("button", { name: /^(From a weekly routine )?Range \d$/ }).innerText()).trim();
+    await rows.nth(2).getByRole("button", { name: new RegExp(`^Change status of ${name}`) }).click();
+    await page.keyboard.press("Escape");
+    await expect(page).not.toHaveURL(/[?&]task=/);
+
+    await cell(2).click();
+    await expect(page).toHaveURL(/[?&]task=/);
+    await expect(page.getByRole("dialog", { name })).toBeVisible();
+    await page.keyboard.press("Escape");
+});
+
 test("quick date chips in the new-task form", async () => {
     await page.getByRole("button", { name: "New", exact: true }).click();
     const dialog = page.getByRole("dialog");

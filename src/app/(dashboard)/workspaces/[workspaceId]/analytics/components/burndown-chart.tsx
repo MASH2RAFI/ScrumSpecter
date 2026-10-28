@@ -17,10 +17,11 @@ import { BurndownGraph, ProjectSelect, StatCard } from "./analytics-shared";
 export const BurndownChart = () => {
     const workspaceId = useWorkspaceId();
     const { canEditWork } = usePermissions({ workspaceId });
-    const { data: tasks } = useGetTasks({ workspaceId });
     const { data: projects } = useGetProjects({ workspaceId });
 
     const [selectedProject, setSelectedProject] = useState<string>("");
+    // Just the chosen project's tasks
+    const { data: tasks } = useGetTasks({ workspaceId, projectId: selectedProject, enabled: Boolean(selectedProject) });
     const [sprintDuration, setSprintDuration] = useState(14);
     const [totalStoryPoints, setTotalStoryPoints] = useState(0);
     const [completedStoryPoints, setCompletedStoryPoints] = useState(0);

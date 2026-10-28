@@ -114,7 +114,7 @@ test("account: profile, preferences and sessions", async ({ baseURL }) => {
     let account = (await (await member.api.get("/api/account")).json()).data;
     expect(account).toMatchObject({ name: "Holiday Member", hasPassword: true, googleLinked: false, activeSessions: 1 });
     expect(account.preferences).toEqual({
-        defaultTaskView: "table", weekStart: 6, timeFormat: "12h", timeZone: "Asia/Dhaka", remindDayBefore: true, remindBeforeEnd: true, showTutorial: false,
+        defaultTaskView: "table", weekStart: 6, timeFormat: "12h", timeZone: "Asia/Dhaka", remindDayBefore: true, remindBeforeEnd: true, showTutorial: false, hiddenProjects: [],
     });
 
     expect((await member.api.patch("/api/account/profile", { data: { name: "Renamed Member" } })).status()).toBe(200);

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDebounce } from "react-use";
 import {
     BarChart3Icon,
     CheckCircleIcon,
@@ -81,7 +82,15 @@ export const CommandPalette = () => {
 
     // Only fetched once the menu is opened (tasks are usually already cached)
     const { data: projects } = useGetProjects({ workspaceId: isOpen ? workspaceId : "" });
-    const { data: tasks } = useGetTasks({ workspaceId: isOpen ? workspaceId : "" });
+    // Tasks are searched on the server as you type (the top 20), never loaded all at once
+    const [taskSearch, setTaskSearch] = useState("");
+    useDebounce(() => setTaskSearch(query.trim()), 200, [query]);
+    const { data: tasks } = useGetTasks({
+        workspaceId: isOpen ? workspaceId : "",
+        search: taskSearch,
+        limit: 20,
+        enabled: taskSearch.length > 0,
+    });
 
     const base = `/workspaces/${workspaceId}`;
     const goToSearch = () => {

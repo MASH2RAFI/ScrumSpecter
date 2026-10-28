@@ -24,9 +24,10 @@ export const CapacityCalculator = () => {
     const workspaceId = useWorkspaceId();
     const { data: members } = useGetMembers({ workspaceId });
     const { data: projects } = useGetProjects({ workspaceId });
-    const { data: tasks } = useGetTasks({ workspaceId });
 
     const [selectedProject, setSelectedProject] = useState<string>("");
+    // Just the chosen project's tasks
+    const { data: tasks } = useGetTasks({ workspaceId, projectId: selectedProject, enabled: Boolean(selectedProject) });
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [sprintDuration, setSprintDuration] = useState(14);
     const [totalCapacity, setTotalCapacity] = useState(0);

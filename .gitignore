@@ -41,3 +41,6 @@ next-env.d.ts
 /test-results/
 /.next-e2e/
 /playwright-report/
+
+# private working notes
+/TODO.md
