@@ -40,7 +40,7 @@ const Shell = ({ children }: { children: React.ReactNode }) => {
                     if (!e.currentTarget.contains(e.relatedTarget as Node)) conceal();
                 }}
             >
-                <div className="h-full w-[264px] overflow-y-auto overflow-x-hidden">
+                <div className="h-full w-[264px] overflow-hidden">
                     <Sidebar />
                 </div>
             </div>

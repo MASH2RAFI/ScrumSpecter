@@ -32,7 +32,7 @@ export const MobileSidebar = () => {
                 side="left"
                 className="p-0 w-80 sm:w-96 border-r border-border/50 bg-panel"
             >
-                <div className="h-full overflow-y-auto">
+                <div className="h-full">
                     <OpenSidebarProvider>
                         <Sidebar />
                     </OpenSidebarProvider>

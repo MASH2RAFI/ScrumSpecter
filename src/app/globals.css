@@ -201,12 +201,32 @@ body {
   }
 }
 
+/* Scrollbars: thin, rounded, in the theme's muted ink on a clear track (light and dark) */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
+  }
+  *:hover {
+    scrollbar-color: hsl(var(--muted-foreground) / 0.55) transparent;
+  }
+}
+
+/* The sidebar's: hidden until the pointer (or keyboard focus) is in it */
+.scrollbar-on-hover {
+  scrollbar-color: transparent transparent;
+}
+.scrollbar-on-hover:hover,
+.scrollbar-on-hover:focus-within {
+  scrollbar-color: hsl(var(--muted-foreground) / 0.4) transparent;
+}
+
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
-.hide-scrollbar::—webkit-scraollbar {
+.hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
 
