@@ -1,5 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
-
+import { useAppQuery } from "@/lib/use-app-query";
 import { ApiError } from "@/lib/api-error";
 import { client } from "@/lib/rpc";
 
@@ -10,7 +9,7 @@ interface UseGetTaskProps {
 export const useGetTask = ({
     taskId,
 }: UseGetTaskProps) => {
-    const query = useQuery({
+    const query = useAppQuery({
         queryKey: ["task", taskId],
         // Skip the request until the route has an id (e.g. no workspace selected yet)
         enabled: Boolean(taskId),

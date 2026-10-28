@@ -1,7 +1,8 @@
 "use client";
 
+import { Stagger, StaggerItem } from "@/components/motion";
 import { PageError } from "@/components/page-error";
-import { PageLoader } from "@/components/page-loader";
+import { PageSkeleton } from "@/components/page-skeletons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +11,8 @@ import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 import { useProjectId } from "@/features/projects/hooks/use-project-id";
 import { TaskViewSwitcher } from "@/features/tasks/components/task-view-switcher";
 import { PencilLineIcon, CalendarIcon, ClockIcon, TargetIcon, UsersIcon, BarChart3Icon, LucideIcon } from "lucide-react";
-import Link from "next/link";
-import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
+import { usePermissions } from "@/features/members/hooks/use-permissions";
+import { useEditProjectModal } from "@/features/projects/hooks/use-edit-project-modal";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { useRedirectOnAccessError } from "@/hooks/use-redirect-on-access-error";
 import { isAccessError } from "@/lib/api-error";
@@ -24,7 +25,8 @@ interface InfoCardProps {
 }
 
 const InfoCard = ({ icon: Icon, title, children }: InfoCardProps) => (
-    <Card>
+    <StaggerItem>
+    <Card className="h-full">
         <CardHeader className="flex flex-row items-center gap-2 pb-3">
             <Icon className="h-5 w-5 text-primary" />
             <CardTitle className="text-lg">{title}</CardTitle>
@@ -33,6 +35,7 @@ const InfoCard = ({ icon: Icon, title, children }: InfoCardProps) => (
             {children}
         </CardContent>
     </Card>
+    </StaggerItem>
 );
 
 const InfoRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
@@ -58,14 +61,15 @@ const InfoFooter = ({ icon: Icon, children }: { icon: LucideIcon; children: Reac
 export const ProjectIdClient = () => {
     const projectId = useProjectId();
     const workspaceId = useWorkspaceId();
-    const { isAdmin } = useIsAdmin({ workspaceId });
+    const { canEditWork } = usePermissions({ workspaceId });
+    const { open: openEditProject } = useEditProjectModal();
     const { data: project, isLoading: isLoadingProject, error: projectError } = useGetProject({ projectId });
 
     useRedirectOnAccessError(projectError);
 
     // Keep showing the loader while an access-error redirect happens
     if (isLoadingProject || isAccessError(projectError)) {
-        return <PageLoader />
+        return <PageSkeleton />
     }
 
     if (!project) {
@@ -87,20 +91,18 @@ export const ProjectIdClient = () => {
                     </div>
                 </div>
 
-                {isAdmin && (
+                {canEditWork && (
                     <div>
-                        <Button variant="secondary" size="sm" asChild>
-                            <Link href={`/workspaces/${project.workspaceId}/projects/${project.$id}/settings`}>
-                                <PencilLineIcon className="size-4 mr-2" />
-                                Edit Project
-                            </Link>
+                        <Button variant="secondary" size="sm" onClick={() => openEditProject(project.$id)}>
+                            <PencilLineIcon className="size-4 mr-2" />
+                            Edit Project
                         </Button>
                     </div>
                 )}
             </div>
 
             {/* Project Details Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <InfoCard icon={TargetIcon} title="Sprint Information">
                     <InfoRow label="Sprint Duration">
                         <Badge variant="secondary">
@@ -144,7 +146,7 @@ export const ProjectIdClient = () => {
                         View tasks below for detailed metrics
                     </InfoFooter>
                 </InfoCard>
-            </div>
+            </Stagger>
 
             {/* Tasks Section */}
             <div className="space-y-4">

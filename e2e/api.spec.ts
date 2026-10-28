@@ -77,7 +77,7 @@ test("join by invite code", async () => {
 
     const members = await getMembers(admin.api, workspace.$id);
     expect(members).toHaveLength(2);
-    memberMemberId = members.find((m) => m.role === "MEMBER")!.$id;
+    memberMemberId = members.find((m) => m.role === "ASSIGNEE")!.$id;
 });
 
 test("tasks: create, validation and cross-workspace references", async () => {
@@ -96,11 +96,13 @@ test("tasks: create, validation and cross-workspace references", async () => {
     expect((await outsider.api.get(`/api/tasks/${taskId}`)).status()).toBe(401);
 });
 
-test("members can change status but not other fields, and can't create tasks", async () => {
+test("assignees can change status but not other fields, and can't create tasks", async () => {
     const forbidden = await createTask(member.api, { workspaceId: workspace.$id, projectId: project.$id, assigneeId: memberMemberId });
     expect(forbidden.status()).toBe(403);
 
-    const res = await member.api.patch(`/api/tasks/${taskId}`, { data: { status: "IN_PROGRESS", name: "Renamed by member" } });
+    // Other fields go through a change request
+    expect((await member.api.patch(`/api/tasks/${taskId}`, { data: { status: "IN_PROGRESS", name: "Renamed by member" } })).status()).toBe(403);
+    const res = await member.api.patch(`/api/tasks/${taskId}`, { data: { status: "IN_PROGRESS" } });
     expect(res.status()).toBe(200);
     const task = (await res.json()).data;
     expect(task.status).toBe("IN_PROGRESS");
@@ -146,12 +148,12 @@ test("bulk update moves tasks and refuses mixed workspaces", async () => {
 
 test("routines generate tasks through the sprint end at the routine's local time", async () => {
     expect((await member.api.post("/api/routines", {
-        data: { workspaceId: workspace.$id, name: "Nope", projectId: project.$id, assigneeId: memberMemberId, weekdays: [1] },
+        data: { workspaceId: workspace.$id, name: "Nope", projectId: project.$id, assigneeIds: [memberMemberId], weekdays: [1] },
     })).status()).toBe(403);
 
     const res = await admin.api.post("/api/routines", {
         data: {
-            workspaceId: workspace.$id, name: "Standup", projectId: project.$id, assigneeId: memberMemberId,
+            workspaceId: workspace.$id, name: "Standup", projectId: project.$id, assigneeIds: [memberMemberId],
             weekdays: [1, 2, 3, 4, 5, 6, 7], storyPoints: 1, startTime: "09:00", timeZone: "Asia/Dhaka", durationMinutes: 15,
         },
     });
@@ -179,7 +181,7 @@ test("routines generate tasks through the sprint end at the routine's local time
     expect(retimed).toHaveLength(14);
 
     expect((await admin.api.post("/api/routines", {
-        data: { workspaceId: workspace.$id, name: "Bad zone", projectId: project.$id, assigneeId: memberMemberId, weekdays: [1], timeZone: "Mars/Olympus" },
+        data: { workspaceId: workspace.$id, name: "Bad zone", projectId: project.$id, assigneeIds: [memberMemberId], weekdays: [1], timeZone: "Mars/Olympus" },
     })).status()).toBe(400);
 });
 
@@ -195,8 +197,8 @@ test("cron endpoint requires the secret and is idempotent", async ({ baseURL }) 
 
 test("roles: the only admin can't leave; promotion and leaving reassign tasks", async () => {
     expect((await admin.api.post("/api/members/leave-workspace", { data: { workspaceId: workspace.$id } })).status()).toBe(400);
-    expect((await member.api.patch(`/api/members/${adminMemberId}`, { data: { role: "MEMBER" } })).status()).toBe(401);
-    expect((await admin.api.patch(`/api/members/${adminMemberId}`, { data: { role: "MEMBER" } })).status()).toBe(400);
+    expect((await member.api.patch(`/api/members/${adminMemberId}`, { data: { role: "ASSIGNEE" } })).status()).toBe(401);
+    expect((await admin.api.patch(`/api/members/${adminMemberId}`, { data: { role: "ASSIGNEE" } })).status()).toBe(400);
 
     expect((await member.api.post("/api/members/leave-workspace", { data: { workspaceId: workspace.$id } })).status()).toBe(200);
     const task = (await (await admin.api.get(`/api/tasks/${taskId}`)).json()).data;

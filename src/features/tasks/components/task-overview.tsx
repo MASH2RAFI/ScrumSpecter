@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Task, TaskStatus } from "../types";
+import { Task } from "../types";
 import Link from "next/link";
 import { ClockIcon, PencilIcon, RepeatIcon, TargetIcon } from "lucide-react";
 import { DEFAULT_DURATION_MINUTES, formatDuration, formatTimeRange } from "../task-time";
@@ -8,20 +8,12 @@ import { OverviewProperty } from "./overview-property";
 import { MemberAvatar } from "@/features/members/components/member-avatar";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 import { TaskDate } from "./task-date";
-import { snakeCaseToTitleCase, cn } from "@/lib/utils";
+import { snakeCaseToTitleCase } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useEditTaskModal } from "../hooks/use-edit-task-modal";
 
 interface TaskOverviewProps { 
     task: Task;
-};
-
-const statusColorMap: Record<TaskStatus, string> = {
-    [TaskStatus.BACKLOG] : "bg-slate-200 text-black dark:bg-slate-800 dark:text-slate-100",
-    [TaskStatus.TODO]: "bg-red-200 text-black dark:bg-red-900 dark:text-red-100",
-    [TaskStatus.IN_PROGRESS]: "bg-amber-200 text-black dark:bg-amber-900 dark:text-amber-100",
-    [TaskStatus.IN_REVIEW]: "bg-blue-200 text-black dark:bg-blue-900 dark:text-blue-100",
-    [TaskStatus.DONE]: "bg-emerald-200 text-black dark:bg-emerald-900 dark:text-emerald-100",
 };
 
 export const TaskOverview = ({ 
@@ -51,15 +43,16 @@ export const TaskOverview = ({
                             </Link>
                         </OverviewProperty>
                     )}
-                    <OverviewProperty label="Assignee">
-                        {task.assignee ? (
-                            <>
-                                <MemberAvatar
-                                    name={task.assignee.name}
-                                    className="size-6"
-                                />
-                                <p className="text-sm font-medium">{task.assignee.name}</p>
-                            </>
+                    <OverviewProperty label={task.assignees && task.assignees.length > 1 ? "Assignees" : "Assignee"}>
+                        {task.assignees?.length ? (
+                            <div className="flex flex-wrap gap-x-3 gap-y-1">
+                                {task.assignees.map((assignee) => (
+                                    <span key={assignee.$id} className="flex items-center gap-x-2">
+                                        <MemberAvatar name={assignee.name} className="size-6" />
+                                        <p className="text-sm font-medium">{assignee.name}</p>
+                                    </span>
+                                ))}
+                            </div>
                         ) : (
                             <p className="text-sm font-medium text-muted-foreground">Unassigned</p>
                         )}
@@ -77,7 +70,8 @@ export const TaskOverview = ({
                         </OverviewProperty>
                     )}
                     <OverviewProperty label="Status">
-                        <Badge className={cn(statusColorMap[task.status])}>
+                        {/* The same soft status pills as the table and kanban */}
+                        <Badge variant={task.status}>
                             {snakeCaseToTitleCase(task.status)}
                         </Badge>
                     </OverviewProperty>

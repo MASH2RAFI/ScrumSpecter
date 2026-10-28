@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
-    MemberSelectItems,
+    AssigneePicker,
     ProjectSelectItems,
     TaskFormFooter,
     TaskFormOptionsProps,
@@ -23,7 +23,9 @@ import { TaskTimeFields } from "@/features/tasks/components/task-time-fields";
 import { DEFAULT_DURATION_MINUTES } from "@/features/tasks/task-time";
 
 import { routineFieldsSchema } from "../schemas";
-import { Routine, WEEKDAYS } from "../types";
+import { Routine, ROUTINE_VIEWS, WEEKDAYS } from "../types";
+import { usePreferences } from "@/features/auth/hooks/use-preferences";
+import { isoWeekdayOrder } from "@/lib/week";
 
 type RoutineFields = z.infer<typeof routineFieldsSchema>;
 
@@ -49,13 +51,19 @@ export const RoutineForm = ({ initialValues, isPending, onSubmit, onCancel, proj
             name: initialValues?.name ?? "",
             description: initialValues?.description ?? "",
             projectId: initialValues?.projectId ?? "",
-            assigneeId: initialValues?.assigneeId ?? "",
+            assigneeIds: initialValues?.assigneeIds ?? [],
             weekdays: initialValues?.weekdays ?? [1, 2, 3, 4, 5],
             storyPoints: initialValues?.storyPoints ?? 1,
             startTime: initialValues?.startTime ?? "",
             durationMinutes: initialValues?.startTime ? initialValues.durationMinutes ?? DEFAULT_DURATION_MINUTES : undefined,
+            showInTable: initialValues?.showInTable ?? true,
+            showInKanban: initialValues?.showInKanban ?? true,
+            showInCalendar: initialValues?.showInCalendar ?? true,
         },
     });
+
+    const { weekStart } = usePreferences();
+    const orderedWeekdays = isoWeekdayOrder(weekStart).map((day) => WEEKDAYS.find((weekday) => weekday.value === day)!);
 
     const viewerTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     // Keep an existing routine's zone so its time doesn't shift when edited from elsewhere
@@ -104,7 +112,7 @@ export const RoutineForm = ({ initialValues, isPending, onSubmit, onCancel, proj
                                 <FormItem>
                                     <FormLabel>Repeats on</FormLabel>
                                     <div className="flex flex-wrap gap-2" role="group" aria-label="Repeats on">
-                                        {WEEKDAYS.map((day) => {
+                                        {orderedWeekdays.map((day) => {
                                             const selected = field.value.includes(day.value);
                                             return (
                                                 <Button
@@ -128,6 +136,28 @@ export const RoutineForm = ({ initialValues, isPending, onSubmit, onCancel, proj
                                 </FormItem>
                             )}
                         />
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium" id="routine-views-label">Show its tasks in</p>
+                            <div className="flex flex-wrap gap-2" role="group" aria-labelledby="routine-views-label">
+                                {ROUTINE_VIEWS.map(({ key, label }) => {
+                                    const shown = form.watch(key) !== false;
+                                    return (
+                                        <Button
+                                            key={key}
+                                            type="button"
+                                            size="sm"
+                                            variant={shown ? "primary" : "outline"}
+                                            aria-pressed={shown}
+                                            className={cn(!shown && "text-muted-foreground")}
+                                            onClick={() => form.setValue(key, !shown, { shouldDirty: true })}
+                                        >
+                                            {label}
+                                        </Button>
+                                    );
+                                })}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Home and My work always show them.</p>
+                        </div>
                         <div className="space-y-1">
                             <TaskTimeFields />
                             {form.watch("startTime") && timeZone !== viewerTimeZone && (
@@ -148,13 +178,11 @@ export const RoutineForm = ({ initialValues, isPending, onSubmit, onCancel, proj
                         />
                         <FormField
                             control={form.control}
-                            name="assigneeId"
+                            name="assigneeIds"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Assignee</FormLabel>
-                                    <TaskSelect value={field.value} onChange={field.onChange} placeholder="Select assignee">
-                                        <MemberSelectItems options={memberOptions} />
-                                    </TaskSelect>
+                                    <FormLabel>Assignees</FormLabel>
+                                    <AssigneePicker value={field.value} onChange={field.onChange} options={memberOptions} />
                                 </FormItem>
                             )}
                         />

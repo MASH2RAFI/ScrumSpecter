@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The e2e suite builds into its own folder, so it can run next to `npm run dev`
+  distDir: process.env.NEXT_DIST_DIR || ".next",
+
   // Optimize images
   images: {
     formats: ['image/webp', 'image/avif'],

@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
-import { getCurrent } from "@/features/auth/queries";
-import { WorkspaceIdSettingsClient } from "./client";
 
-const WorkspaceIdSettingsPage = async () => {
-    const user = await getCurrent();
-    if (!user) redirect("/sign-in");
+interface SettingsPageProps {
+    params: { workspaceId: string };
+}
 
-    return <WorkspaceIdSettingsClient />
+// Settings is a popup now; keep old links working
+const SettingsPage = ({ params: { workspaceId } }: SettingsPageProps) => {
+    redirect(`/workspaces/${workspaceId}?workspace-panel=settings`);
 };
 
-export default WorkspaceIdSettingsPage;
+export default SettingsPage;

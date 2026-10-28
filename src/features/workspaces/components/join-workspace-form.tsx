@@ -25,7 +25,7 @@ interface JoinWorkspaceFormProps {
 
 export const JoinWorkspaceForm = ({ initialValues }: JoinWorkspaceFormProps) => {
     const router = useRouter();
-    const { mutate, isPending } = useJoinWorkspace();
+    const { mutate, isPending, error } = useJoinWorkspace();
     const workspaceId = useWorkspaceId();
     const inviteCode = useInviteCode();
 
@@ -53,7 +53,13 @@ export const JoinWorkspaceForm = ({ initialValues }: JoinWorkspaceFormProps) => 
             <div className="px-7">
                 <DottedSeparator />
             </div>
-            <CardContent className="p-7">
+            <CardContent className="p-7 space-y-4">
+                {error && (
+                    <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                        {error.message}
+                        {/expired|used up|Invalid/.test(error.message) && ". Ask a workspace admin for a new link."}
+                    </p>
+                )}
                 <div className="flex flex-col lg:flex-row gap-2 items-center justify-between">
                     <Button
                         variant="secondary"

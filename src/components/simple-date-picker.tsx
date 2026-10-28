@@ -13,7 +13,24 @@ interface SimpleDatePickerProps {
     label?: string;
     hasError?: boolean;
     size?: "sm" | "md" | "lg";
+    // One-tap chips under the field: Today, Tomorrow, Next Mon, +1 week
+    presets?: boolean;
 };
+
+const startOfToday = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
+
+const shiftDays = (date: Date, days: number) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+
+const DATE_PRESETS: { label: string; date: () => Date }[] = [
+    { label: "Today", date: startOfToday },
+    { label: "Tomorrow", date: () => shiftDays(startOfToday(), 1) },
+    // The coming Monday (a week on, if today is Monday)
+    { label: "Next Mon", date: () => shiftDays(startOfToday(), ((8 - startOfToday().getDay()) % 7) || 7) },
+    { label: "+1 week", date: () => shiftDays(startOfToday(), 7) },
+];
 
 export const SimpleDatePicker = ({
     value,
@@ -23,7 +40,8 @@ export const SimpleDatePicker = ({
     disabled = false,
     label,
     hasError = false,
-    size = "md"
+    size = "md",
+    presets = false,
 }: SimpleDatePickerProps) => {
     const [isMobile, setIsMobile] = React.useState(false);
     const inputRef = React.useRef<HTMLInputElement>(null);
@@ -168,6 +186,28 @@ export const SimpleDatePicker = ({
                     </button>
                 )}
             </div>
+            {presets && !disabled && (
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick dates">
+                    {DATE_PRESETS.map((preset) => {
+                        const date = preset.date();
+                        const selected = value?.toDateString() === date.toDateString();
+                        return (
+                            <button
+                                key={preset.label}
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() => onChange(date)}
+                                className={cn(
+                                    "rounded-full border px-2.5 py-0.5 text-xs transition-colors min-h-0 min-w-0",
+                                    selected ? "border-primary bg-primary text-primary-foreground" : "hover:bg-accent text-muted-foreground",
+                                )}
+                            >
+                                {preset.label}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 };

@@ -42,6 +42,11 @@ const config: Config = {
   				DEFAULT: 'hsl(var(--destructive))',
   				foreground: 'hsl(var(--destructive-foreground))'
   			},
+  			panel: 'hsl(var(--panel))',
+  			warning: {
+  				DEFAULT: 'hsl(var(--warning))',
+  				soft: 'hsl(var(--warning-soft))'
+  			},
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',
@@ -56,7 +61,20 @@ const config: Config = {
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
+  			sm: 'calc(var(--radius) - 4px)',
+  			card: '20px',
+  			panel: '26px'
+  		},
+  		fontFamily: {
+  			sans: ['var(--font-sans)', 'system-ui', 'sans-serif']
+  		},
+  		boxShadow: {
+  			soft: 'var(--shadow-soft)',
+  			lift: 'var(--shadow-lift)'
+  		},
+  		transitionTimingFunction: {
+  			// Quick start, long gentle settle: every transition in the app uses it
+  			out: 'cubic-bezier(0.22, 1, 0.36, 1)'
   		},
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in-out',

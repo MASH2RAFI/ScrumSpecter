@@ -10,7 +10,9 @@ import {
 import { useGetMembers } from "@/features/members/api/use-get-members";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
-import { FolderIcon, ListChecksIcon, UserIcon, SearchIcon } from "lucide-react";
+import { FolderIcon, ListChecksIcon, UserIcon, SearchIcon, SlidersHorizontalIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { TaskStatus } from "../types";
 import { useState } from "react";
 import { useDebounce } from "react-use";
@@ -54,6 +56,7 @@ export const DataFilters = ({ hideProjectFilter, hideStatusFilter, hideDateFilte
 
     // Typing updates local state at once; the URL (and the query) follows after a pause
     const [searchText, setSearchText] = useState(search ?? "");
+    const [filtersOpen, setFiltersOpen] = useState(false);
     useDebounce(() => {
         const next = searchText.trim() || null;
         if (next !== (search ?? null)) {
@@ -75,8 +78,12 @@ export const DataFilters = ({ hideProjectFilter, hideStatusFilter, hideDateFilte
     
     if (isLoading) return null;
 
+    const activeFilters = [assigneeId, !hideProjectFilter && projectId, !hideDateFilter && dueDate, !hideStatusFilter && status]
+        .filter(Boolean).length;
+
     return (
-        <div className="flex flex-col lg:flex-row gap-3">
+        <div className="flex flex-col lg:flex-row gap-2 lg:gap-3">
+            <div className="flex gap-2">
             <div className="relative w-full lg:w-64">
                 <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
                 <Input
@@ -86,16 +93,37 @@ export const DataFilters = ({ hideProjectFilter, hideStatusFilter, hideDateFilte
                     onChange={(e) => setSearchText(e.target.value)}
                     placeholder="Search tasks..."
                     aria-label="Search tasks"
-                    className="pl-8 h-10 sm:h-8 min-h-[44px] sm:min-h-[32px]"
+                    className="pl-8 h-9 lg:h-8 min-h-0"
                 />
                 <kbd className="hidden lg:inline absolute right-2 top-1/2 -translate-y-1/2 rounded border bg-muted px-1.5 text-[10px] text-muted-foreground pointer-events-none">/</kbd>
             </div>
+            {/* Phones: the filters fold away behind this button */}
+            <Button
+                type="button"
+                variant={filtersOpen || activeFilters ? "secondary" : "outline"}
+                className="h-9 shrink-0 gap-1.5 px-3 min-h-0 lg:hidden"
+                aria-expanded={filtersOpen}
+                aria-controls="task-filters"
+                onClick={() => setFiltersOpen((open) => !open)}
+            >
+                <SlidersHorizontalIcon className="size-4" />
+                Filters
+                {activeFilters > 0 && (
+                    <span className="rounded-full bg-primary px-1.5 text-[10px] leading-4 text-primary-foreground">{activeFilters}</span>
+                )}
+            </Button>
+            </div>
+
+            <div
+                id="task-filters"
+                className={cn("grid grid-cols-2 gap-2 lg:flex lg:gap-3", !filtersOpen && "hidden lg:flex")}
+            >
 
             <Select
                 defaultValue={assigneeId ?? undefined} 
                 onValueChange={(value) => {onAssigneeChange(value)}} 
             >
-                <SelectTrigger className="w-full lg:w-auto h-10 sm:h-8 min-h-[44px] sm:min-h-[32px]"> 
+                <SelectTrigger className="w-full lg:w-auto h-9 lg:h-8 min-h-0"> 
                     <div className="flex items-center pr-2"> 
                         <UserIcon className="size-4 mr-2 text-emerald-600" /> 
                         <SelectValue placeholder="All assignees" /> 
@@ -117,7 +145,7 @@ export const DataFilters = ({ hideProjectFilter, hideStatusFilter, hideDateFilte
                     defaultValue={projectId ?? undefined} 
                     onValueChange={(value) => {onProjectChange(value)}} 
                 >
-                <SelectTrigger className="w-full lg:w-auto h-10 sm:h-8 min-h-[44px] sm:min-h-[32px]"> 
+                <SelectTrigger className="w-full lg:w-auto h-9 lg:h-8 min-h-0"> 
                     <div className="flex items-center pr-2"> 
                         <FolderIcon className="size-4 mr-2 text-purple-600" /> 
                         <SelectValue placeholder="All projects" /> 
@@ -151,7 +179,7 @@ export const DataFilters = ({ hideProjectFilter, hideStatusFilter, hideDateFilte
                     defaultValue={status ?? undefined} 
                     onValueChange={(value) => {onStatusChange(value)}} 
                 >
-                    <SelectTrigger className="w-full lg:w-auto h-10 sm:h-8 min-h-[44px] sm:min-h-[32px]"> 
+                    <SelectTrigger className="w-full lg:w-auto h-9 lg:h-8 min-h-0"> 
                         <div className="flex items-center pr-2"> 
                             <ListChecksIcon className="size-4 mr-2 text-blue-600" /> 
                             <SelectValue placeholder="All statuses" /> 
@@ -192,8 +220,8 @@ export const DataFilters = ({ hideProjectFilter, hideStatusFilter, hideDateFilte
                         </SelectItem>
                     </SelectContent >
                 </Select>
-            )} 
+            )}
+            </div>
         </div>
-
     );
 };

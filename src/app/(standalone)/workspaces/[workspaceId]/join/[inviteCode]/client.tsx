@@ -1,7 +1,7 @@
 "use client";
 
 import { PageError } from "@/components/page-error";
-import { PageLoader } from "@/components/page-loader";
+import { CardPageSkeleton } from "@/components/page-skeletons";
 import { useGetWorkspaceInfo } from "@/features/workspaces/api/use-get-workspace-info";
 import { JoinWorkspaceForm } from "@/features/workspaces/components/join-workspace-form";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
@@ -11,7 +11,7 @@ export const WorkspaceIdJoinClient = () => {
     const { data: initialValues, isLoading, error } = useGetWorkspaceInfo({ workspaceId });
 
     if (isLoading) {
-        return <PageLoader />
+        return <CardPageSkeleton />
     }
 
     if (error) {

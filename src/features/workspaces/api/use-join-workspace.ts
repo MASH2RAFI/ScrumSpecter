@@ -14,7 +14,9 @@ export const useJoinWorkspace = () => {
         mutationFn: async ({ param, json }) => {
             const response = await client.api.workspaces[":workspaceId"]["join"]["$post"]({ param, json });
             if (!response.ok) {
-                throw new Error("Failed to join workspace");
+                // e.g. "This invite link has expired", "Already a member"
+                const body = await response.json().catch(() => ({})) as { error?: string };
+                throw new Error(body.error ?? "Failed to join workspace");
             }
             return await response.json();
         },
@@ -23,8 +25,8 @@ export const useJoinWorkspace = () => {
             queryClient.invalidateQueries({ queryKey: ["workspaces"] });
             queryClient.invalidateQueries({ queryKey: ["workspaces", data.$id] });
         },
-        onError: () => {
-            toast.error("Failed to join workspace");
+        onError: (error) => {
+            toast.error(error.message);
         },
     });
 };

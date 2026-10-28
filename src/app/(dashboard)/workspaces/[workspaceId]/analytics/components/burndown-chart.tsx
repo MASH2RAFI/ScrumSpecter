@@ -9,14 +9,14 @@ import { TrendingUpIcon, CalendarIcon, TargetIcon, CheckCircleIcon } from "lucid
 import { useGetTasks } from "@/features/tasks/api/use-get-tasks";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
-import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
+import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { BurndownDay, calculateVelocity, generateBurndownData, getProjectPointStats } from "@/lib/sprint-utils";
 
 import { BurndownGraph, ProjectSelect, StatCard } from "./analytics-shared";
 
 export const BurndownChart = () => {
     const workspaceId = useWorkspaceId();
-    const { isAdmin } = useIsAdmin({ workspaceId });
+    const { canEditWork } = usePermissions({ workspaceId });
     const { data: tasks } = useGetTasks({ workspaceId });
     const { data: projects } = useGetProjects({ workspaceId });
 
@@ -73,7 +73,7 @@ export const BurndownChart = () => {
                                     value={sprintDuration}
                                     onChange={(e) => setSprintDuration(Number(e.target.value))}
                                     min="1"
-                                    disabled={!isAdmin}
+                                    disabled={!canEditWork}
                                 />
                             </div>
                             <div className="space-y-2">

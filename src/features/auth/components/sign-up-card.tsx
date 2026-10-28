@@ -16,10 +16,11 @@ type FormValues = z.infer<typeof registerSchema>;
 interface SignUpCardProps {
     googleEnabled: boolean;
     error?: string;
+    next?: string | null;
 }
 
-export const SignUpCard = ({ googleEnabled, error }: SignUpCardProps) => {
-    const { mutate, isPending } = useRegister();
+export const SignUpCard = ({ googleEnabled, error, next }: SignUpCardProps) => {
+    const { mutate, isPending } = useRegister(next);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(registerSchema),
@@ -39,6 +40,7 @@ export const SignUpCard = ({ googleEnabled, error }: SignUpCardProps) => {
             active="/sign-up"
             googleEnabled={googleEnabled}
             error={error}
+            next={next}
             title="Create Account"
             description="Join thousands of teams using ScrumSpecter"
             footer={

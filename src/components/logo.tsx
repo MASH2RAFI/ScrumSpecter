@@ -18,7 +18,7 @@ const Glyph = ({ nodeFill }: { nodeFill: string }) => (
     </>
 );
 
-// Brand badge: white glyph on the primary blue (#2563EB) gradient; reads on light and dark
+// Brand badge: white glyph on the primary green (#1B6E45) gradient; reads on light and dark
 export const LogoMark = ({ size = 40, className }: { size?: number; className?: string }) => {
     const gradientId = useId();
 
@@ -26,13 +26,13 @@ export const LogoMark = ({ size = 40, className }: { size?: number; className?: 
         <svg width={size} height={size} viewBox="0 0 64 64" className={className} role="img" aria-label="ScrumSpecter">
             <defs>
                 <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0" stopColor="#3B82F6" />
-                    <stop offset="1" stopColor="#1D4ED8" />
+                    <stop offset="0" stopColor="#2A8A5A" />
+                    <stop offset="1" stopColor="#155A37" />
                 </linearGradient>
             </defs>
             <rect width="64" height="64" rx="15" fill={`url(#${gradientId})`} />
             <g className="text-white">
-                <Glyph nodeFill="#BFDBFE" />
+                <Glyph nodeFill="#CDEBD9" />
             </g>
         </svg>
     );

@@ -14,7 +14,7 @@ interface ProjectCardProps {
 }
 
 export const ProjectCard = ({ href, name, description, contentClassName, children }: ProjectCardProps) => (
-    <Card className="hover:shadow-lg transition-shadow duration-200">
+    <Card className="transition-shadow duration-300 ease-out hover:shadow-lift">
         <CardHeader>
             <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">{name}</CardTitle>

@@ -25,8 +25,10 @@ import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 
 import { TaskStatus } from "../types";
 import { useCreateTask } from "../api/use-create-task";
+import { usePermissions } from "@/features/members/hooks/use-permissions";
+import { useCreateChangeRequest } from "@/features/change-requests/api/use-change-requests";
 import {
-    MemberSelectItems,
+    AssigneePicker,
     ProjectSelectItems,
     StatusSelectItems,
     TaskFormFooter,
@@ -35,6 +37,7 @@ import {
 } from "./task-form-fields";
 
 import { TaskTimeFields } from "./task-time-fields";
+import { HolidayNotice } from "@/features/workspaces/components/holiday-notice";
 import { combineDateAndTime, DEFAULT_DURATION_MINUTES, toTimeInput } from "../task-time";
 
 const formSchema = z.object({
@@ -42,7 +45,7 @@ const formSchema = z.object({
     status: z.nativeEnum(TaskStatus, { message: "Please select a status" }),
     projectId: z.string().trim().min(1, "Please select a project"),
     dueDate: z.date({ message: "Due date is required" }),
-    assigneeId: z.string().trim().min(1, "Please select an assignee"),
+    assigneeIds: z.array(z.string()).min(1, "Please select at least one assignee").max(20),
     description: z.string().optional(),
     storyPoints: z.number()
         .min(1, "Story points must be at least 1")
@@ -55,7 +58,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 type FieldName = keyof FormValues;
 
-const REQUIRED_FIELDS: FieldName[] = ["name", "status", "projectId", "assigneeId", "storyPoints", "dueDate"];
+const REQUIRED_FIELDS: FieldName[] = ["name", "status", "projectId", "assigneeIds", "storyPoints", "dueDate"];
 
 interface FieldState {
     hasError: boolean;
@@ -91,7 +94,13 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
     const workspaceId = useWorkspaceId();
     const [submitAttempted, setSubmitAttempted] = useState(false);
 
-    const { mutate, isPending, error: mutationError } = useCreateTask();
+    const { mutate, isPending: isCreating, error: mutationError } = useCreateTask();
+    // Assignees and reviewers propose the task; an admin or supervisor approves it
+    const { canEditWork, canRequestChanges } = usePermissions({ workspaceId });
+    const asRequest = !canEditWork && canRequestChanges;
+    const { mutate: requestTask, isPending: isRequesting } = useCreateChangeRequest();
+    const isPending = isCreating || isRequesting;
+    const [requestNote, setRequestNote] = useState("");
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         mode: "onChange",
@@ -99,15 +108,16 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
             name: "",
             status: defaultStatus || TaskStatus.TODO,
             projectId: "",
-            assigneeId: "",
+            assigneeIds: [],
             description: "",
             storyPoints: 1,
             // Local midnight: Date.UTC() here showed as yesterday west of UTC
             dueDate: defaultStart
                 ? new Date(defaultStart.getFullYear(), defaultStart.getMonth(), defaultStart.getDate())
                 : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()),
-            startTime: defaultStart ? toTimeInput(defaultStart.toISOString()) : "",
-            durationMinutes: defaultStart ? defaultDuration ?? DEFAULT_DURATION_MINUTES : undefined,
+            // A duration of 0 means the calendar picked a whole day, not a time
+            startTime: defaultStart && defaultDuration !== 0 ? toTimeInput(defaultStart.toISOString()) : "",
+            durationMinutes: defaultStart && defaultDuration !== 0 ? defaultDuration ?? DEFAULT_DURATION_MINUTES : undefined,
         },
     });
 
@@ -124,12 +134,34 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
         const { startTime, durationMinutes, dueDate, ...rest } = values;
         const timed = Boolean(startTime);
 
+        const time = {
+            startAt: timed ? combineDateAndTime(dueDate, startTime!) : null,
+            durationMinutes: timed ? durationMinutes ?? DEFAULT_DURATION_MINUTES : null,
+        };
+
+        if (asRequest) {
+            requestTask({
+                kind: "create",
+                workspaceId,
+                changes: { ...rest, dueDate: dueDate.toISOString(), ...time },
+                note: requestNote.trim() || undefined,
+            }, {
+                onSuccess: () => {
+                    form.reset();
+                    setRequestNote("");
+                    setSubmitAttempted(false);
+                    onCancel?.();
+                },
+                onError: () => setSubmitAttempted(false),
+            });
+            return;
+        }
+
         mutate({ json: {
             ...rest,
             workspaceId,
             dueDate,
-            startAt: timed ? combineDateAndTime(dueDate, startTime!) : null,
-            durationMinutes: timed ? durationMinutes ?? DEFAULT_DURATION_MINUTES : null,
+            ...time,
         } }, {
             onSuccess: () => {
                 form.reset();
@@ -144,7 +176,7 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
 
     const isFieldEmpty = (fieldName: FieldName) => {
         const value = form.getValues(fieldName);
-        return !value || (typeof value === "string" && value.trim() === "");
+        return !value || (typeof value === "string" && value.trim() === "") || (Array.isArray(value) && value.length === 0);
     };
 
     // trackEmpty enables the amber "empty" highlight (text, date and number inputs only)
@@ -175,9 +207,12 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
             <CardHeader className="flex flex-col p-4 sm:p-7 space-unified-sm">
                 <div className="flex items-center justify-between w-full">
                     <CardTitle className="text-lg sm:text-xl font-bold">
-                        Create a new task
+                        {asRequest ? "Request a new task" : "Create a new task"}
                     </CardTitle>
                 </div>
+                {asRequest && (
+                    <p className="text-sm text-muted-foreground">An admin or supervisor approves it before it&apos;s added.</p>
+                )}
                 <div className="w-full bg-muted rounded-full h-2">
                     <div
                         className="bg-primary h-2 rounded-full transition-all duration-300 ease-in-out"
@@ -218,8 +253,8 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                         )}
 
                         {!submitAttempted && getFormCompletion() < 100 && (
-                            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md dark:bg-blue-950/20 dark:border-blue-800">
-                                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                            <div className="mb-4 rounded-xl border border-primary/20 bg-accent p-3">
+                                <div className="flex items-center gap-2 text-accent-foreground">
                                     <AlertCircle className="h-4 w-4" />
                                     <span className="text-sm font-medium">
                                         Complete the required fields marked with * to create your task
@@ -263,10 +298,12 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                                                     value={field.value}
                                                     onChange={field.onChange}
                                                     placeholder="Select due date"
+                                                    presets
                                                     hasError={state.hasError}
                                                     size="lg"
                                                 />
                                             </FormControl>
+                                            <HolidayNotice date={field.value} />
                                             <FormMessage />
                                         </FormItem>
                                     );
@@ -277,20 +314,18 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
 
                             <FormField
                                 control={form.control}
-                                name="assigneeId"
+                                name="assigneeIds"
                                 render={({ field }) => {
-                                    const state = getFieldState("assigneeId");
+                                    const state = getFieldState("assigneeIds");
                                     return (
                                         <FormItem>
-                                            <RequiredLabel state={state}>Assignee</RequiredLabel>
-                                            <TaskSelect
+                                            <RequiredLabel state={state}>Assignees</RequiredLabel>
+                                            <AssigneePicker
                                                 value={field.value}
                                                 onChange={field.onChange}
-                                                placeholder="Select assignee"
+                                                options={memberOptions}
                                                 triggerClassName={fieldStateClassName(state)}
-                                            >
-                                                <MemberSelectItems options={memberOptions} />
-                                            </TaskSelect>
+                                            />
                                         </FormItem>
                                     );
                                 }}
@@ -390,6 +425,17 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                             />
                         </div>
 
+                        {asRequest && (
+                            <Input
+                                className="mt-4"
+                                value={requestNote}
+                                onChange={(e) => setRequestNote(e.target.value)}
+                                placeholder="Why? (optional note for the reviewer)"
+                                maxLength={1000}
+                                aria-label="Note for the reviewer"
+                            />
+                        )}
+
                         <TaskFormFooter onCancel={onCancel} isPending={isPending}>
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                 {submitAttempted && isFormReady() && (
@@ -413,7 +459,9 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
                                         isFormReady() && "bg-green-600 hover:bg-green-700"
                                     )}
                                 >
-                                    {isPending ? "Creating..." : "Create Task"}
+                                    {asRequest
+                                        ? isPending ? "Sending..." : "Send request"
+                                        : isPending ? "Creating..." : "Create Task"}
                                 </Button>
                             </div>
                         </TaskFormFooter>

@@ -1,7 +1,7 @@
 "use client";
 
 import { PageError } from "@/components/page-error";
-import { PageLoader } from "@/components/page-loader";
+import { PageSkeleton } from "@/components/page-skeletons";
 import { useGetTask } from "@/features/tasks/api/use-get-task";
 import { TaskDescription } from "@/features/tasks/components/task-description";
 import { TaskOverview } from "@/features/tasks/components/task-overview";
@@ -19,7 +19,7 @@ export const TaskIdClient = () => {
 
     // Keep showing the loader while an access-error redirect happens
     if (isLoading || isAccessError(error)) {
-        return <PageLoader />
+        return <PageSkeleton />
     }
 
     if (!data) {

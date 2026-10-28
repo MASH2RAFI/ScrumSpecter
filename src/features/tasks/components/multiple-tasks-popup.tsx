@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { XIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { MemberAvatar } from "@/features/members/components/member-avatar";
+import { MemberAvatarStack } from "@/features/members/components/member-avatar";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 
 import { Task, TaskStatus } from "../types";
@@ -70,6 +70,8 @@ export const MultipleTasksPopup = ({ tasks, date, isOpen, onClose, position }: M
     return (
         <div
             ref={popupRef}
+            role="dialog"
+            aria-label={`Tasks on ${format(date, "MMMM d, yyyy")}`}
             className={cn(
                 "fixed z-50 bg-card border border-border rounded-lg shadow-xl backdrop-blur-sm",
                 isMobile ? "mobile-popup" : ""
@@ -95,6 +97,7 @@ export const MultipleTasksPopup = ({ tasks, date, isOpen, onClose, position }: M
                     </div>
                     <button
                         onClick={onClose}
+                        aria-label="Close"
                         className="p-1 hover:bg-muted rounded-md transition-colors"
                     >
                         <XIcon className="h-4 w-4" />
@@ -166,11 +169,11 @@ export const MultipleTasksPopup = ({ tasks, date, isOpen, onClose, position }: M
                                                     </div>
 
                                                     <div className="flex items-center gap-3 text-sm">
-                                                        {task.assignee ? (
+                                                        {task.assignees?.length ? (
                                                             <div className="flex items-center gap-1">
-                                                                <MemberAvatar name={task.assignee.name} className="size-4" />
+                                                                <MemberAvatarStack names={task.assignees.map((a) => a.name)} max={2} className="size-4" />
                                                                 <span className="text-muted-foreground truncate max-w-[100px]">
-                                                                    {task.assignee.name}
+                                                                    {task.assignees.map((a) => a.name).join(", ")}
                                                                 </span>
                                                             </div>
                                                         ) : (

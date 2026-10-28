@@ -1,5 +1,6 @@
 "use client";
 
+import { EASE, m } from "@/components/motion";
 import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -150,15 +151,19 @@ export const VelocityTracker = () => {
                                     <div className="ml-8 h-full relative">
                                         {/* Velocity bars */}
                                         <div className="flex items-end justify-between h-full gap-2">
-                                            {sprints.map((sprint) => (
+                                            {sprints.map((sprint, index) => (
                                                 <div key={sprint.id} className="flex-1 flex flex-col items-center">
-                                                    <div
-                                                        className="w-full bg-primary rounded-t"
+                                                    {/* Bars grow up from the baseline, one after another */}
+                                                    <m.div
+                                                        className="w-full origin-bottom bg-primary rounded-t-md"
                                                         style={{
                                                             height: `${sprint.velocity}%`,
                                                             minHeight: '4px'
                                                         }}
-                                                    ></div>
+                                                        initial={{ scaleY: 0 }}
+                                                        animate={{ scaleY: 1 }}
+                                                        transition={{ duration: 0.8, delay: 0.1 + index * 0.06, ease: EASE }}
+                                                    />
                                                     <span className="text-xs mt-1 text-muted-foreground">
                                                         {sprint.name}
                                                     </span>

@@ -9,7 +9,8 @@ import { OPTIMISTIC_TASK_FIELDS, patchCachedTasks, restoreCachedTasks } from "./
 type ResponseType = InferResponseType<typeof client.api.tasks[":taskId"]["$patch"], 200>;
 type RequestType = InferRequestType<typeof client.api.tasks[":taskId"]["$patch"]>;
 
-export const useUpdateTask = () => {
+// quiet: the caller shows its own message (e.g. an Undo toast after a calendar move)
+export const useUpdateTask = ({ quiet = false } = {}) => {
     const queryClient = useQueryClient();
     const mutation = useMutation<
         ResponseType,
@@ -38,7 +39,7 @@ export const useUpdateTask = () => {
             return { snapshot };
         },
         onSuccess: () => {
-            toast.success("Task updates successfully");
+            if (!quiet) toast.success("Task updated");
         },
         onError: (_error, _variables, context) => {
             restoreCachedTasks(queryClient, context?.snapshot);

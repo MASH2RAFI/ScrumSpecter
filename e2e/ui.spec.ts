@@ -53,9 +53,16 @@ test("create a workspace with its first project", async () => {
     await page.getByPlaceholder("Enter project name").fill("Website");
     await page.getByRole("button", { name: "Create", exact: true }).click();
     // Lands on the new project's board
-    await expect(page).toHaveURL(/\/workspaces\/[^/]+\/projects\/[^/]+$/);
+    // The dev server compiles the dashboard on first visit, which can take a while
+    await expect(page).toHaveURL(/\/workspaces\/[^/]+\/projects\/[^/]+$/, { timeout: 60_000 });
     [, workspaceId, projectId] = page.url().match(/\/workspaces\/([^/]+)\/projects\/([^/]+)$/)!;
-    await expect(page.getByText("Website").first()).toBeVisible();
+    // A new account is greeted by the welcome tour (walked through in onboarding-ui.spec.ts)
+    const tour = page.getByRole("dialog", { name: "Welcome to ScrumSpecter, UI!" });
+    await expect(tour).toContainText("You're an Admin in UI Workspace");
+    await tour.getByRole("button", { name: "Skip tour" }).click();
+    await expect(page.getByTestId("welcome-tour")).toHaveCount(0);
+    // In the page itself (the folded sidebar also lists it, faded out)
+    await expect(page.getByRole("main").getByText("Website").first()).toBeVisible();
 });
 
 test("sign out and back in", async ({ baseURL }) => {
@@ -68,6 +75,9 @@ test("sign out and back in", async ({ baseURL }) => {
     await page.getByPlaceholder("Enter password").fill(password);
     await page.getByRole("button", { name: "Sign In" }).click();
     await expect(page).toHaveURL(new RegExp(`/workspaces/${workspaceId}$`));
+    // Skipping the tour is remembered on the account
+    await page.waitForTimeout(1500);
+    await expect(page.getByTestId("welcome-tour")).toHaveCount(0);
 
     // Seed tasks through the API as this user
     user = await userFromPage(page, baseURL!);
@@ -92,18 +102,27 @@ test("home shows my work", async () => {
     await expect(page.getByText("Design homepage").first()).toBeVisible();
 });
 
+test("a workspace you can't open leads to your own, not to workspace creation", async () => {
+    await page.goto("/workspaces/6c15b841-0000-4000-8000-000000000000");
+    // The toast first: it only stays a few seconds, and a slow redirect could outlast it
+    await expect(page.getByText("That page isn't available to you")).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(new RegExp(`/workspaces/${workspaceId}$`), { timeout: 30_000 });
+    // The refused requests themselves are expected here
+    errors.splice(0, errors.length, ...errors.filter((error) => !/http (401|403|404):|status of (401|403|404)/.test(error)));
+});
+
 test("task table lists tasks and search filters them", async () => {
     await page.goto(`/workspaces/${workspaceId}/tasks`);
-    await expect(page.getByRole("cell", { name: "Fix login bug" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Fix login bug", exact: true })).toBeVisible();
     await page.getByPlaceholder("Search tasks...").fill("release");
-    await expect(page.getByRole("cell", { name: "Write release notes" })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "Fix login bug" })).toHaveCount(0);
+    await expect(page.getByRole("cell", { name: "Write release notes", exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Fix login bug", exact: true })).toHaveCount(0);
     await page.getByPlaceholder("Search tasks...").fill("");
-    await expect(page.getByRole("cell", { name: "Fix login bug" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Fix login bug", exact: true })).toBeVisible();
 });
 
 test("clicking a task opens the side panel", async () => {
-    await page.getByRole("button", { name: "Fix login bug" }).click();
+    await page.getByRole("button", { name: "Fix login bug", exact: true }).click();
     await expect(page).toHaveURL(/[?&]task=/);
     const panel = page.getByRole("dialog");
     await expect(panel.getByText("Fix login bug").first()).toBeVisible();
@@ -133,16 +152,21 @@ test("create a timed task from the new-task form", async () => {
     await page.getByRole("button", { name: "New", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByPlaceholder("Enter task name").fill("Sprint review");
-    await dialog.getByRole("combobox").filter({ hasText: "Select assignee" }).click();
-    await page.getByRole("option").first().click();
+    await dialog.getByRole("button", { name: "Assignees" }).click();
+    await page.getByRole("listbox", { name: "Assignees" }).getByRole("option").first().click();
+    // The list stays open for more picks; Escape closes just the list
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("listbox", { name: "Assignees" })).toBeHidden();
     await dialog.getByRole("combobox").filter({ hasText: "Select project" }).click();
     await page.getByRole("option", { name: /Website/ }).click();
     await dialog.getByLabel("All day").click();
     await dialog.getByLabel("Start time").fill("14:00");
+    // 15m · 30m · 1h · 1.5h · 2h · 3h · ½ day
+    await expect(dialog.getByRole("group", { name: "Duration" }).getByRole("button")).toHaveText(["15m", "30m", "1h", "1.5h", "2h", "3h", "½ day"]);
     await dialog.getByRole("button", { name: "1h", exact: true }).click();
     await dialog.getByRole("button", { name: "Create Task" }).click();
     await expect(dialog).toBeHidden();
-    await expect(page.getByRole("cell", { name: "Sprint review" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Sprint review", exact: true })).toBeVisible();
 
     const tasks = (await (await user.api.get(`/api/tasks?workspaceId=${workspaceId}&search=Sprint review`)).json()).data.documents;
     // 14:00 in Dhaka is 08:00 UTC
@@ -159,12 +183,55 @@ test("command palette jumps to a project", async () => {
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}`));
 });
 
-test("sidebar collapses with the [ key", async () => {
-    await page.locator("body").click({ position: { x: 700, y: 10 } });
+test("sidebar auto-hides: opens on hover, holds 0.3 seconds, pins with [", async () => {
+    const panel = page.locator("aside[data-collapsed]").first();
+    const frame = panel.locator("xpath=../..");
+    await page.mouse.move(900, 400);
+    await expect(panel).toHaveAttribute("data-collapsed", "true", { timeout: 5_000 });
+    await expect.poll(async () => (await frame.boundingBox())?.width).toBe(76);
+
+    await page.mouse.move(30, 300);
+    await expect(panel).toHaveAttribute("data-collapsed", "false");
+    await expect.poll(async () => (await frame.boundingBox())?.width).toBe(264);
+
+    // Held open for 0.3 seconds after the pointer leaves, then folded
+    await page.mouse.move(900, 400);
+    expect(await panel.getAttribute("data-collapsed")).toBe("false");
+    await expect(panel).toHaveAttribute("data-collapsed", "true", { timeout: 2_000 });
+
+    // Its workspace dropdown renders outside it: the sidebar stays open while the list is open
+    await page.mouse.move(30, 300);
+    await expect(panel).toHaveAttribute("data-collapsed", "false");
+    await panel.getByRole("combobox").click();
+    const option = page.getByRole("option").first();
+    await expect(option).toBeVisible();
+    await option.hover();
+    await page.waitForTimeout(800);
+    await expect(panel).toHaveAttribute("data-collapsed", "false");
+    await expect(option).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page.mouse.move(900, 400);
+    await expect(panel).toHaveAttribute("data-collapsed", "true", { timeout: 2_000 });
+
+    // [ pins it open; again goes back to auto-hide
     await page.keyboard.press("[");
-    await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+    await expect(panel).toHaveAttribute("data-collapsed", "false");
+    await page.mouse.move(900, 450);
+    await page.waitForTimeout(1_000);
+    await expect(panel).toHaveAttribute("data-collapsed", "false");
     await page.keyboard.press("[");
-    await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeVisible();
+    await expect(panel).toHaveAttribute("data-collapsed", "true");
+
+    // Switching to another window sends no mouseleave; losing focus folds it instead
+    await page.mouse.move(30, 300);
+    await expect(panel).toHaveAttribute("data-collapsed", "false");
+    await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+    await expect(panel).toHaveAttribute("data-collapsed", "true");
+    // Back in the window, moving the pointer over it opens it again
+    await page.mouse.move(40, 320);
+    await expect(panel).toHaveAttribute("data-collapsed", "false");
+    await page.mouse.move(900, 400);
+    await expect(panel).toHaveAttribute("data-collapsed", "true", { timeout: 2_000 });
 });
 
 test("every workspace page renders", async () => {

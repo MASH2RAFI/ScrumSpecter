@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLinkIcon, Loader } from "lucide-react";
+import { ExternalLinkIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -11,6 +11,7 @@ import { useGetTask } from "../api/use-get-task";
 import { useTaskPanel } from "../hooks/use-task-panel";
 import { TaskDescription } from "./task-description";
 import { TaskOverview } from "./task-overview";
+import { Loading, TaskDetailSkeleton } from "@/components/page-skeletons";
 
 // Task details in a slide-over, so opening a task keeps your place in the table/kanban/calendar
 export const TaskPanel = () => {
@@ -20,10 +21,17 @@ export const TaskPanel = () => {
     return (
         <Sheet open={Boolean(taskId)} onOpenChange={(open) => !open && close()}>
             <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto p-0">
-                {isLoading || !task ? (
-                    <div className="flex h-full items-center justify-center">
+                {isLoading ? (
+                    <div className="p-6">
                         <SheetTitle className="sr-only">Loading task</SheetTitle>
-                        {isLoading ? <Loader className="size-5 animate-spin text-muted-foreground" /> : <p className="text-sm text-muted-foreground">Task not found</p>}
+                        <Loading>
+                            <TaskDetailSkeleton />
+                        </Loading>
+                    </div>
+                ) : !task ? (
+                    <div className="flex h-full items-center justify-center">
+                        <SheetTitle className="sr-only">Task not found</SheetTitle>
+                        <p className="text-sm text-muted-foreground">Task not found</p>
                     </div>
                 ) : (
                     <div className="flex flex-col gap-4 p-6">

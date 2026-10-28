@@ -20,10 +20,8 @@ import {
     FileTextIcon,
     CalculatorIcon,
     ArrowRightIcon,
-    StarIcon,
     ZapIcon,
     ShieldIcon,
-    PlusIcon,
     SettingsIcon,
     UserPlusIcon,
     FolderPlusIcon,
@@ -36,27 +34,46 @@ import {
     SparklesIcon,
     RocketIcon,
     HeartIcon,
-    GlobeIcon,
     SmartphoneIcon,
     CloudIcon,
     RefreshCwIcon,
+    RepeatIcon,
+    ShieldCheckIcon,
+    GitPullRequestArrowIcon,
+    BellIcon,
+    ListPlusIcon,
+    KeyboardIcon,
+    CompassIcon,
+    HomeIcon,
+    CrownIcon,
+    ClipboardListIcon,
+    BadgeCheckIcon,
+    UserIcon,
     LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 import { LogoGlyph } from "@/components/logo";
+import { HeadingReveal, Stagger, StaggerItem } from "@/components/motion";
+import { ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/features/members/permissions";
+import { MemberRole } from "@/features/members/types";
+
+const roleCard = (role: MemberRole) => ({ label: ROLE_LABELS[role], description: ROLE_DESCRIPTIONS[role] });
 
 const FEATURES = [
-    { icon: TargetIcon, title: "Sprint Management", description: "Set sprint duration, track story points, and monitor progress with real-time sprint timers.", badge: "Core Feature" },
-    { icon: UsersIcon, title: "Team Collaboration", description: "Invite team members, assign tasks, and track individual contributions across projects.", badge: "Essential" },
-    { icon: BarChart3Icon, title: "Analytics Dashboard", description: "Comprehensive analytics with capacity calculator, burndown charts, velocity tracking, and sprint reports.", badge: "Advanced" },
-    { icon: CalendarIcon, title: "Multiple Views", description: "Switch between table, Kanban board, and calendar views to manage tasks your way.", badge: "Flexible" },
-    { icon: CheckCircleIcon, title: "Task Management", description: "Create, assign, and track tasks with story points, due dates, and status updates.", badge: "Core Feature" },
-    { icon: TrendingUpIcon, title: "Progress Tracking", description: "Monitor project progress with visual indicators and detailed reporting.", badge: "Essential" },
-    { icon: ListTodoIcon, title: "Personal Todo Widget", description: "Keep track of personal tasks with built-in timers, separate from project tasks.", badge: "New!" },
-    { icon: RefreshCwIcon, title: "Real-time Sync", description: "All changes sync instantly across team members and devices for seamless collaboration.", badge: "Live" },
-    { icon: SmartphoneIcon, title: "Mobile Responsive", description: "Fully responsive design that works perfectly on desktop, tablet, and mobile devices.", badge: "Universal" },
+    { icon: TargetIcon, title: "Sprint Management", description: "Give each project a sprint, then follow its countdown, story points and progress from the dashboard.", badge: "Core Feature" },
+    { icon: CheckCircleIcon, title: "Task Management", description: "Story points, due dates, time blocks and several assignees, moving through Backlog, To Do, In Progress, In Review and Done.", badge: "Core Feature" },
+    { icon: CalendarIcon, title: "Multiple Views", description: "Switch between a table, a kanban board and a calendar, with drag and drop in each. Undo is one click away.", badge: "Flexible" },
+    { icon: RepeatIcon, title: "Weekly Routines", description: "Set up standups and other repeating work once. Tasks are created on their days through the sprint, skipping days off.", badge: "New!" },
+    { icon: ShieldCheckIcon, title: "Roles & Review", description: "Admin, Supervisor, Reviewer, Assignee and Viewer. Assignees take work to In Review; a reviewer approves it to Done.", badge: "New!" },
+    { icon: GitPullRequestArrowIcon, title: "Change Requests", description: "Assignees and reviewers propose new tasks, edits or deletions, and an admin or supervisor approves or declines them.", badge: "New!" },
+    { icon: BellIcon, title: "Reminders", description: "In-app and push notifications: tomorrow's tasks at 6 PM, 30 minutes before a task ends, and decisions on your requests.", badge: "Essential" },
+    { icon: ListPlusIcon, title: "Bulk Input", description: "Add many projects, tasks, routines and days off at once, checked line by line, or let your AI assistant write them.", badge: "New!" },
+    { icon: BarChart3Icon, title: "Analytics Dashboard", description: "Capacity calculator, burndown chart, velocity tracker and sprint reports.", badge: "Advanced" },
+    { icon: UsersIcon, title: "Team Collaboration", description: "Invite links with optional expiry and use limits, a separate view-only link, and placeholders for people who haven't joined yet.", badge: "Essential" },
+    { icon: KeyboardIcon, title: "Keyboard Friendly", description: "Jump anywhere with Ctrl/⌘ K, create a task with C, search with /, and press ? for every shortcut.", badge: "Fast" },
+    { icon: SmartphoneIcon, title: "Works Everywhere", description: "Responsive on phones, tablets and desktops, installable as an app, with light and dark themes.", badge: "Universal" },
 ];
 
 const BADGE_CLASSES: Record<string, string> = {
@@ -67,41 +84,42 @@ const BADGE_CLASSES: Record<string, string> = {
 const DEFAULT_BADGE_CLASS = "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
 
 const ANALYTICS_TOOLS = [
-    { icon: CalculatorIcon, title: "Capacity Calculator", description: "Calculate team sprint capacity based on member availability and daily hours." },
-    { icon: TrendingUpIcon, title: "Burndown Chart", description: "Visualize sprint progress and compare actual vs ideal burndown rates." },
-    { icon: BarChart3Icon, title: "Velocity Tracker", description: "Track team velocity across multiple sprints and identify trends." },
-    { icon: FileTextIcon, title: "Sprint Report Generator", description: "Generate comprehensive markdown reports with all sprint metrics and insights." },
+    { icon: CalculatorIcon, title: "Capacity Calculator", description: "Work out the team's sprint capacity from each member's availability and daily hours." },
+    { icon: TrendingUpIcon, title: "Burndown Chart", description: "Compare the remaining story points with the ideal burndown, day by day." },
+    { icon: BarChart3Icon, title: "Velocity Tracker", description: "Follow completed story points across sprints and spot trends." },
+    { icon: FileTextIcon, title: "Sprint Report Generator", description: "Generate a Markdown report with the sprint's metrics, ready to share." },
 ];
 
 const BENEFITS = [
-    { icon: ZapIcon, color: "text-green-600", title: "Lightning Fast", description: "Built with Next.js 14, TypeScript, and optimized for performance with sub-second load times." },
-    { icon: ShieldIcon, color: "text-primary", title: "Enterprise Security", description: "Self-hosted PostgreSQL over TLS, argon2-hashed passwords, and secure session cookies." },
-    { icon: StarIcon, color: "text-yellow-600", title: "Modern Design", description: "Beautiful, responsive interface with dark/light mode support and intuitive UX." },
-    { icon: CloudIcon, color: "text-blue-600", title: "Cloud Native", description: "Fully cloud-based with automatic backups, real-time sync, and 99.9% uptime." },
-    { icon: GlobeIcon, color: "text-purple-600", title: "Global Access", description: "Access your projects from anywhere in the world with our global CDN infrastructure." },
-    { icon: HeartIcon, color: "text-red-600", title: "User-Focused", description: "Built by developers, for developers. Every feature is designed with user experience in mind." },
+    { icon: ZapIcon, color: "text-green-600", title: "Fast", description: "Pages open straight from data cached in your browser, then refresh quietly in the background." },
+    { icon: ShieldIcon, color: "text-primary", title: "Secure by Default", description: "Argon2-hashed passwords, lockout after repeated failed logins, single-use reset links and TLS to the database." },
+    { icon: RefreshCwIcon, color: "text-blue-600", title: "Always in Sync", description: "Changes your teammates make show up on their own within a minute, without reloading." },
+    { icon: CloudIcon, color: "text-sky-600", title: "Your Own Data", description: "Stored in a self-hosted PostgreSQL database with nightly backups." },
+    { icon: CalendarDaysIcon, color: "text-purple-600", title: "Fits Your Calendar", description: "Public holidays, your own days off, working hours and your time zone shape routines and reminders." },
+    { icon: HeartIcon, color: "text-red-600", title: "Made for Small Teams", description: "Built around how small agile teams actually plan, review and ship their sprints." },
 ];
 
-const STATS = [
-    { number: "10K+", label: "Active Users", icon: UsersIcon },
-    { number: "50K+", label: "Tasks Completed", icon: CheckCircleIcon },
-    { number: "99.9%", label: "Uptime", icon: ShieldIcon },
-    { number: "24/7", label: "Support", icon: HeartIcon },
+const ROLES = [
+    { icon: CrownIcon, ...roleCard(MemberRole.ADMIN) },
+    { icon: ClipboardListIcon, ...roleCard(MemberRole.SUPERVISOR) },
+    { icon: BadgeCheckIcon, ...roleCard(MemberRole.REVIEWER) },
+    { icon: UserIcon, ...roleCard(MemberRole.ASSIGNEE) },
+    { icon: EyeIcon, ...roleCard(MemberRole.VIEWER) },
 ];
 
 const TECHNOLOGIES = [
-    { name: "Next.js 14", description: "React framework with App Router" },
-    { name: "TypeScript", description: "Type-safe development" },
-    { name: "Tailwind CSS", description: "Utility-first styling" },
-    { name: "PostgreSQL", description: "Self-hosted database" },
-    { name: "React Query", description: "Data fetching & caching" },
-    { name: "Lucide Icons", description: "Beautiful icon library" },
+    { name: "Next.js 14", description: "React framework with the App Router" },
+    { name: "TypeScript", description: "Type-safe from database to UI" },
+    { name: "Tailwind CSS", description: "Utility-first styling with shadcn/ui" },
+    { name: "PostgreSQL", description: "Self-hosted, through Drizzle ORM" },
+    { name: "Hono", description: "Typed API routes" },
+    { name: "TanStack Query", description: "Data fetching and browser caching" },
 ];
 
 const HERO_HIGHLIGHTS = [
-    { icon: RocketIcon, label: "Lightning Fast" },
-    { icon: ShieldIcon, label: "Enterprise Secure" },
-    { icon: GlobeIcon, label: "Global Access" },
+    { icon: RocketIcon, label: "Fast" },
+    { icon: ShieldIcon, label: "Secure" },
+    { icon: SmartphoneIcon, label: "On any device" },
 ];
 
 interface StepItem {
@@ -117,50 +135,53 @@ const STEPS: { title: string; items: StepItem[] }[] = [
     {
         title: "Create Your Account & Workspace",
         items: [
-            { icon: UserPlusIcon, bg: "bg-blue-100 dark:bg-blue-900/30", color: "text-blue-600 dark:text-blue-400", text: "Sign up for a new account or sign in with existing credentials" },
-            { icon: SettingsIcon, bg: "bg-green-100 dark:bg-green-900/30", color: "text-green-600 dark:text-green-400", text: "Create your first workspace and set up sprint settings (duration, sprint number)" },
-            { icon: UsersIcon, bg: "bg-purple-100 dark:bg-purple-900/30", color: "text-purple-600 dark:text-purple-400", text: "Invite team members to collaborate on projects" },
+            { icon: UserPlusIcon, bg: "bg-blue-100 dark:bg-blue-900/30", color: "text-blue-600 dark:text-blue-400", text: "Sign up with your email or with Google" },
+            { icon: SettingsIcon, bg: "bg-green-100 dark:bg-green-900/30", color: "text-green-600 dark:text-green-400", text: "Create a workspace together with its first project, or join one from an invite link" },
+            { icon: CompassIcon, bg: "bg-purple-100 dark:bg-purple-900/30", color: "text-purple-600 dark:text-purple-400", text: "A short tour shows you around; replay it any time from Ctrl/⌘ K or your account menu" },
         ],
     },
     {
-        title: "Create Your First Project",
+        title: "Bring In Your Team",
         items: [
-            { icon: PlusIcon, bg: "bg-orange-100 dark:bg-orange-900/30", color: "text-orange-600 dark:text-orange-400", text: "Click \"New Project\" to create a project with sprint duration and sprint number" },
-            { icon: FolderPlusIcon, bg: "bg-indigo-100 dark:bg-indigo-900/30", color: "text-indigo-600 dark:text-indigo-400", text: "Set project name, description, and sprint settings" },
-            { icon: ClockIcon, bg: "bg-red-100 dark:bg-red-900/30", color: "text-red-600 dark:text-red-400", text: "The sprint timer will automatically start counting down" },
+            { icon: UsersIcon, bg: "bg-orange-100 dark:bg-orange-900/30", color: "text-orange-600 dark:text-orange-400", text: "Share the invite link from Settings → Invites, optionally with an expiry and a use limit" },
+            { icon: EyeIcon, bg: "bg-indigo-100 dark:bg-indigo-900/30", color: "text-indigo-600 dark:text-indigo-400", text: "Send the separate viewer link to people who only need to follow along" },
+            { icon: ShieldCheckIcon, bg: "bg-red-100 dark:bg-red-900/30", color: "text-red-600 dark:text-red-400", text: "Give each member a role in Members: Admin, Supervisor, Reviewer, Assignee or Viewer" },
         ],
     },
     {
-        title: "Add Tasks with Story Points",
+        title: "Plan the Sprint",
         items: [
-            { icon: ListTodoIcon, bg: "bg-yellow-100 dark:bg-yellow-900/30", color: "text-yellow-600 dark:text-yellow-400", text: "Create tasks and assign story points during task creation" },
-            { icon: TargetIcon, bg: "bg-teal-100 dark:bg-teal-900/30", color: "text-teal-600 dark:text-teal-400", text: "Assign tasks to team members and set due dates" },
-            { icon: CheckCircleIcon, bg: "bg-pink-100 dark:bg-pink-900/30", color: "text-pink-600 dark:text-pink-400", text: "Use different task statuses: TODO, IN_PROGRESS, DONE" },
+            { icon: FolderPlusIcon, bg: "bg-yellow-100 dark:bg-yellow-900/30", color: "text-yellow-600 dark:text-yellow-400", text: "Give each project a sprint start and end date; the countdown starts on its own" },
+            { icon: ListTodoIcon, bg: "bg-teal-100 dark:bg-teal-900/30", color: "text-teal-600 dark:text-teal-400", text: "Add tasks with story points, one or more assignees, a due date and, if you like, a time block" },
+            { icon: RepeatIcon, bg: "bg-pink-100 dark:bg-pink-900/30", color: "text-pink-600 dark:text-pink-400", text: "Set up weekly routines for repeating work, and add days off in Settings → Holidays" },
+            { icon: ListPlusIcon, bg: "bg-cyan-100 dark:bg-cyan-900/30", color: "text-cyan-600 dark:text-cyan-400", text: "Lots to add? Settings → Bulk input takes many lines at once" },
         ],
     },
     {
-        title: "Manage Tasks in Multiple Views",
+        title: "Work in the View That Suits You",
         items: [
-            { icon: ListTodoIcon, bg: "bg-slate-100 dark:bg-slate-900/30", color: "text-slate-600 dark:text-slate-400", label: "Table View:", text: "Detailed task list with sorting and filtering" },
-            { icon: KanbanIcon, bg: "bg-cyan-100 dark:bg-cyan-900/30", color: "text-cyan-600 dark:text-cyan-400", label: "Kanban View:", text: "Drag and drop tasks between columns" },
-            { icon: CalendarDaysIcon, bg: "bg-emerald-100 dark:bg-emerald-900/30", color: "text-emerald-600 dark:text-emerald-400", label: "Calendar View:", text: "Visual timeline of tasks and deadlines" },
+            { icon: HomeIcon, bg: "bg-slate-100 dark:bg-slate-900/30", color: "text-slate-600 dark:text-slate-400", label: "Home:", text: "What's overdue, due today and due tomorrow, with countdowns" },
+            { icon: ListTodoIcon, bg: "bg-sky-100 dark:bg-sky-900/30", color: "text-sky-600 dark:text-sky-400", label: "Table View:", text: "Sort, filter, search and edit many tasks at once" },
+            { icon: KanbanIcon, bg: "bg-cyan-100 dark:bg-cyan-900/30", color: "text-cyan-600 dark:text-cyan-400", label: "Kanban View:", text: "Drag tasks between Backlog, To Do, In Progress, In Review and Done" },
+            { icon: CalendarDaysIcon, bg: "bg-emerald-100 dark:bg-emerald-900/30", color: "text-emerald-600 dark:text-emerald-400", label: "Calendar View:", text: "Drag tasks onto days and times, or stretch them to change their length" },
+        ],
+    },
+    {
+        title: "Review and Approve",
+        items: [
+            { icon: ClockIcon, bg: "bg-violet-100 dark:bg-violet-900/30", color: "text-violet-600 dark:text-violet-400", text: "Assignees move their own tasks along and hand them over in In Review" },
+            { icon: BadgeCheckIcon, bg: "bg-rose-100 dark:bg-rose-900/30", color: "text-rose-600 dark:text-rose-400", text: "Reviewers, supervisors and admins approve work to Done or send it back" },
+            { icon: GitPullRequestArrowIcon, bg: "bg-amber-100 dark:bg-amber-900/30", color: "text-amber-600 dark:text-amber-400", text: "Requested changes wait on the Requests page until an admin or supervisor decides" },
+            { icon: BellIcon, bg: "bg-lime-100 dark:bg-lime-900/30", color: "text-lime-600 dark:text-lime-400", text: "Turn on push notifications to hear about reminders and decisions on your phone too" },
         ],
     },
     {
         title: "Track Progress with Analytics",
         items: [
             { icon: CalculatorIcon, bg: "bg-violet-100 dark:bg-violet-900/30", color: "text-violet-600 dark:text-violet-400", label: "Capacity Calculator:", text: "Calculate team sprint capacity based on availability" },
-            { icon: TrendingUpIcon, bg: "bg-rose-100 dark:bg-rose-900/30", color: "text-rose-600 dark:text-rose-400", label: "Burndown Chart:", text: "Visualize sprint progress vs ideal burndown" },
-            { icon: BarChartIcon, bg: "bg-amber-100 dark:bg-amber-900/30", color: "text-amber-600 dark:text-amber-400", label: "Velocity Tracker:", text: "Monitor team velocity across multiple sprints" },
-            { icon: FileTextIcon, bg: "bg-lime-100 dark:bg-lime-900/30", color: "text-lime-600 dark:text-lime-400", label: "Sprint Report Generator:", text: "Generate comprehensive markdown reports" },
-        ],
-    },
-    {
-        title: "Monitor Sprint Progress",
-        items: [
-            { icon: ClockIcon, bg: "bg-sky-100 dark:bg-sky-900/30", color: "text-sky-600 dark:text-sky-400", text: "View real-time sprint countdown timers on the dashboard" },
-            { icon: TargetIcon, bg: "bg-fuchsia-100 dark:bg-fuchsia-900/30", color: "text-fuchsia-600 dark:text-fuchsia-400", text: "Track completed vs remaining story points" },
-            { icon: EyeIcon, bg: "bg-stone-100 dark:bg-stone-900/30", color: "text-stone-600 dark:text-stone-400", text: "Monitor individual team member contributions" },
+            { icon: TrendingUpIcon, bg: "bg-rose-100 dark:bg-rose-900/30", color: "text-rose-600 dark:text-rose-400", label: "Burndown Chart:", text: "Visualize sprint progress against the ideal burndown" },
+            { icon: BarChartIcon, bg: "bg-amber-100 dark:bg-amber-900/30", color: "text-amber-600 dark:text-amber-400", label: "Velocity Tracker:", text: "Monitor team velocity across sprints" },
+            { icon: FileTextIcon, bg: "bg-lime-100 dark:bg-lime-900/30", color: "text-lime-600 dark:text-lime-400", label: "Sprint Report Generator:", text: "Generate a Markdown report of the sprint" },
         ],
     },
 ];
@@ -182,8 +203,8 @@ const TIPS = [
         items: [
             "Set realistic daily capacity (6-8 hours)",
             "Account for meetings and overhead time",
-            "Update availability for holidays/vacations",
-            "Regular team retrospectives for improvement",
+            "Add days off so routines and capacity skip them",
+            "Give people the narrowest role that fits their work",
         ],
     },
     {
@@ -201,14 +222,17 @@ const TIPS = [
         title: "Task Management",
         items: [
             "Use clear, descriptive task names",
-            "Set realistic due dates",
-            "Update task status regularly",
-            "Use filters to focus on relevant tasks",
+            "Set realistic due dates; give timed work a time block",
+            "Move tasks to In Review when they're ready, not straight to Done",
+            "Use filters and / search to focus on what matters now",
         ],
     },
 ];
 
-const FOOTER_LINKS = ["Privacy Policy", "Terms of Service", "Support", "Documentation"];
+const FOOTER_LINKS = [
+    { label: "Privacy Policy", href: "/privacy" },
+    { label: "Terms of Service", href: "/terms" },
+];
 
 // The brand glyph in the hero/footer circles, which supply their own background
 const LogoMark = ({ width, height }: { width: number; height: number }) => (
@@ -266,15 +290,16 @@ export const AboutContent = () => {
                     <div className="flex justify-center mb-4">
                         <Badge variant="secondary" className="px-4 py-2 text-sm font-medium bg-primary/10 text-primary border-primary/20">
                             <SparklesIcon className="h-4 w-4 mr-2" />
-                            Version 3.1.5 - Latest Release
+                            New: roles, change requests and bulk input
                         </Badge>
                     </div>
-                    <CardTitle className="text-5xl font-bold mb-6 bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
-                        Welcome to ScrumSpecter
-                    </CardTitle>
+                    {/* The page's one h1 (CardTitle is a div) */}
+                    <h1 className="text-4xl sm:text-5xl font-bold leading-tight tracking-tight text-foreground mb-6">
+                        <HeadingReveal>Welcome to ScrumSpecter</HeadingReveal>
+                    </h1>
                     <CardDescription className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed mb-8">
-                        The ultimate project management and task tracking application designed for modern agile teams.
-                        Streamline your workflow, track progress, and deliver exceptional results with our intuitive platform.
+                        Sprint planning and task tracking for small agile teams. Plan the sprint, share out the work,
+                        review it before it&apos;s done, and see how it went, all in one place.
                     </CardDescription>
                     <div className="flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
                         {HERO_HIGHLIGHTS.map(({ icon: Icon, label }) => (
@@ -296,9 +321,9 @@ export const AboutContent = () => {
                     description="Everything you need to manage projects and track team performance"
                 />
                 <CardContent className="p-10 pt-0">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {FEATURES.map(({ icon: Icon, title, description, badge }) => (
-                            <div key={title} className="group flex flex-col items-center text-center space-y-4 p-6 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-border/50 hover:border-primary/30 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 relative">
+                            <StaggerItem key={title} className="group flex flex-col items-center text-center space-y-4 p-6 rounded-card bg-card border border-border/70 shadow-soft hover:shadow-lift transition-shadow duration-300 ease-out relative">
                                 <div className="absolute top-4 right-4">
                                     <Badge
                                         variant={badge === "New!" ? "default" : "secondary"}
@@ -312,9 +337,9 @@ export const AboutContent = () => {
                                 </div>
                                 <h3 className="font-bold text-xl group-hover:text-primary transition-colors duration-300">{title}</h3>
                                 <p className="text-muted-foreground leading-relaxed">{description}</p>
-                            </div>
+                            </StaggerItem>
                         ))}
-                    </div>
+                    </Stagger>
                 </CardContent>
             </Card>
 
@@ -429,27 +454,23 @@ export const AboutContent = () => {
 
             <SectionSeparator />
 
-            {/* Stats Section */}
+            {/* Roles Section */}
             <Card className="border-0 shadow-xl bg-gradient-to-r from-primary/5 via-background to-primary/5">
                 <FeaturedHeader
-                    title="Trusted by Teams Worldwide"
-                    description="Join thousands of teams already using ScrumSpecter to deliver exceptional results"
+                    title="A Role for Everyone"
+                    description="Each member gets exactly the access their work needs"
                 />
                 <CardContent className="p-10 pt-0">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                        {STATS.map(({ icon: Icon, number, label }) => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                        {ROLES.map(({ icon: Icon, label, description }) => (
                             <div key={label} className="text-center space-y-3 group">
                                 <div className="flex justify-center">
                                     <div className={cn("p-4 rounded-2xl", ICON_TILE)}>
-                                        <Icon className="h-4 w-4" />
+                                        <Icon className="h-5 w-5 text-primary" />
                                     </div>
                                 </div>
-                                <div className="text-3xl font-bold text-primary group-hover:scale-110 transition-transform duration-300">
-                                    {number}
-                                </div>
-                                <div className="text-sm text-muted-foreground font-medium">
-                                    {label}
-                                </div>
+                                <div className="text-lg font-bold text-primary">{label}</div>
+                                <div className="text-sm text-muted-foreground">{description}</div>
                             </div>
                         ))}
                     </div>
@@ -494,7 +515,7 @@ export const AboutContent = () => {
                         Ready to Get Started?
                     </CardTitle>
                     <CardDescription className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                        Join thousands of teams already using ScrumSpecter to manage their projects and deliver exceptional results
+                        Create a free account, set up your workspace and invite your team in a few minutes
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="p-12 pt-0 flex flex-col sm:flex-row gap-6 justify-center">
@@ -523,12 +544,12 @@ export const AboutContent = () => {
                     </span>
                 </div>
                 <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
-                    © 2024 ScrumSpecter. Built with Next.js 14, TypeScript, Tailwind CSS, and PostgreSQL.
-                    Designed for modern agile teams worldwide.
+                    © {new Date().getFullYear()} ScrumSpecter. Built with Next.js 14, TypeScript, Tailwind CSS, and PostgreSQL.
+                    Designed for small agile teams.
                 </p>
                 <div className="flex justify-center gap-6 text-xs text-muted-foreground">
-                    {FOOTER_LINKS.map((link) => (
-                        <span key={link}>{link}</span>
+                    {FOOTER_LINKS.map(({ label, href }) => (
+                        <Link key={href} href={href} className="hover:text-foreground hover:underline">{label}</Link>
                     ))}
                 </div>
             </div>

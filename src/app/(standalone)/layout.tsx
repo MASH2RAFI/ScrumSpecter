@@ -2,8 +2,8 @@
 
 import { UserButton } from "@/features/auth/components/user-button";
 import { NeuralBackground } from "@/components/neural-background";
-import { PersonalTodoWidget } from "@/components/personal-todo-list";
 import { ThemeLogo } from "@/components/theme-logo";
+import { ThemeSwitch } from "@/components/theme-switch";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -30,7 +30,7 @@ const StandloneLayout = ({ children }: StandloneLayoutProps) => {
                                 <ThemeLogo height={50} width={100} />
                             </Link>
                             <div className="flex items-center gap-2">
-                                <PersonalTodoWidget />
+                                <ThemeSwitch />
                                 <UserButton />
                             </div>
                         </>

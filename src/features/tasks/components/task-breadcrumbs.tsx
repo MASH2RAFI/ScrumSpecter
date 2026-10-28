@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useDeleteTask } from "../api/use-delete-task";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useRouter } from "next/navigation";
-import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
+import { usePermissions } from "@/features/members/hooks/use-permissions";
 
 interface TaskBreadcrumbsProps { 
 project: Project; 
@@ -20,7 +20,7 @@ export const TaskBreadcrumbs = ({
     task
 }: TaskBreadcrumbsProps) => {
     const workspaceId = useWorkspaceId();
-    const { isAdmin } = useIsAdmin({ workspaceId });
+    const { canEditWork } = usePermissions({ workspaceId });
     const router = useRouter();
     const { mutate, isPending } = useDeleteTask();
 
@@ -58,7 +58,7 @@ export const TaskBreadcrumbs = ({
             <p className="text-sm lg:text-lg font-semibold"> 
                 {task.name}
             </p> 
-            {isAdmin && (
+            {canEditWork && (
                 <Button
                     onClick={handleDeleteTask}
                     disabled={isPending}

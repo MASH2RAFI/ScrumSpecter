@@ -1,4 +1,4 @@
-import { expect, request, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, request, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 
 export const CRON_SECRET = "e2e-cron-secret";
 
@@ -8,7 +8,8 @@ export type TestUser = { name: string; email: string; password: string; api: API
 
 // Registers through the API and returns a request context that carries the session cookie.
 // The cookie is Secure, which APIRequestContext won't send over http, so it goes in a header.
-export const registerUser = async (baseURL: string, name = "Tester"): Promise<TestUser> => {
+// New accounts get the welcome tour, which covers the page; tests opt in with { tutorial: true }
+export const registerUser = async (baseURL: string, name = "Tester", { tutorial = false } = {}): Promise<TestUser> => {
     const email = `e2e-${unique()}@example.com`;
     const password = "correct-horse-battery";
     const anon = await request.newContext({ baseURL });
@@ -19,7 +20,17 @@ export const registerUser = async (baseURL: string, name = "Tester"): Promise<Te
     expect(cookie).toMatch(/^specter-session=/);
     await anon.dispose();
     const api = await request.newContext({ baseURL, extraHTTPHeaders: { cookie } });
+    if (!tutorial) {
+        const off = await api.patch("/api/account/preferences", { data: { showTutorial: false } });
+        expect(off.status(), await off.text()).toBe(200);
+    }
     return { name, email, password, api, cookie };
+};
+
+// Signs a browser context in as an API-registered user
+export const signInBrowser = async (page: Page, user: { cookie: string }, baseURL: string) => {
+    const [name, value] = user.cookie.split("=");
+    await page.context().addCookies([{ name, value, url: baseURL, httpOnly: true, secure: true, sameSite: "Strict" }]);
 };
 
 // An API context for whoever is signed in on the page
@@ -57,10 +68,15 @@ export const getMembers = async (api: APIRequestContext, workspaceId: string) =>
 
 export const createTask = async (
     api: APIRequestContext,
-    fields: { workspaceId: string; projectId: string; assigneeId: string; name?: string; [key: string]: unknown },
+    // assigneeId is shorthand for a single assignee
+    { assigneeId, ...fields }: { workspaceId: string; projectId: string; assigneeId?: string; assigneeIds?: string[]; name?: string; [key: string]: unknown },
 ) => {
     const res = await api.post("/api/tasks", {
-        data: { name: "E2E task", status: "TODO", storyPoints: 3, dueDate: new Date().toISOString(), ...fields },
+        data: {
+            name: "E2E task", status: "TODO", storyPoints: 3, dueDate: new Date().toISOString(),
+            ...(assigneeId ? { assigneeIds: [assigneeId] } : {}),
+            ...fields,
+        },
     });
     return res;
 };
@@ -70,10 +86,36 @@ export const watchConsole = (page: Page) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
     page.on("console", (message) => {
-        if (message.type() === "error") errors.push(`console: ${message.text()} ${message.location().url}`);
+        if (message.type() === "error") {
+            void Promise.all(message.args().map((arg) => arg.jsonValue().catch(() => "?"))).then((args) => {
+                if (args.length > 1) console.log("console error args:", JSON.stringify(args).slice(0, 1500));
+            });
+            errors.push(`console: ${message.text()} ${message.location().url}`);
+        }
     });
     page.on("response", (response) => {
         if (response.status() >= 400) errors.push(`http ${response.status()}: ${response.request().method()} ${response.url()}`);
     });
     return errors;
+};
+
+// Native HTML5 drag and drop: the app's own dragstart/dragover/drop handlers with one shared
+// DataTransfer, dropped at the target's centre (Playwright's mouse-based dragTo is unreliable here).
+// Like a browser, each event goes to whatever is under the pointer at that moment.
+export const html5Drag = async (page: Page, source: Locator, target: Locator) => {
+    const box = await target.boundingBox();
+    expect(box).not.toBeNull();
+    const point = { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 };
+    const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+    await source.dispatchEvent("dragstart", { dataTransfer });
+    for (const type of ["dragenter", "dragover", "drop"]) {
+        await page.evaluate(({ type, x, y, dt }) => {
+            document.elementFromPoint(x, y)!.dispatchEvent(
+                new DragEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }),
+            );
+        }, { type, ...point, dt: dataTransfer });
+    }
+    await source.dispatchEvent("dragend", { dataTransfer }, { timeout: 2_000 }).catch(() => {
+        // The card may be gone already: scheduling removes it from the panel
+    });
 };

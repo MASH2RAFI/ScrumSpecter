@@ -4,6 +4,9 @@ import { toast } from "sonner";
 
 import { client } from "@/lib/rpc";
 
+import { findCachedTask } from "./optimistic-tasks";
+import { restoreTasks, toastWithUndo } from "./undo";
+
 type ResponseType = InferResponseType<typeof client.api.tasks[":taskId"]["$delete"], 200>;
 type RequestType = InferRequestType<typeof client.api.tasks[":taskId"]["$delete"]>;
 
@@ -12,7 +15,8 @@ export const useDeleteTask = () => {
     const mutation = useMutation<
         ResponseType,
         Error,
-        RequestType
+        RequestType,
+        { deleted?: Record<string, unknown> }
     >({
         mutationFn: async ({ param }) => {
             const response = await client.api.tasks[":taskId"]["$delete"]({ param });
@@ -21,8 +25,15 @@ export const useDeleteTask = () => {
             }
             return await response.json();
         },
-        onSuccess: ({ data }) => {
-            toast.success("Task deleted successfully");
+        // Remembered before it's gone, so Undo can put it back
+        onMutate: ({ param }) => ({ deleted: findCachedTask(queryClient, param.taskId) }),
+        onSuccess: ({ data }, _variables, context) => {
+            const deleted = context?.deleted;
+            if (deleted) {
+                toastWithUndo("Task deleted", () => restoreTasks(queryClient, [deleted]));
+            } else {
+                toast.success("Task deleted");
+            }
 
             queryClient.invalidateQueries({ queryKey: ["tasks"] });
             queryClient.invalidateQueries({ queryKey: ["task", data.$id] });

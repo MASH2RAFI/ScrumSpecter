@@ -8,28 +8,37 @@ import {
     TabsList,
     TabsTrigger
 } from "@/components/ui/tabs"
-import { Loader, PlusIcon, RepeatIcon } from "lucide-react";
+import { CalendarDaysIcon, KanbanSquareIcon, PlusIcon, RepeatIcon, TableIcon } from "lucide-react";
 import { useCreateTaskModal } from "../hooks/use-create-task-modal";
-import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
+import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { useGetTasks } from "../api/use-get-tasks";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { useQueryState } from "nuqs";
 import { DataFilters } from "./data-filters";
 import { useTaskFilters } from "../hooks/use-task-filters";
 import { DataTable } from "./data-table";
+import { TaskBulkBar } from "./task-bulk-bar";
 import { getColumns } from "./columns";
 import { Datakanban } from "./data-kanban";
 import { useCallback, useMemo } from "react";
-import { splitByRoutineWindow } from "../routine-window";
+import { splitByRoutineWeek } from "../routine-window";
+import { useGetRoutines } from "@/features/routines/api/use-get-routines";
+import { usePreferences } from "@/features/auth/hooks/use-preferences";
 import { useBulkUpdateTasks } from "../api/use-bulk-update-tasks";
 import { DataCalendar } from "./data-calendar";
 import { useProjectId } from "@/features/projects/hooks/use-project-id";
-import { TaskStatus } from "../types";
+import { Task, TaskStatus } from "../types";
+import { Loading, TableSkeleton } from "@/components/page-skeletons";
  
+const VIEW_TABS = [
+    { value: "table", label: "Table", icon: TableIcon },
+    { value: "kanban", label: "Kanban", icon: KanbanSquareIcon },
+    { value: "calendar", label: "Calendar", icon: CalendarDaysIcon },
+] as const;
+
 interface TaskViewSwitcherProps {
     hideProjectFilter?: boolean;
 };
-
 
 export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) => {
         const [{
@@ -41,10 +50,11 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
         }] = useTaskFilters();
         
         const workspaceId = useWorkspaceId();
-        const { isAdmin } = useIsAdmin({ workspaceId });
+        const { canEditWork, canReview, canRequestChanges } = usePermissions({ workspaceId });
 
+    const { weekStart, defaultTaskView } = usePreferences();
     const [view, setView] = useQueryState("task-view", {
-        defaultValue: "table",
+        defaultValue: defaultTaskView,
     });
 
     const paramProjectId = useProjectId();
@@ -64,12 +74,26 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
             search,
         });
 
-
-    // Routine tasks beyond the coming week only clutter the list views; the calendar keeps them all
-    const { visible: listTasks, hidden: hiddenRoutineTasks } = useMemo(
-        () => splitByRoutineWindow(tasks?.documents ?? []),
-        [tasks]
-    );
+    // Each routine chooses the views its tasks appear in (routine form → "Show its tasks in")
+    const { data: routines } = useGetRoutines({ workspaceId });
+    const { tableTasks, kanbanTasks, calendarTasks, hiddenRoutineTasks } = useMemo(() => {
+        const all = tasks?.documents ?? [];
+        const offIn = (key: "showInTable" | "showInKanban" | "showInCalendar") =>
+            new Set((routines?.documents ?? []).filter((routine) => !routine[key]).map((routine) => routine.$id));
+        const only = (list: Task[], hidden: Set<string>) =>
+            hidden.size ? list.filter((task) => !task.routineId || !hidden.has(task.routineId)) : list;
+        const [offTable, offKanban, offCalendar] = [offIn("showInTable"), offIn("showInKanban"), offIn("showInCalendar")];
+        const calendar = only(all, offCalendar);
+        // Done routine tasks and those from other weeks only clutter the list views; the calendar keeps them all
+        const { visible } = splitByRoutineWeek(all, weekStart);
+        return {
+            tableTasks: only(visible, offTable),
+            kanbanTasks: only(visible, offKanban),
+            calendarTasks: calendar,
+            // Only the ones the calendar actually shows are worth pointing to
+            hiddenRoutineTasks: splitByRoutineWeek(calendar, weekStart).hidden,
+        };
+    }, [tasks, routines, weekStart]);
 
     const onKanbanChange = useCallback((
         tasks: { $id: string; status: TaskStatus; position: number }[]
@@ -79,48 +103,33 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
         });;
     }, [bulkUpdate]);
 
-
     return (
         <Tabs 
             defaultValue={view}
             onValueChange={setView}
-            className="flex-1 w-full border border-border rounded-unified-lg bg-background shadow-unified transition-unified"
+            className="flex-1 w-full border border-border/70 rounded-card bg-card shadow-soft transition-unified"
         >
             <div className="h-full flex flex-col p-3 sm:p-4">
-                <div className="flex flex-col gap-y-3 sm:gap-y-2 lg:flex-row justify-between items-stretch sm:items-center">
-                    <TabsList className="w-full lg:w-auto bg-transparent p-0 h-auto">
-                        <TabsTrigger
-                            className="h-10 sm:h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-unified-sm transition-unified text-sm sm:text-base min-h-[44px] sm:min-h-[32px]"
-                            value="table"
-                        >
-                            Table
-                        </TabsTrigger>
-
-                        <TabsTrigger
-                            className="h-10 sm:h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-unified-sm transition-unified text-sm sm:text-base min-h-[44px] sm:min-h-[32px]"
-                            value="kanban"
-                        >
-                            Kanban
-                        </TabsTrigger>
-
-                        <TabsTrigger
-                            className="h-10 sm:h-8 w-full lg:w-auto bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-unified-sm transition-unified text-sm sm:text-base min-h-[44px] sm:min-h-[32px]"
-                            value="calendar"
-                        >
-                            Calendar
-                        </TabsTrigger>
-                    </TabsList>
-                    {isAdmin && (
-                        <div className="flex gap-2">
-                            <Button
-                                onClick={() => open()}
-                                size="sm"
-                                className="w-full lg:w-auto min-h-[44px] sm:min-h-[32px] text-sm sm:text-base"
+                {/* One row at every size: the view switch, then New */}
+                <div className="flex items-center justify-between gap-2">
+                    <TabsList className="grid h-9 flex-1 grid-cols-3 rounded-md bg-muted p-0.5 sm:inline-flex sm:flex-none">
+                        {VIEW_TABS.map(({ value, label, icon: Icon }) => (
+                            <TabsTrigger
+                                key={value}
+                                value={value}
+                                className="h-8 gap-1.5 rounded-[5px] px-3 text-sm min-h-0 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
                             >
-                                <PlusIcon className="size-4 mr-2" />
-                                New
-                            </Button>
-                        </div>
+                                <Icon className="size-4 shrink-0" />
+                                {label}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                    {/* Requesters get the same form; it sends a request instead */}
+                    {(canEditWork || canRequestChanges) && (
+                        <Button onClick={() => open()} size="sm" className="h-9 shrink-0 min-h-0 px-3">
+                            <PlusIcon className="size-4 sm:mr-1.5" />
+                            <span className="sr-only sm:not-sr-only">New</span>
+                        </Button>
                     )}
                 </div>
 
@@ -132,27 +141,35 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
                     />
                 <DottedSeparator className="my-4" />
                 {isLoadingTasks ? (
-                    <div className="w-full border border-border rounded-lg h-[200px] flex flex-col items-center justify-center bg-muted/20">
-                        <Loader className="size-5 animate-spin text-muted-foreground" />
-                    </div>
+                    <Loading>
+                        <TableSkeleton />
+                    </Loading>
 
                 ):(
                     <>
                         {hiddenRoutineTasks > 0 && view !== "calendar" && (
                             <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
                                 <RepeatIcon className="size-3.5 text-primary" />
-                                {hiddenRoutineTasks} later routine {hiddenRoutineTasks === 1 ? "task" : "tasks"} this sprint {hiddenRoutineTasks === 1 ? "is" : "are"} on the Calendar
+                                {hiddenRoutineTasks} routine {hiddenRoutineTasks === 1 ? "task" : "tasks"} (done, or from other weeks) {hiddenRoutineTasks === 1 ? "is" : "are"} on the Calendar
                             </p>
                         )}
                         <TabsContent value="table" className="mt-0">
-                            <DataTable columns={getColumns(listTasks)} data={listTasks} />
+                            <DataTable
+                                columns={getColumns(tableTasks)}
+                                data={tableTasks}
+                                // Ticking rows only helps those who may change other people's tasks
+                                selection={canReview ? {
+                                    getRowId: (task) => task.$id,
+                                    renderBar: (selected, clear) => <TaskBulkBar tasks={selected} clear={clear} canEditWork={canEditWork} canReview={canReview} />,
+                                } : undefined}
+                            />
                         </TabsContent>
                         <TabsContent value="kanban" className="mt-0">
-                            <Datakanban onChange={onKanbanChange} data={listTasks}/>
+                            <Datakanban onChange={onKanbanChange} data={kanbanTasks}/>
                         </TabsContent>
                         <TabsContent value="calendar" className="mt-0 h-full overflow-auto">
                             <div className="h-full min-h-[600px]">
-                                <DataCalendar data={tasks?.documents ?? []} />
+                                <DataCalendar data={calendarTasks} />
                             </div>
                         </TabsContent>
                     </>                    

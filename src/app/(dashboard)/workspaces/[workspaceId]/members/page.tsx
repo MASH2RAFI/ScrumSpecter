@@ -1,18 +1,12 @@
 import { redirect } from "next/navigation";
 
-import { getCurrent } from "@/features/auth/queries";
-import { MembersList } from "@/features/workspaces/components/members-list";
+interface MembersPageProps {
+    params: { workspaceId: string };
+}
 
-const WorkspaceIdMembersPage = async () => {
-    const user = await getCurrent();
-    if (!user) redirect(("/sign-in"))
-        return (
-
-            <div className="w-full lg:max-w-xl">
-                <h1 className="text-2xl font-bold mb-4">Members</h1>
-                <MembersList />
-            </div>
-
-        );
+// Members is a popup now; keep old links working
+const MembersPage = ({ params: { workspaceId } }: MembersPageProps) => {
+    redirect(`/workspaces/${workspaceId}?workspace-panel=members`);
 };
-export default WorkspaceIdMembersPage;
+
+export default MembersPage;

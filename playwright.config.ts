@@ -11,7 +11,8 @@ export default defineConfig({
     // Tests in a file share one workspace and build on each other
     fullyParallel: false,
     workers: 1,
-    timeout: 60_000,
+    // Generous: `next dev` compiles each page on its first visit
+    timeout: 120_000,
     expect: { timeout: 15_000 },
     reporter: [["list"]],
     use: {
@@ -39,6 +40,14 @@ export default defineConfig({
                 DATABASE_SSL: "false",
                 NEXT_PUBLIC_APP_URL: baseURL,
                 CRON_SECRET: "e2e-cron-secret",
+                // Known to qol-api.spec.ts, which signs a pending Google link like the server does
+                AUTH_LINK_SECRET: "e2e-link-secret",
+                // Bundled holiday data, so tests don't depend on Google's live feed
+                HOLIDAY_FEED: "off",
+                // Its own build folder, so a running `npm run dev` isn't disturbed
+                NEXT_DIST_DIR: ".next-e2e",
+                // Trust the fake push service in notifications-api.spec.ts (test-only certificate)
+                NODE_EXTRA_CA_CERTS: "e2e/fixtures/push-server.crt",
             },
         },
     ],

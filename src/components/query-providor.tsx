@@ -1,26 +1,36 @@
-// In Next.js, this file would be called: app/providers.tsx
 'use client'
 
-// Since QueryClientProvider relies on useContext under the hood, we have to put 'use client' on top
 import {
   isServer,
+  MutationCache,
   QueryClient,
   QueryClientProvider,
 } from '@tanstack/react-query'
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 
 import { isClientError } from '@/lib/api-error'
+import { CACHE_BUSTER, CACHE_MAX_AGE, CACHE_STORAGE_KEY, cacheStorage } from '@/lib/query-cache'
+import { absorbOwnChanges } from '@/features/workspaces/hooks/use-data-versions'
 
 function makeQueryClient() {
-  return new QueryClient({
+  const queryClient: QueryClient = new QueryClient({
+    // Our own edits bump the workspace version too; record it so the next check doesn't refetch
+    mutationCache: new MutationCache({
+      onSuccess: () => absorbOwnChanges(queryClient),
+    }),
     defaultOptions: {
       queries: {
-        // With SSR, we usually want to set some default staleTime
-        // above 0 to avoid refetching immediately on the client
-        staleTime: 5 * 60 * 1000, // 5 minutes
-        gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+        // Data stays fresh until the server says otherwise: useDataVersions invalidates
+        // a workspace's queries when its data_version changes. Mutations invalidate directly.
+        staleTime: isServer ? 60 * 1000 : Infinity,
+        // Kept long enough to be persisted and restored on the next visit
+        gcTime: CACHE_MAX_AGE,
         // 4xx won't change on retry; network errors and 5xx get two more tries
         retry: (failureCount, error) => !isClientError(error) && failureCount < 2,
         refetchOnWindowFocus: false,
+        // With staleTime Infinity these only refetch queries that were invalidated
+        // (by a mutation or a data-version change) while no page was showing them
         refetchOnReconnect: true,
         refetchOnMount: true,
       },
@@ -30,6 +40,7 @@ function makeQueryClient() {
       },
     },
   })
+  return queryClient
 }
 
 let browserQueryClient: QueryClient | undefined = undefined
@@ -38,28 +49,45 @@ function getQueryClient() {
   if (isServer) {
     // Server: always make a new query client
     return makeQueryClient()
-  } else {
-    // Browser: make a new query client if we don't already have one
-    // This is very important, so we don't re-make a new client if React
-    // suspends during the initial render. This may not be needed if we
-    // have a suspense boundary BELOW the creation of the query client
-    if (!browserQueryClient) browserQueryClient = makeQueryClient()
-    return browserQueryClient
   }
+  // Browser: reuse one client, so React suspending on first render doesn't drop it
+  if (!browserQueryClient) browserQueryClient = makeQueryClient()
+  return browserQueryClient
 }
 
+// Storage can be unavailable (private mode); the app then simply runs without the copy
+const persister = typeof window === 'undefined'
+  ? undefined
+  : createSyncStoragePersister({
+      storage: cacheStorage(),
+      key: CACHE_STORAGE_KEY,
+      throttleTime: 1000,
+    })
+
 interface QueryProviderProps {
-    children: React.ReactNode;
+  children: React.ReactNode;
 }
 
 export const QueryProvider = ({ children }: QueryProviderProps) => {
-  // NOTE: Avoid useState when initializing the query client if you don't
-  //       have a suspense boundary between this and the code that may
-  //       suspend because React will throw away the client on the initial
-  //       render if it suspends and there is no boundary
   const queryClient = getQueryClient()
 
+  if (!persister) {
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  }
+
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        maxAge: CACHE_MAX_AGE,
+        buster: CACHE_BUSTER,
+        dehydrateOptions: {
+          shouldDehydrateQuery: (query) => query.state.status === 'success',
+        },
+      }}
+    >
+      {children}
+    </PersistQueryClientProvider>
   )
 }

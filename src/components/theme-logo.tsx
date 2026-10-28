@@ -14,7 +14,7 @@ export const ThemeLogo = ({ height = 50, className }: ThemeLogoProps) => (
   <div className={cn("inline-flex items-center gap-2.5", className)}>
     <LogoMark size={Math.round(height * 0.8)} />
     <span
-      className="font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent"
+      className="hidden min-[400px]:inline font-bold tracking-tight text-foreground"
       style={{ fontSize: Math.round(height * 0.44) }}
     >
       ScrumSpecter

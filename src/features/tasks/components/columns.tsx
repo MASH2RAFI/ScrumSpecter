@@ -3,45 +3,15 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { ArrowUpDown, MoreVertical, RepeatIcon } from "lucide-react"
 
-import { Task, TaskStatus } from "../types";
-import { useUpdateTask } from "../api/use-update-task";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Task } from "../types";
 import { Button } from "@/components/ui/button";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
-import { MemberAvatar } from "@/features/members/components/member-avatar";
+import { MemberAvatarStack } from "@/features/members/components/member-avatar";
 import { TaskDate } from "./task-date";
-import { Badge } from "@/components/ui/badge";
-import { snakeCaseToTitleCase } from "@/lib/utils";
 import { TaskActions } from "./task-actions";
 import { useTaskPanel } from "../hooks/use-task-panel";
+import { TaskStatusMenu } from "./task-status-menu";
 
-const STATUSES = Object.values(TaskStatus);
-
-// Status badge doubles as a menu to change status in place (members may change status too)
-const StatusCell = ({ task }: { task: Task }) => {
-    const { mutate } = useUpdateTask();
-
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <button type="button" aria-label={`Change status (${snakeCaseToTitleCase(task.status)})`} className="rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <Badge variant={task.status} className="cursor-pointer">{snakeCaseToTitleCase(task.status)}</Badge>
-                </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-                {STATUSES.map((status) => (
-                    <DropdownMenuItem
-                        key={status}
-                        disabled={status === task.status}
-                        onClick={() => mutate({ param: { taskId: task.$id }, json: { status } })}
-                    >
-                        <Badge variant={status}>{snakeCaseToTitleCase(status)}</Badge>
-                    </DropdownMenuItem>
-                ))}
-            </DropdownMenuContent>
-        </DropdownMenu>
-    );
-};
 
 // Clicking the name opens the task in the side panel
 const TaskNameCell = ({ task }: { task: Task }) => {
@@ -111,7 +81,9 @@ const baseColumns: ColumnDef<Task>[] = [
     },
 
     {
-        accessorKey: "assignee",
+        id: "assignee",
+        // Sorts by the first assignee's name
+        accessorFn: (task) => task.assignees?.[0]?.name ?? "",
         header: ({ column }) => {
             return (
                 <Button
@@ -124,20 +96,16 @@ const baseColumns: ColumnDef<Task>[] = [
             )
         },
         cell: ({ row }) => {
-            const assignee = row.original.assignee;
+            const names = (row.original.assignees ?? []).map((assignee) => assignee.name);
 
-            if (!assignee) {
+            if (names.length === 0) {
                 return <p className="text-muted-foreground">Unassigned</p>;
             }
 
             return (
                 <div className="flex items-center gap-x-2 text-sm font-medium">
-                    <MemberAvatar
-                    className="size-6"
-                    fallbackClassName="text-xs"
-                    name={assignee?.name}
-                    />
-                    <p className="line-clamp-1">{assignee?.name || "Unassigned"}</p>
+                    <MemberAvatarStack className="size-6" fallbackClassName="text-xs" names={names} />
+                    <p className="line-clamp-1">{names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`}</p>
                 </div>
             )
         }
@@ -157,9 +125,9 @@ const baseColumns: ColumnDef<Task>[] = [
             )
         },
         cell: ({ row }) => {
-            const dueDate = row.original.dueDate;
+            const { dueDate, startAt, durationMinutes } = row.original;
 
-            return <TaskDate value={dueDate} />
+            return <TaskDate value={dueDate} startAt={startAt} durationMinutes={durationMinutes} />
         }
     },
 
@@ -188,7 +156,7 @@ const baseColumns: ColumnDef<Task>[] = [
                 </Button>
             )
         },
-        cell: ({ row }) => <StatusCell task={row.original} />,
+        cell: ({ row }) => <TaskStatusMenu task={row.original} />,
     },
 
     {
@@ -199,7 +167,7 @@ const baseColumns: ColumnDef<Task>[] = [
 
             return ( 
                 <TaskActions id={id} projectId={projectId}> 
-                    <Button variant="ghost" className="size-8 p-0"> 
+                    <Button variant="ghost" className="size-8 p-0" aria-label={`Actions for ${row.original.name}`}> 
                         <MoreVertical className="size-4" /> 
                     </Button> 
                 </TaskActions> 

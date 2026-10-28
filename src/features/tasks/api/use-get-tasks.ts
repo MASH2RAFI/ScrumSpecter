@@ -1,4 +1,5 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useAppQuery } from "@/lib/use-app-query";
+import { keepPreviousData } from "@tanstack/react-query";
 
 import { ApiError } from "@/lib/api-error";
 import { client } from "@/lib/rpc";
@@ -21,7 +22,7 @@ export const useGetTasks = ({
     assigneeId,
     dueDate,
 }: UseGetTasksProps) => {
-    const query = useQuery({
+    const query = useAppQuery({
         queryKey: [
             "tasks",
             workspaceId,

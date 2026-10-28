@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
+import { PinIcon, PinOffIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -10,43 +10,44 @@ import { DottedSeparator } from "./dotted-separator";
 import { LogoMark } from "./logo";
 import { Navigation } from "./navigation";
 import { Projects } from "./projects";
-import { useSidebar } from "./sidebar-context";
-import { ThemeLogo } from "./theme-logo";
+import { SIDEBAR_FADE, useSidebar } from "./sidebar-context";
 import { WorkspaceSwitcher } from "./workspace-switcher";
+import { SidebarTourCard } from "./sidebar-tour-card";
 
 export const Sidebar = () => {
-    const { collapsed, toggle } = useSidebar();
-    const ToggleIcon = collapsed ? PanelLeftOpenIcon : PanelLeftCloseIcon;
+    const { collapsed, pinned, toggle } = useSidebar();
+    const PinToggleIcon = pinned ? PinOffIcon : PinIcon;
 
     return (
-        <aside className={cn("h-full bg-background w-full transition-unified", collapsed ? "p-3" : "p-4 sm:p-6")}>
-            <div className={cn("flex items-center mb-6", collapsed ? "flex-col gap-3" : "justify-between")}>
-                <Link href="/" className="block" aria-label="ScrumSpecter home">
-                    {collapsed ? <LogoMark size={40} /> : <ThemeLogo width={100} height={50} />}
+        <aside data-collapsed={collapsed} className="group/sidebar flex min-h-full w-full flex-col px-4 py-5">
+            <div className="flex items-center justify-between mb-6">
+                <Link href="/" className="inline-flex items-center gap-2.5" aria-label="ScrumSpecter home">
+                    <LogoMark size={40} />
+                    <span className={cn("text-xl font-bold tracking-tight text-foreground", SIDEBAR_FADE)}>
+                        ScrumSpecter
+                    </span>
                 </Link>
                 <Button
                     variant="ghost"
                     size="icon"
                     onClick={toggle}
-                    className="hidden lg:inline-flex size-8 text-muted-foreground"
-                    aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                    title={`${collapsed ? "Expand" : "Collapse"} sidebar ( [ )`}
+                    tabIndex={collapsed ? -1 : 0}
+                    className={cn("hidden lg:inline-flex size-8 text-muted-foreground", SIDEBAR_FADE)}
+                    aria-label={pinned ? "Auto-hide sidebar" : "Keep sidebar open"}
+                    title={`${pinned ? "Auto-hide sidebar" : "Keep sidebar open"} (shortcut: [ key)`}
                 >
-                    <ToggleIcon className="size-4" />
+                    <PinToggleIcon className="size-4" />
                 </Button>
             </div>
-            <DottedSeparator className="my-4" />
+            <DottedSeparator className={cn("my-4", SIDEBAR_FADE)} />
             <div className="space-y-6">
-                {!collapsed && (
-                    <>
-                        <WorkspaceSwitcher />
-                        <DottedSeparator className="my-4" />
-                    </>
-                )}
+                <WorkspaceSwitcher />
+                <DottedSeparator className={cn("my-4", SIDEBAR_FADE)} />
                 <Navigation />
-                <DottedSeparator className="my-4" />
+                <DottedSeparator className={cn("my-4", SIDEBAR_FADE)} />
                 <Projects />
             </div>
+            <SidebarTourCard />
         </aside>
     );
 };

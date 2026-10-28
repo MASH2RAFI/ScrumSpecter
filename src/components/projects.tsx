@@ -4,39 +4,36 @@ import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 import { useCreateProjectModal } from "@/features/projects/hooks/use-create-project-modal";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
-import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
+import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { RiAddCircleFill } from "react-icons/ri";
-import { Loader } from "lucide-react";
-import { useSidebar } from "./sidebar-context";
 
+import { useSidebar } from "./sidebar-context";
+import { SIDEBAR_FADE, SIDEBAR_ROW } from "./sidebar-context";
+import { RowsSkeleton } from "@/components/page-skeletons";
 
 export const Projects = () => {
     const  pathname  = usePathname();
     const { open } = useCreateProjectModal();
     const workspaceId = useWorkspaceId();
     const { collapsed } = useSidebar();
-    const { isAdmin } = useIsAdmin({ workspaceId });
+    const { canEditWork } = usePermissions({ workspaceId });
     const { data, isLoading, error } = useGetProjects({
         workspaceId,
     });
 
-
-
     return (
         <div className="flex flex-col gap-y-2">
-            <div className={cn("flex items-center", collapsed ? "justify-center" : "justify-between")}>
-                {!collapsed && <p className="text-xs uppercase font-medium text-muted-foreground">Projects</p>}
-                {isAdmin && (
+            <div className={cn("flex items-center justify-between", SIDEBAR_FADE)}>
+                <p className="text-xs uppercase font-medium text-muted-foreground">Projects</p>
+                {canEditWork && (
                     <RiAddCircleFill onClick={ open } className="size-5 text-muted-foreground cursor-pointer hover:text-primary transition-colors" />
                 )}
             </div>
             {isLoading ? (
-                <div className="w-full bg-muted border border-border rounded-md p-3 flex items-center justify-center">
-                    <Loader className="size-4 animate-spin text-muted-foreground" />
-                </div>
+                <RowsSkeleton rows={3} />
             ) : error ? (
                 <div className="w-full bg-destructive/10 border border-destructive/20 rounded-md p-3">
                     <p className="text-xs text-destructive text-center">Failed to load projects</p>
@@ -49,20 +46,20 @@ export const Projects = () => {
                         <Link href={href} key={project.$id} title={collapsed ? project.name : undefined} aria-label={collapsed ? project.name : undefined}>
                             <div
                             className={cn(
-                                "flex items-center gap-2.5 p-2.5 rounded-md transition-colors cursor-pointer text-muted-foreground hover:text-primary hover:bg-accent",
-                                collapsed && "justify-center",
+                                "flex items-center gap-2.5 p-2.5 rounded-md transition-colors cursor-pointer text-muted-foreground hover:text-primary hover:bg-accent overflow-hidden",
+                                SIDEBAR_ROW,
                                 isActive && "bg-primary/10 text-primary shadow-sm"
                             )}
                             >
                                 <ProjectAvatar name = {project.name} />
-                                {!collapsed && <span className="truncate text-foreground">{project.name}</span>}
+                                <span className={cn("truncate text-foreground", SIDEBAR_FADE)}>{project.name}</span>
                             </div>
                         </Link>
                     )
                 })
             ) : (
                 <div className="p-2 text-center">
-                    {!collapsed && <p className="text-xs text-muted-foreground">No projects found</p>}
+                    <p className={cn("text-xs text-muted-foreground", SIDEBAR_FADE)}>No projects found</p>
                 </div>
             )}
 

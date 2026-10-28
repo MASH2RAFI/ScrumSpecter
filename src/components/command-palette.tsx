@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import {
     BarChart3Icon,
     CheckCircleIcon,
+    CompassIcon,
     HomeIcon,
+    KeyboardIcon,
     PanelLeftIcon,
     PlusIcon,
     RepeatIcon,
@@ -17,15 +19,18 @@ import {
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
+import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 import { useGetTasks } from "@/features/tasks/api/use-get-tasks";
 import { useCreateTaskModal } from "@/features/tasks/hooks/use-create-task-modal";
 import { useTaskPanel } from "@/features/tasks/hooks/use-task-panel";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
+import { useWorkspacePanel } from "@/features/workspaces/hooks/use-workspace-panel";
 
+import { startTour } from "@/features/onboarding/tour-store";
 import { useSidebar } from "./sidebar-context";
+import { ShortcutsDialog } from "./shortcuts-dialog";
 
 type Item = {
     id: string;
@@ -53,15 +58,23 @@ const focusTaskSearch = (attempts = 20) => {
     }
 };
 
+// Opens the quick-jump menu from elsewhere (the top bar's search field)
+const OPEN_EVENT = "scrumspecter:quick-jump";
+export const openQuickJump = () => window.dispatchEvent(new Event(OPEN_EVENT));
+
 // Keyboard shortcuts (C, /, [, Ctrl/Cmd+K) and the Ctrl/Cmd+K quick-jump menu
 export const CommandPalette = () => {
     const router = useRouter();
     const workspaceId = useWorkspaceId();
-    const { isAdmin } = useIsAdmin({ workspaceId });
+    const { canEditWork, canRequestChanges } = usePermissions({ workspaceId });
+    // Requesters get the task form too; it sends a request
+    const canCreateTask = canEditWork || canRequestChanges;
     const { toggle: toggleSidebar } = useSidebar();
     const { open: openCreateTask } = useCreateTaskModal();
     const { open: openTask } = useTaskPanel();
+    const { open: openPanel } = useWorkspacePanel();
     const [isOpen, setIsOpen] = useState(false);
+    const [shortcutsOpen, setShortcutsOpen] = useState(false);
     const [query, setQuery] = useState("");
     const [active, setActive] = useState(0);
     const listRef = useRef<HTMLUListElement>(null);
@@ -84,7 +97,7 @@ export const CommandPalette = () => {
                 return;
             }
             if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target) || !workspaceId) return;
-            if (e.key === "c" && isAdmin) {
+            if (e.key === "c" && canCreateTask) {
                 e.preventDefault();
                 openCreateTask();
             } else if (e.key === "/") {
@@ -93,24 +106,34 @@ export const CommandPalette = () => {
             } else if (e.key === "[") {
                 e.preventDefault();
                 toggleSidebar();
+            } else if (e.key === "?") {
+                e.preventDefault();
+                setShortcutsOpen(true);
             }
         };
+        const onOpen = () => setIsOpen(true);
         window.addEventListener("keydown", onKeyDown);
-        return () => window.removeEventListener("keydown", onKeyDown);
+        window.addEventListener(OPEN_EVENT, onOpen);
+        return () => {
+            window.removeEventListener("keydown", onKeyDown);
+            window.removeEventListener(OPEN_EVENT, onOpen);
+        };
     });
 
     const items = useMemo<Item[]>(() => {
         const go = (path: string) => () => router.push(`${base}${path}`);
         const all: Item[] = [
-            ...(isAdmin ? [{ id: "new-task", group: "Actions" as const, label: "New task", hint: "C", icon: PlusIcon, run: () => openCreateTask() }] : []),
+            ...(canCreateTask ? [{ id: "new-task", group: "Actions" as const, label: "New task", hint: "C", icon: PlusIcon, run: () => openCreateTask() }] : []),
             { id: "search", group: "Actions", label: "Search tasks", hint: "/", icon: SearchIcon, run: goToSearch },
             { id: "sidebar", group: "Actions", label: "Toggle sidebar", hint: "[", icon: PanelLeftIcon, run: toggleSidebar },
+            { id: "shortcuts", group: "Actions", label: "Keyboard shortcuts", hint: "?", icon: KeyboardIcon, run: () => setShortcutsOpen(true) },
+            { id: "tour", group: "Actions", label: "Take the tour", icon: CompassIcon, run: startTour },
             { id: "home", group: "Pages", label: "Home", icon: HomeIcon, run: go("") },
             { id: "tasks", group: "Pages", label: "My Tasks", icon: CheckCircleIcon, run: go("/tasks") },
             { id: "routines", group: "Pages", label: "Routines", icon: RepeatIcon, run: go("/routines") },
-            { id: "members", group: "Pages", label: "Members", icon: UsersIcon, run: go("/members") },
+            { id: "members", group: "Pages", label: "Members", icon: UsersIcon, run: () => openPanel("members") },
             { id: "analytics", group: "Pages", label: "Analytics", icon: BarChart3Icon, run: go("/analytics") },
-            { id: "settings", group: "Pages", label: "Settings", icon: SettingsIcon, run: go("/settings") },
+            { id: "settings", group: "Pages", label: "Settings", icon: SettingsIcon, run: () => openPanel("settings") },
             ...(projects?.documents ?? []).map((project) => ({
                 id: `project-${project.$id}`, group: "Projects" as const, label: project.name, project: project.name,
                 run: go(`/projects/${project.$id}`),
@@ -124,23 +147,39 @@ export const CommandPalette = () => {
         const matches = q ? all.filter((item) => item.label.toLowerCase().includes(q)) : all.filter((item) => item.group !== "Tasks");
         return matches.slice(0, 50);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [query, projects, tasks, isAdmin, base]);
+    }, [query, projects, tasks, canCreateTask, base]);
 
     useEffect(() => setActive(0), [query]);
     useEffect(() => {
         listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
     }, [active]);
 
+    // Runs once this dialog has fully closed. Opening another dialog or the task panel while
+    // this one is still animating out left that panel unable to close on an outside click.
+    const pending = useRef<(() => void) | null>(null);
     const select = (item?: Item) => {
         if (!item) return;
+        pending.current = item.run;
         setIsOpen(false);
         setQuery("");
-        item.run();
     };
 
     return (
+        <>
+        <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setQuery(""); }}>
-            <DialogContent aria-describedby={undefined} className="p-0 gap-0 sm:max-w-lg overflow-hidden">
+            <DialogContent
+                aria-describedby={undefined}
+                className="p-0 gap-0 sm:max-w-lg overflow-hidden"
+                onCloseAutoFocus={(e) => {
+                    const run = pending.current;
+                    if (!run) return;
+                    pending.current = null;
+                    // Focus goes where the chosen action takes it, not back to the page
+                    e.preventDefault();
+                    run();
+                }}
+            >
                 <DialogTitle className="sr-only">Quick jump</DialogTitle>
                 <div className="flex items-center gap-2 border-b px-3 pr-10">
                     <SearchIcon className="size-4 text-muted-foreground" />
@@ -187,5 +226,6 @@ export const CommandPalette = () => {
                 </ul>
             </DialogContent>
         </Dialog>
+        </>
     );
 };

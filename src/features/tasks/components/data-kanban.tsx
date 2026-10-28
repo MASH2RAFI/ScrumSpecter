@@ -1,3 +1,4 @@
+import { Stagger, StaggerItem } from "@/components/motion";
 import React, { useCallback, useEffect, useState } from "react"; 
 
 import { 
@@ -6,6 +7,11 @@ Droppable,
 Draggable, 
 DropResult,
 } from "@hello-pangea/dnd";
+import { toast } from "sonner";
+
+import { usePermissions } from "@/features/members/hooks/use-permissions";
+import { canSetStatus } from "@/features/members/permissions";
+import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 
 import { Task, TaskStatus } from "../types"; 
 import { KanbanColumnHeader, KanbanQuickAdd } from "./kanban-column-header";
@@ -75,11 +81,26 @@ export const Datakanban = ({
 
     }, [data]);
 
+    const workspaceId = useWorkspaceId();
+    const { role, memberId, isViewer } = usePermissions({ workspaceId });
+
     const onDragEnd = useCallback( (result: DropResult) => {
         if (!result.destination) return;
         const { source, destination } = result;
         const sourceStatus = source.droppableId as TaskStatus;
         const destStatus = destination.droppableId as TaskStatus;
+
+        // Refuse moves the role doesn't allow before anything changes on screen
+        if (sourceStatus !== destStatus) {
+            const task = tasks[sourceStatus][source.index];
+            const isAssignee = Boolean(memberId && task?.assigneeIds?.includes(memberId));
+            if (!canSetStatus(role, { isAssignee, from: sourceStatus, to: destStatus })) {
+                toast.error(isAssignee
+                    ? "A reviewer approves work to Done. Move it to In Review."
+                    : "You can only change the status of tasks assigned to you");
+                return;
+            }
+        }
         let updatesPayload: { $id: string; status: TaskStatus; position: number; }[]=[];
 
 
@@ -140,15 +161,17 @@ export const Datakanban = ({
         });
 
         onChange(updatesPayload);
-    }, [onChange]);
+    }, [onChange, tasks, role, memberId]);
 
 
     return ( 
         <DragDropContext onDragEnd={onDragEnd}>
-            <div className="flex overflow-x-auto pb-2">
+            {/* Phones: one column under another; wider screens: side by side */}
+            {/* Columns rise in one after another when the board opens */}
+            <Stagger className="flex flex-col gap-3 pb-2 md:flex-row md:gap-0 md:overflow-x-auto">
                 {boards.map( (board) => {
                     return (
-                        <div key={board} className="flex-1 mx-1 sm:mx-2 bg-muted/50 p-1 sm:p-1.5 rounded-md min-w-[180px] sm:min-w-[200px] border border-border">
+                        <StaggerItem key={board} className="bg-muted/50 p-2 rounded-card border border-border/60 md:flex-1 md:mx-1.5 md:min-w-[200px]">
                             <KanbanColumnHeader
                                 board={board}
                                 taskCount={tasks[board].length}
@@ -160,7 +183,7 @@ export const Datakanban = ({
                                     <div
                                         {...provided.droppableProps}
                                         ref={provided.innerRef}
-                                        className="min-h-[200px] py-1 sm:py-1.5"
+                                        className="min-h-[72px] py-1.5 md:min-h-[200px]"
                                     >
 
                                         {tasks[board].map( (task, index) => (
@@ -168,6 +191,7 @@ export const Datakanban = ({
                                                 key={task.$id}
                                                 draggableId={task.$id}
                                                 index={index}
+                                                isDragDisabled={isViewer}
                                             >
                                             
                                                 {(provided) => (
@@ -188,10 +212,10 @@ export const Datakanban = ({
                             </Droppable>
                             <KanbanQuickAdd board={board} />
 
-                        </div>
+                        </StaggerItem>
                     )
                 })}
-            </div>
+            </Stagger>
         </DragDropContext>
     )
 }

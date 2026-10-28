@@ -118,7 +118,7 @@ const buildReportHtml = (report: SprintReport) => {
     ].join("");
 
     const velocityTiles: ColorTile[] = [
-        { label: "Average Velocity", value: `${report.averageVelocity}%`, background: "#eff6ff", labelColor: "#2563eb", valueColor: "#1d4ed8" },
+        { label: "Average Velocity", value: `${report.averageVelocity}%`, background: "#e3f2e9", labelColor: "#1b6e45", valueColor: "#155a37" },
         { label: "Best Velocity", value: `${report.bestVelocity}%`, background: "#f0fdf4", labelColor: "#16a34a", valueColor: "#15803d" },
         { label: "Velocity Trend", value: report.velocityTrend, background: "#faf5ff", labelColor: "#9333ea", valueColor: "#7c3aed" },
         { label: "Total Sprints", value: report.totalSprints, background: "#fff7ed", labelColor: "#ea580c", valueColor: "#c2410c" },
@@ -177,7 +177,7 @@ const buildReportHtml = (report: SprintReport) => {
                                 <polyline
                                     points="${getBurndownPolylinePoints(report.burndownData, report.totalStoryPoints, "idealBurndown")}"
                                     fill="none"
-                                    stroke="#3b82f6"
+                                    stroke="#1b6e45"
                                     stroke-width="2"
                                     stroke-dasharray="5,5"
                                 />
@@ -192,7 +192,7 @@ const buildReportHtml = (report: SprintReport) => {
                     </div>
                     <div style="display: flex; gap: 16px; font-size: 14px; margin-top: 8px;">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 12px; height: 2px; background-color: #3b82f6;"></div>
+                            <div style="width: 12px; height: 2px; background-color: #1b6e45;"></div>
                             <span>Ideal Burndown</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
@@ -226,7 +226,7 @@ export const SprintReportGenerator = () => {
             const { projectTasks, completedTasks, totalStoryPoints, completedStoryPoints } =
                 getProjectPointStats(tasks.documents, selectedProject);
             const projectMembers = members.documents.filter(member =>
-                projectTasks.some(task => task.assigneeId === member.$id)
+                projectTasks.some(task => task.assigneeIds.includes(member.$id))
             );
             const velocity = calculateVelocity(completedStoryPoints, totalStoryPoints);
 

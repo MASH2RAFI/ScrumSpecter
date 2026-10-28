@@ -5,6 +5,7 @@ import * as React from "react"
 import {
     ColumnDef,
     ColumnFiltersState,
+    RowSelectionState,
     SortingState,
     flexRender,
     getCoreRowModel,
@@ -24,24 +25,60 @@ import {
 } from "@/components/ui/table"
 
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  // Rows can be ticked; the bar acts on the ticked rows (e.g. bulk edit)
+  selection?: {
+    getRowId: (row: TData) => string
+    renderBar: (selected: TData[], clear: () => void) => React.ReactNode
+  }
 }
+
+const selectColumn = <TData,>(): ColumnDef<TData> => ({
+    id: "select",
+    header: ({ table }) => (
+        <Checkbox
+            aria-label="Select all on this page"
+            className="size-4 min-h-0 min-w-0"
+            checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
+            onCheckedChange={(checked) => table.toggleAllPageRowsSelected(checked === true)}
+        />
+    ),
+    cell: ({ row }) => (
+        <Checkbox
+            aria-label="Select task"
+            className="size-4 min-h-0 min-w-0"
+            checked={row.getIsSelected()}
+            onCheckedChange={(checked) => row.toggleSelected(checked === true)}
+        />
+    ),
+    enableSorting: false,
+})
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  selection,
 }: DataTableProps<TData, TValue>) {
+    const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
+    const allColumns = React.useMemo(
+        () => (selection ? [selectColumn<TData>() as ColumnDef<TData, TValue>, ...columns] : columns),
+        [columns, selection],
+    )
     const [sorting, setSorting]= React.useState<SortingState>([])
 
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
 
     const table = useReactTable({
         data,
-        columns,
+        columns: allColumns,
+        getRowId: selection ? (row) => selection.getRowId(row) : undefined,
+        enableRowSelection: Boolean(selection),
+        onRowSelectionChange: setRowSelection,
         getCoreRowModel: getCoreRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
         onSortingChange: setSorting,
@@ -51,11 +88,16 @@ export function DataTable<TData, TValue>({
         state: {
             sorting,
             columnFilters,
+            rowSelection,
         },
   })
 
+  // Ticked rows that are still in the data (a filter or a delete may have removed some)
+  const selected = table.getSelectedRowModel().rows.map((row) => row.original)
+
   return (
     <div className="w-full">
+        {selection && selected.length > 0 && selection.renderBar(selected, () => setRowSelection({}))}
         {/* Scrolls inside its own box so the header can stay pinned */}
         <div className="max-h-[70vh] overflow-auto rounded-md border">
             <Table>
@@ -93,7 +135,7 @@ export function DataTable<TData, TValue>({
                     ))
                 ) : (
                     <TableRow>
-                        <TableCell colSpan={columns.length} className="h-24 text-center">
+                        <TableCell colSpan={allColumns.length} className="h-24 text-center">
                             No results.
                         </TableCell>
                     </TableRow>

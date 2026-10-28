@@ -40,3 +40,22 @@ export const MemberAvatar = ({
         </AvatarFallback>
     </Avatar>
 );
+
+// Several people as overlapping avatars, with "+N" past the limit
+export const MemberAvatarStack = ({
+    names,
+    max = 3,
+    className,
+    fallbackClassName,
+}: { names: string[]; max?: number } & Omit<MemberAvatarProps, "name">) => (
+    <span className="flex items-center -space-x-1.5" title={names.join(", ")}>
+        {names.slice(0, max).map((name, index) => (
+            <MemberAvatar key={`${name}-${index}`} name={name} className={cn("ring-1 ring-background", className)} fallbackClassName={fallbackClassName} />
+        ))}
+        {names.length > max && (
+            <span className={cn("z-10 flex size-5 items-center justify-center rounded-md bg-muted text-[10px] font-medium ring-1 ring-background", className)}>
+                +{names.length - max}
+            </span>
+        )}
+    </span>
+);

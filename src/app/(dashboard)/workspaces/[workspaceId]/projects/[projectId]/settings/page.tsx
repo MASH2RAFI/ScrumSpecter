@@ -1,15 +1,12 @@
-import { getCurrent } from "@/features/auth/queries";
 import { redirect } from "next/navigation";
-import { ProjectIdSettingsClient } from "./client";
 
-const ProjectIdSettingsPage = async () => {
-    const user = await getCurrent();
-    if (!user) redirect("/sign-in");
-
-    return (
-        <div>
-            <ProjectIdSettingsClient />
-        </div>
-    );
+interface ProjectSettingsPageProps {
+    params: { workspaceId: string; projectId: string };
 }
-export default ProjectIdSettingsPage;
+
+// Editing is a popup on the project page now; keep old links working
+const ProjectSettingsPage = ({ params: { workspaceId, projectId } }: ProjectSettingsPageProps) => {
+    redirect(`/workspaces/${workspaceId}/projects/${projectId}?edit-project=${projectId}`);
+};
+
+export default ProjectSettingsPage;

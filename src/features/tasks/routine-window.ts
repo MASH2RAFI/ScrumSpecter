@@ -1,18 +1,18 @@
-import { Task } from "./types";
+import { DEFAULT_WEEK_START, weekRange, type WeekStart } from "@/lib/week";
 
-// Table and kanban show routine tasks only this far ahead; the calendar shows the whole sprint
-export const ROUTINE_LIST_DAYS = 7;
+import { Task, TaskStatus } from "./types";
 
-// Keeps every ordinary task and routine tasks due before the end of the 7-day window (today + 6)
-export const splitByRoutineWindow = (tasks: Task[], now = new Date()) => {
-    const limit = new Date(now);
-    limit.setHours(0, 0, 0, 0);
-    limit.setDate(limit.getDate() + ROUTINE_LIST_DAYS);
+// Home and the list views show routine tasks only for the current week (Saturday start by
+// default), and not once they're done; the calendar shows them all. Ordinary tasks are never
+// filtered.
+export const splitByRoutineWeek = (tasks: Task[], weekStart: WeekStart = DEFAULT_WEEK_START, now = new Date()) => {
+    const { start, end } = weekRange(now, weekStart);
 
     const visible: Task[] = [];
     let hidden = 0;
     for (const task of tasks) {
-        if (task.routineId && task.dueDate && new Date(task.dueDate) >= limit) {
+        const due = task.routineId && task.dueDate ? new Date(task.dueDate) : null;
+        if (due && (due < start || due >= end || task.status === TaskStatus.DONE)) {
             hidden++;
         } else {
             visible.push(task);

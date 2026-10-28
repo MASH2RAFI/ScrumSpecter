@@ -36,8 +36,11 @@
   
   /* Better focus states for accessibility */
   *:focus-visible {
-    outline: 2px solid theme(colors.primary.DEFAULT);
+    outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
+  }
+  h1, h2, h3 {
+    letter-spacing: -0.015em;
   }
 }
 
@@ -71,7 +74,8 @@
 
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
 }
 
 @layer utilities {
@@ -92,14 +96,14 @@ body {
   .rounded-unified-lg { @apply rounded-xl; }
   
   /* Unified shadows */
-  .shadow-unified { @apply shadow-sm; }
-  .shadow-unified-md { @apply shadow-md; }
-  .shadow-unified-lg { @apply shadow-lg; }
+  .shadow-unified { box-shadow: var(--shadow-soft); }
+  .shadow-unified-md { box-shadow: var(--shadow-soft); }
+  .shadow-unified-lg { box-shadow: var(--shadow-lift); }
   
   /* Unified transitions */
-  .transition-unified { @apply transition-all duration-200 ease-in-out; }
-  .transition-unified-fast { @apply transition-all duration-150 ease-in-out; }
-  .transition-unified-slow { @apply transition-all duration-300 ease-in-out; }
+  .transition-unified { @apply transition-all duration-200 ease-out; }
+  .transition-unified-fast { @apply transition-all duration-150 ease-out; }
+  .transition-unified-slow { @apply transition-all duration-300 ease-out; }
   
   /* Monochrome gradients */
   .gradient-mono-subtle { 
@@ -111,62 +115,80 @@ body {
 }
 
 @layer base {
+  /* Sage greys and a deep green accent. Surfaces step up from the page to panels (sidebar)
+     to cards; borders are hairlines and shadows barely there. */
   :root {
-    /* Vibrant color palette for light mode */
-    --background: 0 0% 100%;
-    --foreground: 220 13% 18%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 13% 18%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 13% 18%;
-    --primary: 221 83% 53%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 220 13% 18%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 220 13% 18%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
-    --dotted-separator: #d4d4d8;
-    --chart-1: 221 83% 53%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 262 83% 58%;
-    --radius: 0.5rem;
+    --background: 140 9% 92%;        /* page #E8ECE9 */
+    --foreground: 144 18% 9%;        /* ink #121A15 */
+    --panel: 120 9% 96%;             /* sidebar #F4F6F4 */
+    --card: 120 20% 99%;             /* #FCFDFC */
+    --card-foreground: 144 18% 9%;
+    --popover: 120 20% 99%;
+    --popover-foreground: 144 18% 9%;
+    --primary: 150 61% 27%;          /* #1B6E45, white text 6:1 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 140 12% 94%;
+    --secondary-foreground: 144 18% 12%;
+    --muted: 140 12% 94%;
+    --muted-foreground: 145 7% 38%;  /* 5.6:1 on cards */
+    --accent: 144 38% 92%;           /* soft green hover/active */
+    --accent-foreground: 150 60% 16%;
+    --destructive: 0 53% 49%;        /* rose #C23B3B */
+    --destructive-foreground: 0 0% 100%;
+    --warning: 36 91% 35%;           /* amber #A9650A */
+    --warning-soft: 38 88% 94%;
+    --border: 141 11% 87%;
+    --input: 141 11% 84%;
+    --ring: 150 61% 32%;
+    --dotted-separator: #cdd5cf;
+    --chart-1: 150 61% 30%;
+    --chart-2: 149 41% 55%;
+    --chart-3: 36 91% 42%;
+    --chart-4: 0 53% 52%;
+    --chart-5: 205 45% 45%;
+    /* Ordered states in charts (not started → in progress → done): one green, light to dark */
+    --ramp-low: #cfe5d7;
+    --ramp-mid: #5dbd8b;
+    --ramp-high: #1b6e45;
+    --radius: 0.75rem;               /* controls 12px; cards 20px, panels 26px */
+    --shadow-soft: 0 1px 2px hsl(144 18% 9% / 0.04), 0 8px 24px -12px hsl(144 18% 9% / 0.12);
+    --shadow-lift: 0 2px 4px hsl(144 18% 9% / 0.05), 0 18px 36px -16px hsl(144 18% 9% / 0.2);
   }
   .dark {
-    /* Monochrome surfaces, with the brand blue (blue-500 reads better on near-black) and coloured status/charts */
-    --background: 0 0% 4%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 4%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 4%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 65%;
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 72% 51%;
+    --background: 140 15% 6%;        /* #0D120F */
+    --foreground: 140 14% 92%;
+    --panel: 146 15% 9%;
+    --card: 147 15% 11%;             /* #171F1A */
+    --card-foreground: 140 14% 92%;
+    --popover: 147 15% 12%;
+    --popover-foreground: 140 14% 92%;
+    --primary: 149 41% 55%;          /* sage #5DBD8B, dark text on it */
+    --primary-foreground: 150 70% 8%;
+    --secondary: 146 13% 16%;
+    --secondary-foreground: 140 14% 92%;
+    --muted: 146 13% 15%;
+    --muted-foreground: 143 8% 64%;  /* 6:1 on cards */
+    --accent: 148 22% 17%;
+    --accent-foreground: 149 45% 78%;
+    --destructive: 0 62% 58%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 217 91% 60%;
-    --dotted-separator: #52525b;
-    --chart-1: 217 91% 60%;
-    --chart-2: 142 71% 45%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 262 83% 65%;
+    --warning: 38 80% 58%;
+    --warning-soft: 36 40% 14%;
+    --border: 146 12% 18%;
+    --input: 146 12% 22%;
+    --ring: 149 41% 55%;
+    --dotted-separator: #2f3a33;
+    --chart-1: 149 41% 55%;
+    --chart-2: 150 30% 35%;
+    --chart-3: 38 80% 58%;
+    --chart-4: 0 62% 62%;
+    --chart-5: 205 50% 62%;
+    /* Flipped for dark: "done" is the brightest */
+    --ramp-low: #24382c;
+    --ramp-mid: #2f8a5b;
+    --ramp-high: #7fd3a5;
+    --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.3), 0 8px 24px -12px hsl(0 0% 0% / 0.5);
+    --shadow-lift: 0 2px 4px hsl(0 0% 0% / 0.35), 0 18px 36px -16px hsl(0 0% 0% / 0.6);
   }
 }
 
@@ -186,4 +208,15 @@ body {
 
 .hide-scrollbar::—webkit-scraollbar {
   display: none;
+}
+
+/* Everything settles instantly for people who ask for less motion (Motion itself follows the same
+   setting through MotionConfig) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

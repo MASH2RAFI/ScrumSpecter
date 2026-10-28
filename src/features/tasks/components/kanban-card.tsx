@@ -2,7 +2,7 @@ import { MoreHorizontal } from "lucide-react";
 import { Task, TaskStatus } from "../types";
 import { TaskActions } from "./task-actions";
 import { DottedSeparator } from "@/components/dotted-separator";
-import { MemberAvatar } from "@/features/members/components/member-avatar";
+import { MemberAvatarStack } from "@/features/members/components/member-avatar";
 import { TaskDate } from "./task-date";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 import { cn } from "@/lib/utils";
@@ -13,11 +13,11 @@ interface KanbanCardProps {
 }
 
 const statusColorMap: Record<TaskStatus, string> = {
-    [TaskStatus.BACKLOG] : "border-l-slate-500 bg-slate-100/60 dark:bg-slate-900/10",
-    [TaskStatus.TODO]: "border-l-red-500 bg-red-100/60 dark:bg-red-950/10",
-    [TaskStatus.IN_PROGRESS]: "border-l-amber-500 bg-amber-100/60 dark:bg-amber-950/10",
-    [TaskStatus.IN_REVIEW]: "border-l-blue-600 bg-blue-100/60 dark:bg-blue-950/10",
-    [TaskStatus.DONE]: "border-l-emerald-600 bg-emerald-100/60 dark:bg-emerald-950/10",
+    [TaskStatus.BACKLOG] : "border-l-rose-400",
+    [TaskStatus.TODO]: "border-l-slate-400",
+    [TaskStatus.IN_PROGRESS]: "border-l-amber-500",
+    [TaskStatus.IN_REVIEW]: "border-l-sky-500",
+    [TaskStatus.DONE]: "border-l-emerald-600",
 };
 
 export const KanbanCard = ({ task }: KanbanCardProps) => {
@@ -27,7 +27,7 @@ export const KanbanCard = ({ task }: KanbanCardProps) => {
         // @hello-pangea/dnd swallows the click that ends a drag, so this only fires on a real click
         <div onClick={() => open(task.$id)} className={cn(
             "cursor-pointer",
-            "bg-card p-2 sm:p-2.5 mb-1 sm:mb-1.5 rounded-unified shadow-unified space-unified-sm border border-border transition-unified hover:shadow-unified-md border-l-4 touch-manipulation",
+            "bg-card p-2 sm:p-2.5 mb-1 sm:mb-1.5 rounded-xl shadow-soft space-unified-sm border border-border/70 transition-[box-shadow,transform] duration-300 ease-out hover:shadow-lift hover:-translate-y-0.5 border-l-4 touch-manipulation",
             statusColorMap[task.status]
         )}>
             <div className="flex items-start justify-between gap-x-1 sm:gap-x-2">
@@ -41,9 +41,9 @@ export const KanbanCard = ({ task }: KanbanCardProps) => {
             </div>
             <DottedSeparator />
             <div className="flex items-center gap-x-1 sm:gap-x-1.5">
-                {task.assignee ? (
-                    <MemberAvatar
-                        name={task.assignee.name}
+                {task.assignees?.length ? (
+                    <MemberAvatarStack
+                        names={task.assignees.map((assignee) => assignee.name)}
                         fallbackClassName="text-[8px] sm:text-[10px]"
                         className="size-5 sm:size-6"
                     />
@@ -53,7 +53,7 @@ export const KanbanCard = ({ task }: KanbanCardProps) => {
                     </div>
                 )}
                 <div className="size-1 rounded-full bg-border" />
-                <TaskDate value={task.dueDate} className="text-[10px] sm:text-xs" />
+                <TaskDate value={task.dueDate} startAt={task.startAt} durationMinutes={task.durationMinutes} className="text-[10px] sm:text-xs" />
             </div>
 
             <div className="flex items-center gap-x-1 sm:gap-x-1.5">

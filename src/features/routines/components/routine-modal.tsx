@@ -1,9 +1,9 @@
 "use client";
 
-import { Loader } from "lucide-react";
-
 import { ResponsiveModal } from "@/components/responsive-modal";
 import { useGetMembers } from "@/features/members/api/use-get-members";
+import { canBeAssigned } from "@/features/members/permissions";
+import { MemberRole } from "@/features/members/types";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 
@@ -12,6 +12,7 @@ import { useGetRoutines } from "../api/use-get-routines";
 import { useUpdateRoutine } from "../api/use-update-routine";
 import { useRoutineModal } from "../hooks/use-routine-modal";
 import { RoutineForm } from "./routine-form";
+import { FormSkeleton } from "@/components/page-skeletons";
 
 export const RoutineModal = () => {
     const workspaceId = useWorkspaceId();
@@ -28,9 +29,7 @@ export const RoutineModal = () => {
     return (
         <ResponsiveModal title={editing ? "Edit routine" : "New routine"} open={isOpen} onOpenChange={(open) => !open && close()}>
             {isLoading ? (
-                <div className="flex items-center justify-center h-[480px]">
-                    <Loader className="size-5 animate-spin text-muted-foreground" />
-                </div>
+                <FormSkeleton fields={5} className="p-0" />
             ) : (
                 <RoutineForm
                     // Remount per routine so the form picks up its values
@@ -39,7 +38,9 @@ export const RoutineModal = () => {
                     isPending={isCreating || isUpdating}
                     onCancel={close}
                     projectOptions={projects?.documents.map((project) => ({ id: project.$id, name: project.name })) ?? []}
-                    memberOptions={members?.documents.map((member) => ({ id: member.$id, name: member.name })) ?? []}
+                    memberOptions={members?.documents
+                        .filter((member) => canBeAssigned(member.role as MemberRole))
+                        .map((member) => ({ id: member.$id, name: member.name })) ?? []}
                     onSubmit={(values) => editing
                         ? updateRoutine({ param: { routineId: editing.$id }, json: values }, { onSuccess: close })
                         : createRoutine({ json: { ...values, workspaceId } }, { onSuccess: close })}

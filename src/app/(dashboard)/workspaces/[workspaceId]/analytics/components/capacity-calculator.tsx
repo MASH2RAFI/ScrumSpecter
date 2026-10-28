@@ -35,7 +35,7 @@ export const CapacityCalculator = () => {
         if (selectedProject && members?.documents && tasks?.documents) {
             // Get members who are assigned to tasks in the selected project
             const projectTasks = tasks.documents.filter(task => task.projectId === selectedProject);
-            const assignedMemberIds = new Set(projectTasks.map(task => task.assigneeId).filter(Boolean));
+            const assignedMemberIds = new Set(projectTasks.flatMap(task => task.assigneeIds));
 
             const projectTeamMembers = members.documents
                 .filter(member => assignedMemberIds.has(member.$id))

@@ -4,31 +4,36 @@ import { ClockIcon, PauseIcon, PencilIcon, PlayIcon, PlusIcon, RepeatIcon, Targe
 import { formatDuration } from "@/features/tasks/task-time";
 
 import { PageError } from "@/components/page-error";
-import { PageLoader } from "@/components/page-loader";
+import { PageSkeleton } from "@/components/page-skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useGetMembers } from "@/features/members/api/use-get-members";
-import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
+import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useDeleteRoutine } from "@/features/routines/api/use-delete-routine";
 import { useGetRoutines } from "@/features/routines/api/use-get-routines";
 import { useUpdateRoutine } from "@/features/routines/api/use-update-routine";
 import { useRoutineModal } from "@/features/routines/hooks/use-routine-modal";
-import { WEEKDAYS } from "@/features/routines/types";
+import { WEEKDAYS, ROUTINE_VIEWS } from "@/features/routines/types";
+import { RoutineWeek } from "@/features/routines/components/routine-week";
+import { usePreferences } from "@/features/auth/hooks/use-preferences";
+import { isoWeekdayOrder } from "@/lib/week";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { cn } from "@/lib/utils";
 
 export const RoutinesClient = () => {
     const workspaceId = useWorkspaceId();
-    const { isAdmin } = useIsAdmin({ workspaceId });
+    const { canEditWork } = usePermissions({ workspaceId });
     const { openCreate, openEdit } = useRoutineModal();
     const { data: routines, isLoading } = useGetRoutines({ workspaceId });
     const { data: projects } = useGetProjects({ workspaceId });
     const { data: members } = useGetMembers({ workspaceId });
     const { mutate: updateRoutine, isPending: isUpdating } = useUpdateRoutine();
     const { mutate: deleteRoutine, isPending: isDeleting } = useDeleteRoutine();
+    const { weekStart } = usePreferences();
+    const orderedWeekdays = isoWeekdayOrder(weekStart).map((day) => WEEKDAYS.find((weekday) => weekday.value === day)!);
     const [DeleteDialog, confirmDelete] = useConfirm(
         "Delete routine",
         "No new tasks will be created. Tasks it already created are kept.",
@@ -36,7 +41,7 @@ export const RoutinesClient = () => {
     );
 
     if (isLoading) {
-        return <PageLoader />;
+        return <PageSkeleton />;
     }
 
     if (!routines) {
@@ -44,18 +49,19 @@ export const RoutinesClient = () => {
     }
 
     const projectName = (id: string) => projects?.documents.find((p) => p.$id === id)?.name ?? "Unknown project";
-    const memberName = (id: string | null) => members?.documents.find((m) => m.$id === id)?.name ?? "Unassigned";
+    const memberName = (ids: string[]) =>
+        ids.map((id) => members?.documents.find((m) => m.$id === id)?.name).filter(Boolean).join(", ") || "Unassigned";
 
     return (
         <div className="space-y-6">
             <DeleteDialog />
             {/* The navbar carries the page title; this row only holds the action */}
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <p className="text-sm text-muted-foreground">
                     Tasks are added on the chosen days through the end of each project&apos;s current sprint.
                 </p>
-                {isAdmin && (
-                    <Button onClick={openCreate}>
+                {canEditWork && (
+                    <Button onClick={openCreate} className="shrink-0">
                         <PlusIcon className="mr-2 size-4" />
                         New routine
                     </Button>
@@ -68,11 +74,18 @@ export const RoutinesClient = () => {
                         <RepeatIcon className="size-8 text-muted-foreground" />
                         <p className="font-medium">No routines yet</p>
                         <p className="text-sm text-muted-foreground">
-                            {isAdmin ? "Create one for work that happens every week, like stand-ups or reports." : "Admins can set up recurring weekly tasks here."}
+                            {canEditWork ? "Create one for work that happens every week, like stand-ups or reports." : "Admins and supervisors can set up recurring weekly tasks here."}
                         </p>
                     </CardContent>
                 </Card>
             ) : (
+                <>
+                <RoutineWeek
+                    routines={routines.documents}
+                    projectName={projectName}
+                    memberName={memberName}
+                    onSelect={canEditWork ? openEdit : undefined}
+                />
                 <div className="grid gap-3">
                     {routines.documents.map((routine) => (
                         <Card key={routine.$id} className={cn(!routine.active && "opacity-60")}>
@@ -84,7 +97,7 @@ export const RoutinesClient = () => {
                                         {!routine.active && <Badge variant="secondary">Paused</Badge>}
                                     </div>
                                     <div className="flex flex-wrap gap-1" aria-label="Repeats on">
-                                        {WEEKDAYS.map((day) => (
+                                        {orderedWeekdays.map((day) => (
                                             <span
                                                 key={day.value}
                                                 className={cn(
@@ -107,15 +120,20 @@ export const RoutinesClient = () => {
                                                 {" ·"}
                                             </span>
                                         )}
-                                        {projectName(routine.projectId)} · {memberName(routine.assigneeId)}
+                                        {projectName(routine.projectId)} · {memberName(routine.assigneeIds)}
                                         {routine.storyPoints != null && (
                                             <span className="inline-flex items-center gap-1 ml-1">
                                                 · <TargetIcon className="size-3" /> {routine.storyPoints} pts
                                             </span>
                                         )}
                                     </p>
+                                    {ROUTINE_VIEWS.some(({ key }) => !routine[key]) && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Hidden from {ROUTINE_VIEWS.filter(({ key }) => !routine[key]).map(({ label }) => label).join(", ")}
+                                        </p>
+                                    )}
                                 </div>
-                                {isAdmin && (
+                                {canEditWork && (
                                     <div className="flex gap-2 shrink-0">
                                         <Button
                                             variant="outline"
@@ -149,6 +167,7 @@ export const RoutinesClient = () => {
                         </Card>
                     ))}
                 </div>
+                </>
             )}
         </div>
     );

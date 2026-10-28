@@ -36,7 +36,13 @@ interface AuthCardProps {
     footer?: React.ReactNode;
     googleEnabled?: boolean;
     error?: string;
+    // Where to go after signing in (an invite, a shared task link)
+    next?: string | null;
+    // Shown above the form, e.g. why sign-in is needed
+    notice?: React.ReactNode;
 }
+
+const withNext = (path: string, next?: string | null) => (next ? `${path}?next=${encodeURIComponent(next)}` : path);
 
 const GoogleIcon = () => (
     <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true">
@@ -48,11 +54,11 @@ const GoogleIcon = () => (
 );
 
 // Google first, then the email form below a divider
-const GoogleSignIn = () => (
+const GoogleSignIn = ({ next }: { next?: string | null }) => (
     <div className="space-y-4 mb-4">
         <Button asChild variant="outline" size="lg" className="w-full h-12 gap-3 border-2">
             {/* A full navigation, not client routing: the API redirects to Google */}
-            <a href="/api/auth/google">
+            <a href={withNext("/api/auth/google", next)}>
                 <GoogleIcon />
                 Continue with Google
             </a>
@@ -65,7 +71,7 @@ const GoogleSignIn = () => (
     </div>
 );
 
-export const AuthCard = ({ active, title, description, children, footer, googleEnabled, error }: AuthCardProps) => (
+export const AuthCard = ({ active, title, description, children, footer, googleEnabled, error, next, notice }: AuthCardProps) => (
     <Card className="w-full max-w-md mx-auto border-0 shadow-2xl bg-gradient-to-br from-background to-muted/20 backdrop-blur-sm">
         <CardHeader className="flex flex-col items-center justify-center text-center p-8 pb-6">
             <div className="flex justify-center gap-1 mb-6 p-1 bg-muted/30 rounded-full">
@@ -77,7 +83,7 @@ export const AuthCard = ({ active, title, description, children, footer, googleE
                         size="sm"
                         className={href === active ? ACTIVE_TAB_CLASS_NAME : INACTIVE_TAB_CLASS_NAME}
                     >
-                        <Link href={href}>
+                        <Link href={withNext(href, next)}>
                             {label}
                         </Link>
                     </Button>
@@ -96,7 +102,10 @@ export const AuthCard = ({ active, title, description, children, footer, googleE
                     {GOOGLE_ERRORS[error]}
                 </p>
             )}
-            {googleEnabled && <GoogleSignIn />}
+            {notice && (
+                <p role="status" className="mb-4 rounded-md bg-primary/10 px-3 py-2 text-sm text-primary">{notice}</p>
+            )}
+            {googleEnabled && <GoogleSignIn next={next} />}
             {children}
         </CardContent>
         {footer}

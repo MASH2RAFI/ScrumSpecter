@@ -15,6 +15,8 @@ export type PopulatedAssignee = Document & {
     userId?: string;
     workspaceId?: string;
     role?: string;
+    // Someone who hasn't joined yet (see features/members)
+    isPlaceholder?: boolean;
 };
 
 // Type for populated project data from server
@@ -32,7 +34,8 @@ export type Task = Document & {
     name: string;
     status: TaskStatus;
     workspaceId: string;
-    assigneeId: string | null; // Allow null for unassigned tasks
+    // Member ids (people or placeholders), in the order they were picked
+    assigneeIds: string[];
     projectId: string;
     position: number;
     dueDate: string;
@@ -45,6 +48,8 @@ export type Task = Document & {
     // Set when the task was created by a weekly routine
     routineId?: string | null;
     // Populated fields from server - using proper types to match actual server response
+    assignees?: PopulatedAssignee[];
+    // The first assignee, for places that show just one
     assignee?: PopulatedAssignee | null;
     project?: PopulatedProject | null;
 };

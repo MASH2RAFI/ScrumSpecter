@@ -42,3 +42,14 @@ export const restoreCachedTasks = (queryClient: QueryClient, snapshot?: Snapshot
 // Only plain fields can be shown before the server responds; project/assignee
 // changes need the populated objects, so they wait for the refetch
 export const OPTIMISTIC_TASK_FIELDS = ["name", "status", "description", "storyPoints"] as const;
+
+// A task as last seen in any cached list or detail view, e.g. to undo its deletion
+export const findCachedTask = (queryClient: QueryClient, taskId: string): CachedTask | undefined => {
+    const single = queryClient.getQueryData<CachedTask>(["task", taskId]);
+    if (single?.$id) return single;
+    for (const [, list] of queryClient.getQueriesData<TaskList>({ queryKey: ["tasks"] })) {
+        const found = list?.documents?.find((task) => task.$id === taskId);
+        if (found) return found;
+    }
+    return undefined;
+};

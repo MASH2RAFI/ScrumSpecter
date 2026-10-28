@@ -1,5 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
-
+import { useAppQuery } from "@/lib/use-app-query";
 import { ApiError } from "@/lib/api-error";
 import { client } from "@/lib/rpc";
 
@@ -8,7 +7,7 @@ interface UseGetWorkspaceProps {
 }
 
 export const useGetWorkspace = ({ workspaceId }: UseGetWorkspaceProps) => {
-    return useQuery({
+    return useAppQuery({
         queryKey: ["workspace", workspaceId],
         // Skip the request until the route has an id (e.g. no workspace selected yet)
         enabled: Boolean(workspaceId),

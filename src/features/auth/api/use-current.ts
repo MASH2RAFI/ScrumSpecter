@@ -1,29 +1,20 @@
-import { useQuery } from "@tanstack/react-query";
-
+import { useAppQuery } from "@/lib/use-app-query";
 import { client } from "@/lib/rpc";
+import { clearPersistedCache } from "@/lib/query-cache";
 
+// Cached like everything else; account changes invalidate ["current"] themselves
 export const useCurrent = () => {
-    return useQuery({
+    return useAppQuery({
         queryKey: ["current"],
         queryFn: async () => {
             const response = await client.api.auth.current.$get();
             if (!response.ok) {
+                // Signed out (or the session expired): drop any stored copy of the old data
+                if (response.status === 401) clearPersistedCache();
                 return null;
             }
             const { user } = await response.json();
             return user;
         },
-        staleTime: 5 * 60 * 1000,
-        gcTime: 10 * 60 * 1000,
-        retry: (failureCount, error) => {
-            // Don't retry on 4xx errors
-            if (error instanceof Error && error.message.includes("4")) {
-                return false;
-            }
-            return failureCount < 2;
-        },
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: true,
-        refetchOnMount: true,
     });
 };

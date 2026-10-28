@@ -1,165 +1,240 @@
 "use client";
 
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { CopyIcon } from "lucide-react";
+import { CopyIcon, RefreshCwIcon } from "lucide-react";
 import { toast } from "sonner";
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Form } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useConfirm } from "@/hooks/use-confirm";
-import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
-import { TextInputField } from "@/features/projects/components/project-form-fields";
+import { usePermissions } from "@/features/members/hooks/use-permissions";
 
 import { Workspace } from "../types";
-import { updateWorkspaceSchema } from "../schemas";
 import { useUpdateWorkspace } from "../api/use-update-workspace";
 import { useDeleteWorkspace } from "../api/use-delete-workspace";
 import { useResetInviteCode } from "../api/use-reset-invite-code";
-import { FormActions, SettingsActionButton, SettingsCard, SettingsHeader } from "./settings-sections";
+import { useResetViewerInviteCode } from "../api/use-reset-viewer-invite-code";
+import { BulkInput } from "./bulk-input";
+import { HolidaySettings } from "./holiday-settings";
+import { InviteByEmail } from "./invite-by-email";
+import { InviteLimits } from "./invite-limits";
 
-type FormValues = z.infer<typeof updateWorkspaceSchema>;
+const Section = ({ title, description, children }: { title: string; description?: string; children: ReactNode }) => (
+    <section className="space-y-3 rounded-lg border p-4">
+        <div>
+            <h3 className="font-semibold">{title}</h3>
+            {description && <p className="text-sm text-muted-foreground">{description}</p>}
+        </div>
+        {children}
+    </section>
+);
 
-interface EditWorkspaceFormProps {
-    onCancel?: () => void;
-    initialValues: Workspace;
-};
-
-export const EditWorkspaceForm = ({ onCancel, initialValues }: EditWorkspaceFormProps) => {
-    const router = useRouter();
-    const { isAdmin } = useIsAdmin({ workspaceId: initialValues.$id });
+// Name and working hours
+const GeneralSettings = ({ workspace, isAdmin }: { workspace: Workspace; isAdmin: boolean }) => {
     const { mutate, isPending } = useUpdateWorkspace();
-    const { mutate: deleteWorkspace, isPending: isDeleting } = useDeleteWorkspace();
-    const { mutate: resetInviteCode, isPending: isResettingInviteCode } = useResetInviteCode();
+    const [name, setName] = useState(workspace.name);
+    const [dayStart, setDayStart] = useState(workspace.workDayStart ?? "09:00");
+    const [dayEnd, setDayEnd] = useState(workspace.workDayEnd ?? "18:00");
+    const hoursInvalid = dayStart >= dayEnd;
+    const changed = name.trim() !== workspace.name || dayStart !== workspace.workDayStart || dayEnd !== workspace.workDayEnd;
 
-    const [DeleteDialog, confirmDelete] = useConfirm(
-        "Delete Workspace",
-        "This action cannot be undone.",
-        "destructive",
-    );
-
-    const [ResetDialog, confirmReset] = useConfirm(
-        "Reset Invite Link",
-        "This will generate a new invite link for your workspace.",
-        "destructive",
-    );
-
-    const form = useForm<FormValues>({
-        resolver: zodResolver(updateWorkspaceSchema),
-        defaultValues: { ...initialValues },
-    });
-
-    const handleDelete = async () => {
-        const ok = await confirmDelete();
-        if (!ok) return;
-
-        deleteWorkspace({
-            param: { workspaceId: initialValues.$id },
-        }, {
-            onSuccess: () => {
-                router.push("/");
-            },
-        });
-    };
-
-    const handleResetInviteCode = async () => {
-        const ok = await confirmReset();
-        if (!ok) return;
-
-        resetInviteCode({
-            param: { workspaceId: initialValues.$id },
-        });
-    };
-
-    const onSubmit = (values: FormValues) => {
+    const save = (event: FormEvent) => {
+        event.preventDefault();
+        if (hoursInvalid) return;
         mutate({
-            form: { ...values },
-            param: { workspaceId: initialValues.$id },
+            param: { workspaceId: workspace.$id },
+            form: { name: name.trim(), workDayStart: dayStart, workDayEnd: dayEnd },
         });
-    };
-
-    const fullInviteLink = `${window.location.origin}/workspaces/${initialValues.$id}/join/${initialValues.inviteCode}`;
-
-    const handleCopyInviteLink = () => {
-        navigator.clipboard.writeText(fullInviteLink)
-            .then(() => toast.success("Invite link copied to clipboard"));
     };
 
     return (
-        <div className="flex flex-col gap-y-4">
-            <DeleteDialog />
-            <ResetDialog />
-            <Card className="w-full h-full border-none shadow-none">
-                <SettingsHeader
-                    title={initialValues.name}
-                    titleClassName="font-bold"
-                    onBack={onCancel ?? (() => router.push(`/workspaces/${initialValues.$id}`))}
-                />
-                <CardContent className="p-7">
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)}>
-                            <div className="flex flex-col gap-y-4">
-                                <TextInputField
-                                    control={form.control}
-                                    name="name"
-                                    label="Workspace"
-                                    placeholder="Enter workspace name"
-                                    disabled={!isAdmin}
-                                />
-                            </div>
-                            <FormActions
-                                onCancel={onCancel}
-                                isPending={isPending}
-                                submitLabel="Save Changes"
-                                showSubmit={isAdmin}
-                            />
-                        </form>
-                    </Form>
-                </CardContent>
-            </Card>
+        <form onSubmit={save} className="space-y-4">
+            <Section title="Workspace name">
+                <Label htmlFor="workspace-name" className="sr-only">Workspace name</Label>
+                <Input id="workspace-name" value={name} onChange={(e) => setName(e.target.value)} disabled={!isAdmin} required maxLength={80} />
+            </Section>
 
-            <SettingsCard
-                title="Invite Members"
-                description="Use this link to invite members to your workspace"
-                action={isAdmin && (
-                    <SettingsActionButton
-                        label="Reset Invite link"
-                        disabled={isPending || isResettingInviteCode}
-                        onClick={handleResetInviteCode}
-                    />
-                )}
+            <Section
+                title="Working hours"
+                description="Frames the routine week overview. Tasks with only a date are due by the end of the day, for reminders and the move to Backlog."
             >
-                <div className="mt-4">
-                    <div className="flex items-center gap-x-2">
-                        <Input disabled value={fullInviteLink} />
-                        <Button
-                            onClick={handleCopyInviteLink}
-                            variant="secondary"
-                            className="size-12"
-                        >
-                            <CopyIcon className="size-5" />
-                        </Button>
+                <div className="flex flex-wrap items-end gap-3">
+                    <div className="space-y-1">
+                        <Label htmlFor="work-day-start">Day starts</Label>
+                        <Input id="work-day-start" type="time" value={dayStart} onChange={(e) => setDayStart(e.target.value || dayStart)}
+                            disabled={!isAdmin} className="w-32" />
+                    </div>
+                    <div className="space-y-1">
+                        <Label htmlFor="work-day-end">Day ends</Label>
+                        <Input id="work-day-end" type="time" value={dayEnd} onChange={(e) => setDayEnd(e.target.value || dayEnd)}
+                            disabled={!isAdmin} className="w-32" aria-invalid={hoursInvalid} />
                     </div>
                 </div>
-            </SettingsCard>
+                {hoursInvalid && <p role="alert" className="text-xs text-destructive">The day has to end after it starts.</p>}
+            </Section>
 
             {isAdmin && (
-                <SettingsCard
-                    title="Danger Zone"
-                    description="Deleting a workspace is irreversible and will remove all associated data"
-                    action={
-                        <SettingsActionButton
-                            label="Delete Workspace"
-                            disabled={isPending || isDeleting}
-                            onClick={handleDelete}
-                        />
-                    }
-                />
+                <div className="flex justify-end">
+                    <Button type="submit" disabled={isPending || !changed || hoursInvalid}>Save changes</Button>
+                </div>
             )}
+        </form>
+    );
+};
+
+// A link with copy and (admins) reset buttons
+const LinkField = ({ label, link, canReset, resetting, onReset }: {
+    label: string; link: string; canReset: boolean; resetting: boolean; onReset: () => void;
+}) => {
+    const [ResetDialog, confirmReset] = useConfirm(
+        `Reset ${label.toLowerCase()}`,
+        "The current link stops working and a new one is made.",
+        "destructive",
+    );
+
+    return (
+        <div className="flex items-center gap-2">
+            <ResetDialog />
+            <Input readOnly value={link} aria-label={label} onFocus={(e) => e.currentTarget.select()} />
+            <Button
+                variant="secondary"
+                size="icon"
+                className="shrink-0"
+                aria-label={`Copy ${label.toLowerCase()}`}
+                onClick={() => navigator.clipboard.writeText(link).then(() => toast.success(`${label} copied`))}
+            >
+                <CopyIcon className="size-4" />
+            </Button>
+            {canReset && (
+                <Button
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    aria-label={`Reset ${label.toLowerCase()}`}
+                    title={`Reset ${label.toLowerCase()}`}
+                    disabled={resetting}
+                    onClick={async () => {
+                        if (await confirmReset()) onReset();
+                    }}
+                >
+                    <RefreshCwIcon className="size-4" />
+                </Button>
+            )}
+        </div>
+    );
+};
+
+// The invite links: copy them, limit the regular one, email it, or replace them
+const InviteSettings = ({ workspace, isAdmin }: { workspace: Workspace; isAdmin: boolean }) => {
+    const { mutate: resetInviteCode, isPending } = useResetInviteCode();
+    const { mutate: resetViewerCode, isPending: isResettingViewer } = useResetViewerInviteCode();
+    const joinLink = (code: string) => `${window.location.origin}/workspaces/${workspace.$id}/join/${code}`;
+    const inviteLink = joinLink(workspace.inviteCode);
+
+    return (
+        <div className="space-y-4">
+            <Section title="Invite link" description="Anyone with this link joins as an Assignee. An admin can change their role afterwards.">
+                <LinkField
+                    label="Invite link"
+                    link={inviteLink}
+                    canReset={isAdmin}
+                    resetting={isPending}
+                    onReset={() => resetInviteCode({ param: { workspaceId: workspace.$id } })}
+                />
+                <InviteLimits workspace={workspace} canEdit={isAdmin} />
+            </Section>
+
+            {/* Only admins see it: anyone holding it can see everything in the workspace */}
+            {isAdmin && (
+                <Section title="Viewer link" description="Anyone with this link joins as a Viewer: they see everything and change nothing.">
+                    {workspace.viewerInviteCode ? (
+                        <LinkField
+                            label="Viewer link"
+                            link={joinLink(workspace.viewerInviteCode)}
+                            canReset
+                            resetting={isResettingViewer}
+                            onReset={() => resetViewerCode({ param: { workspaceId: workspace.$id } })}
+                        />
+                    ) : (
+                        <Button variant="outline" disabled={isResettingViewer}
+                            onClick={() => resetViewerCode({ param: { workspaceId: workspace.$id } })}>
+                            Create a viewer link
+                        </Button>
+                    )}
+                </Section>
+            )}
+
+            <Section title="Email an invitation">
+                <InviteByEmail workspace={workspace} inviteLink={inviteLink} />
+            </Section>
+        </div>
+    );
+};
+
+const DangerZone = ({ workspace }: { workspace: Workspace }) => {
+    const router = useRouter();
+    const { mutate: deleteWorkspace, isPending } = useDeleteWorkspace();
+    const [DeleteDialog, confirmDelete] = useConfirm(
+        "Delete workspace",
+        "Every project, task and routine in it is deleted. This can't be undone.",
+        "destructive",
+    );
+
+    return (
+        <Section title="Delete workspace" description="Removes the workspace and everything in it for all members.">
+            <DeleteDialog />
+            <Button
+                variant="destructive"
+                disabled={isPending}
+                onClick={async () => {
+                    if (!(await confirmDelete())) return;
+                    deleteWorkspace({ param: { workspaceId: workspace.$id } }, { onSuccess: () => router.push("/") });
+                }}
+            >
+                Delete {workspace.name}
+            </Button>
+        </Section>
+    );
+};
+
+// Settings popup (sidebar → Settings), one tab per area
+export const WorkspaceSettings = ({ workspace }: { workspace: Workspace }) => {
+    const { isAdmin: admin, canEditWork } = usePermissions({ workspaceId: workspace.$id });
+
+    return (
+        <div className="space-y-4 p-6">
+            <h2 className="text-xl font-bold">{workspace.name} settings</h2>
+            <Tabs defaultValue="general">
+                <TabsList className="grid h-auto w-full grid-cols-3 sm:grid-cols-5">
+                    <TabsTrigger value="general">General</TabsTrigger>
+                    <TabsTrigger value="invites">Invites</TabsTrigger>
+                    <TabsTrigger value="holidays">Holidays</TabsTrigger>
+                    <TabsTrigger value="bulk" disabled={!canEditWork}>Bulk input</TabsTrigger>
+                    <TabsTrigger value="danger" disabled={!admin}>Danger zone</TabsTrigger>
+                </TabsList>
+                <TabsContent value="general" className="pt-2">
+                    <GeneralSettings key={workspace.$updatedAt} workspace={workspace} isAdmin={admin} />
+                </TabsContent>
+                <TabsContent value="invites" className="pt-2">
+                    <InviteSettings workspace={workspace} isAdmin={admin} />
+                </TabsContent>
+                <TabsContent value="holidays" className="pt-2">
+                    <HolidaySettings workspaceId={workspace.$id} isAdmin={admin} />
+                </TabsContent>
+                {canEditWork && (
+                    <TabsContent value="bulk" className="pt-2">
+                        <BulkInput workspace={workspace} canManage={admin} />
+                    </TabsContent>
+                )}
+                {admin && (
+                    <TabsContent value="danger" className="pt-2">
+                        <DangerZone workspace={workspace} />
+                    </TabsContent>
+                )}
+            </Tabs>
         </div>
     );
 };

@@ -1,17 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/components/query-providor";
 import { ThemeProvider } from "@/components/theme-provider";
+import { MotionProvider } from "@/components/motion";
 
 import "./globals.css";
 
-const inter = Inter({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
   display: "swap",
   preload: true,
+  variable: "--font-sans",
   fallback: ["system-ui", "arial"],
 });
 
@@ -21,6 +23,12 @@ export const metadata: Metadata = {
   keywords: ["project management", "task tracking", "scrum", "kanban"],
   authors: [{ name: "ScrumSpecter Team" }],
   robots: "index, follow",
+  // Added to an iPhone's home screen, it opens like an app (and can get push notifications)
+  appleWebApp: {
+    capable: true,
+    title: "ScrumSpecter",
+    statusBarStyle: "default",
+  },
   openGraph: {
     type: "website",
     title: "ScrumSpecter",
@@ -44,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.className} suppressHydrationWarning>
+    <html lang="en" className={jakarta.variable} suppressHydrationWarning>
       <body className={cn("antialiased min-h-screen")}>
         <ThemeProvider
           attribute="class"
@@ -54,8 +62,10 @@ export default function RootLayout({
           storageKey="scrumspecter-theme"
         >
           <QueryProvider>
-            <Toaster />
-            {children}
+            <MotionProvider>
+              <Toaster />
+              {children}
+            </MotionProvider>
           </QueryProvider>
         </ThemeProvider>
       </body>

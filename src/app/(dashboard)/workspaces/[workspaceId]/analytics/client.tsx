@@ -6,20 +6,20 @@ import { BurndownChart } from "./components/burndown-chart";
 import { VelocityTracker } from "./components/velocity-tracker";
 import { SprintReportGenerator } from "./components/sprint-report-generator";
 import { BarChart3Icon, CalculatorIcon, TrendingUpIcon, FileTextIcon } from "lucide-react";
-import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
+import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 
 export const AnalyticsClient = () => {
     const workspaceId = useWorkspaceId();
-    const { isAdmin } = useIsAdmin({ workspaceId });
+    const { canEditWork } = usePermissions({ workspaceId });
 
-    const tabTriggerClassName = "flex items-center gap-2 bg-muted text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground";
+    const tabTriggerClassName = "flex min-w-0 items-center gap-2 bg-card text-muted-foreground shadow-soft data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs sm:text-sm";
 
     return (
         <div className="h-full flex flex-col space-y-4">
-            <Tabs defaultValue={isAdmin ? "capacity" : "burndown"} className="flex-1 flex flex-col">
-                <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-transparent p-0`}>
-                    {isAdmin && (
+            <Tabs defaultValue={canEditWork ? "capacity" : "burndown"} className="flex-1 flex flex-col">
+                <TabsList className={`grid h-auto w-full gap-2 ${canEditWork ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2'} bg-transparent p-0`}>
+                    {canEditWork && (
                         <TabsTrigger value="capacity" className={tabTriggerClassName}>
                             <CalculatorIcon className="h-4 w-4" />
                             Capacity Calculator
@@ -33,7 +33,7 @@ export const AnalyticsClient = () => {
                         <BarChart3Icon className="h-4 w-4" />
                         Velocity Tracker
                     </TabsTrigger>
-                    {isAdmin && (
+                    {canEditWork && (
                         <TabsTrigger value="sprint-report" className={tabTriggerClassName}>
                             <FileTextIcon className="h-4 w-4" />
                             Sprint Report
@@ -41,7 +41,7 @@ export const AnalyticsClient = () => {
                     )}
                 </TabsList>
 
-                {isAdmin && (
+                {canEditWork && (
                     <TabsContent value="capacity" className="flex-1 mt-6">
                         <CapacityCalculator />
                     </TabsContent>
@@ -55,7 +55,7 @@ export const AnalyticsClient = () => {
                     <VelocityTracker />
                 </TabsContent>
 
-                {isAdmin && (
+                {canEditWork && (
                     <TabsContent value="sprint-report" className="flex-1 mt-6">
                         <SprintReportGenerator />
                     </TabsContent>

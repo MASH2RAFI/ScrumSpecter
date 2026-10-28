@@ -1,17 +1,18 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, desc, eq, ilike, inArray, max, type SQL } from "drizzle-orm";
+import { and, arrayContains, desc, eq, ilike, inArray, max, type SQL } from "drizzle-orm";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { db } from "@/lib/db";
 import { findById } from "@/lib/db/find-by-id";
 import { findForeignReference } from "@/lib/db/workspace-refs";
-import { members, projects, tasks, users } from "@/lib/db/schema";
+import { members, projects, routines, tasks, users } from "@/lib/db/schema";
 import { toDoc } from "@/lib/db/types";
+import { canEditDescription, canEditWork, canReview, canSetStatus } from "@/features/members/permissions";
 import { MemberRole } from "@/features/members/types";
-import { requireAdmin, requireMember } from "@/features/members/utils";
+import { requireMember, requireRole } from "@/features/members/utils";
 import { Project } from "@/features/projects/types";
-import { createTaskSchema } from "../schemas";
+import { bulkEditSchema, createTaskSchema, restoreTasksSchema } from "../schemas";
 import { PopulatedAssignee, Task, TaskStatus } from "../types";
 
 const MEMBER_NOT_FOUND = "Member not found in the workspace";
@@ -21,6 +22,32 @@ const toTaskDoc = (task: typeof tasks.$inferSelect) => ({
     dueDate: task.dueDate?.toISOString() ?? null,
     startAt: task.startAt?.toISOString() ?? null,
 }) as Task;
+
+// Names for the assignees of a set of tasks, in one query: people's own, or a placeholder's
+const loadAssignees = async (taskRows: { assigneeIds: string[] }[]) => {
+    const ids = Array.from(new Set(taskRows.flatMap((task) => task.assigneeIds)));
+    if (ids.length === 0) return new Map<string, PopulatedAssignee>();
+    const rows = await db
+        .select({ member: members, name: users.name, email: users.email })
+        .from(members)
+        .leftJoin(users, eq(users.id, members.userId))
+        .where(inArray(members.id, ids));
+    return new Map(rows.flatMap(({ member, name, email }) => {
+        const shownName = name ?? member.placeholderName;
+        if (shownName === null) return [];
+        return [[member.id, {
+            ...toDoc(member),
+            name: shownName,
+            email: email ?? member.placeholderEmail ?? "",
+            isPlaceholder: member.userId === null,
+        } as PopulatedAssignee]];
+    }));
+};
+
+const withAssignees = (task: typeof tasks.$inferSelect, people: Map<string, PopulatedAssignee>) => {
+    const assignees = task.assigneeIds.flatMap((id) => people.get(id) ?? []);
+    return { assignees, assignee: assignees[0] ?? null };
+};
 
 // undefined = leave unchanged, null = clear, string = set
 const toStartAt = (startAt: string | null | undefined) =>
@@ -37,7 +64,7 @@ const app = new Hono()
                 status,
                 projectId,
                 dueDate,
-                assigneeId,
+                assigneeIds,
                 description,
                 storyPoints,
                 startAt,
@@ -57,29 +84,39 @@ const app = new Hono()
                 return member;
             }
 
-            const isAdmin = member.role === MemberRole.ADMIN;
+            const isAssignee = existingTask.assigneeIds.includes(member.$id);
+            const editsWork = [name, projectId, dueDate, assigneeIds, storyPoints, startAt, durationMinutes].some((value) => value !== undefined);
 
-            if (isAdmin) {
-                const foreignReference = await findForeignReference(existingTask.workspaceId, { projectId, assigneeId });
+            if (editsWork && !canEditWork(member.role)) {
+                return c.json({ error: "Only admins and supervisors can change this. Send a change request instead." }, 403);
+            }
+            if (status !== undefined && status !== existingTask.status
+                && !canSetStatus(member.role, { isAssignee, from: existingTask.status, to: status })) {
+                return c.json({ error: status === TaskStatus.DONE || existingTask.status === TaskStatus.DONE
+                    ? "A reviewer approves work to Done. Move it to In Review."
+                    : "You can only change the status of tasks assigned to you" }, 403);
+            }
+            if (description !== undefined && !canEditDescription(member.role, isAssignee)) {
+                return c.json({ error: "You can only edit tasks assigned to you" }, 403);
+            }
+
+            if (editsWork) {
+                const foreignReference = await findForeignReference(existingTask.workspaceId, { projectId, assigneeIds });
                 if (foreignReference) {
                     return c.json({ error: foreignReference }, 400);
                 }
             }
 
-            // Non-admins may only update description and status
-            const updateData = isAdmin ? {
+            const updateData = {
                 name,
                 status,
                 projectId,
                 dueDate,
-                assigneeId,
+                assigneeIds: assigneeIds ? Array.from(new Set(assigneeIds)) : undefined,
                 description,
                 storyPoints: storyPoints !== undefined ? Number(storyPoints) : undefined,
                 startAt: toStartAt(startAt),
                 durationMinutes,
-            } : {
-                status,
-                description,
             };
 
             // Drizzle rejects an update with nothing to set
@@ -108,7 +145,7 @@ const app = new Hono()
                 return c.json({ error: "Task not found" }, 404);
             }
 
-            const member = await requireAdmin(c, task.workspaceId, "Only admins can delete tasks");
+            const member = await requireRole(c, task.workspaceId, canEditWork, "Only admins and supervisors can delete tasks");
             if (member instanceof Response) {
                 return member;
             }
@@ -154,7 +191,7 @@ const app = new Hono()
             }
 
             if (assigneeId) {
-                filters.push(eq(tasks.assigneeId, assigneeId));
+                filters.push(arrayContains(tasks.assigneeIds, [assigneeId]));
             }
 
             if (dueDate) {
@@ -165,22 +202,14 @@ const app = new Hono()
                 filters.push(ilike(tasks.name, `%${search}%`));
             }
 
-            // One round trip for tasks + their project and assignee, run alongside the
-            // membership check; rows are only returned once membership is confirmed
+            // Tasks with their project, run alongside the membership check; rows are only
+            // returned once membership is confirmed
             const [member, rows] = await Promise.all([
                 requireMember(c, workspaceId, { error: MEMBER_NOT_FOUND }),
                 db
-                    .select({
-                        task: tasks,
-                        project: projects,
-                        assignee: members,
-                        assigneeName: users.name,
-                        assigneeEmail: users.email,
-                    })
+                    .select({ task: tasks, project: projects })
                     .from(tasks)
                     .leftJoin(projects, eq(projects.id, tasks.projectId))
-                    .leftJoin(members, eq(members.id, tasks.assigneeId))
-                    .leftJoin(users, eq(users.id, members.userId))
                     .where(and(...filters))
                     .orderBy(desc(tasks.createdAt)),
             ]);
@@ -189,12 +218,11 @@ const app = new Hono()
                 return member;
             }
 
-            const populatedTasks = rows.map(({ task, project, assignee, assigneeName, assigneeEmail }) => ({
+            const people = await loadAssignees(rows.map(({ task }) => task));
+            const populatedTasks = rows.map(({ task, project }) => ({
                 ...toTaskDoc(task),
                 project: project ? toDoc(project) as Project : undefined,
-                assignee: assignee && assigneeName !== null && assigneeEmail !== null
-                    ? { ...toDoc(assignee), name: assigneeName, email: assigneeEmail } as PopulatedAssignee
-                    : null,
+                ...withAssignees(task, people),
             }));
 
             return c.json({
@@ -217,19 +245,19 @@ const app = new Hono()
                 workspaceId,
                 projectId,
                 dueDate,
-                assigneeId,
+                assigneeIds,
                 description,
                 storyPoints,
                 startAt,
                 durationMinutes,
             } = c.req.valid("json");
 
-            const member = await requireAdmin(c, workspaceId, "Only admins can create tasks", MEMBER_NOT_FOUND);
+            const member = await requireRole(c, workspaceId, canEditWork, "Only admins and supervisors can create tasks. Send a change request instead.", MEMBER_NOT_FOUND);
             if (member instanceof Response) {
                 return member;
             }
 
-            const foreignReference = await findForeignReference(workspaceId, { projectId, assigneeId });
+            const foreignReference = await findForeignReference(workspaceId, { projectId, assigneeIds });
             if (foreignReference) {
                 return c.json({ error: foreignReference }, 400);
             }
@@ -249,7 +277,7 @@ const app = new Hono()
                     workspaceId,
                     projectId,
                     dueDate,
-                    assigneeId,
+                    assigneeIds: Array.from(new Set(assigneeIds)),
                     description,
                     storyPoints: storyPoints !== undefined ? Number(storyPoints) : undefined,
                     startAt: toStartAt(startAt),
@@ -268,19 +296,11 @@ const app = new Hono()
         async (c) => {
             const { taskId } = c.req.param();
 
-            // Task, project and assignee in one round trip
+            // Task and project in one round trip
             const [row] = await db
-                .select({
-                    task: tasks,
-                    project: projects,
-                    assignee: members,
-                    assigneeName: users.name,
-                    assigneeEmail: users.email,
-                })
+                .select({ task: tasks, project: projects })
                 .from(tasks)
                 .leftJoin(projects, eq(projects.id, tasks.projectId))
-                .leftJoin(members, eq(members.id, tasks.assigneeId))
-                .leftJoin(users, eq(users.id, members.userId))
                 .where(eq(tasks.id, taskId))
                 .limit(1);
 
@@ -288,7 +308,7 @@ const app = new Hono()
                 return c.json({ error: "Task not found" }, 404);
             }
 
-            const { task, project, assignee, assigneeName, assigneeEmail } = row;
+            const { task, project } = row;
 
             const member = await requireMember(c, task.workspaceId);
             if (member instanceof Response) {
@@ -303,11 +323,111 @@ const app = new Hono()
                 data: {
                     ...toTaskDoc(task),
                     project: toDoc(project) as Project,
-                    assignee: assignee && assigneeName !== null && assigneeEmail !== null
-                        ? { ...toDoc(assignee), name: assigneeName, email: assigneeEmail } as PopulatedAssignee
-                        : null,
+                    ...withAssignees(task, await loadAssignees([task])),
                 },
             });
+        }
+    )
+
+    // Several tasks at once from the table: the same change for all, or delete them.
+    // Returns their previous state so the change can be undone.
+    .post(
+        "/bulk-edit",
+        sessionMiddleware,
+        zValidator("json", bulkEditSchema),
+        async (c) => {
+            const { ids, changes } = c.req.valid("json");
+
+            const selected = await db.select().from(tasks).where(inArray(tasks.id, ids));
+            const workspaceIds = new Set(selected.map((task) => task.workspaceId));
+            if (selected.length === 0 || workspaceIds.size !== 1) {
+                return c.json({ error: "All tasks must belong to the same workspace" }, 400);
+            }
+            const workspaceId = selected[0].workspaceId;
+
+            const member = await requireMember(c, workspaceId, { error: MEMBER_NOT_FOUND });
+            if (member instanceof Response) {
+                return member;
+            }
+            // Reviewers may change status in bulk; everything else is for admins and supervisors
+            const statusOnly = !("delete" in changes) && Object.keys(changes).every((key) => key === "status");
+            if (!(statusOnly ? canReview(member.role) : canEditWork(member.role))) {
+                return c.json({ error: statusOnly ? "Only reviewers, supervisors and admins can change several tasks at once" : "Only admins and supervisors can change these fields" }, 403);
+            }
+
+            if ("delete" in changes) {
+                await db.delete(tasks).where(and(inArray(tasks.id, ids), eq(tasks.workspaceId, workspaceId)));
+                return c.json({ data: { previous: selected.map(toTaskDoc), deleted: true } });
+            }
+
+            const foreignReference = await findForeignReference(workspaceId, { assigneeIds: changes.assigneeIds });
+            if (foreignReference) {
+                return c.json({ error: foreignReference }, 400);
+            }
+
+            const set = {
+                status: changes.status,
+                assigneeIds: changes.assigneeIds ? Array.from(new Set(changes.assigneeIds)) : undefined,
+                dueDate: changes.dueDate === undefined ? undefined : changes.dueDate === null ? null : new Date(changes.dueDate),
+            };
+            if (Object.values(set).every((value) => value === undefined)) {
+                return c.json({ error: "Nothing to change" }, 400);
+            }
+
+            await db.update(tasks).set(set).where(and(inArray(tasks.id, ids), eq(tasks.workspaceId, workspaceId)));
+            return c.json({ data: { previous: selected.map(toTaskDoc), deleted: false } });
+        }
+    )
+
+    // Puts deleted tasks back exactly as they were (Undo after delete); admins only
+    .post(
+        "/restore",
+        sessionMiddleware,
+        zValidator("json", restoreTasksSchema),
+        async (c) => {
+            const { tasks: snapshots } = c.req.valid("json");
+            const workspaceIds = new Set(snapshots.map((task) => task.workspaceId));
+            if (workspaceIds.size !== 1) {
+                return c.json({ error: "All tasks must belong to the same workspace" }, 400);
+            }
+            const workspaceId = snapshots[0].workspaceId;
+
+            const member = await requireRole(c, workspaceId, canEditWork, "Only admins and supervisors can restore tasks", MEMBER_NOT_FOUND);
+            if (member instanceof Response) {
+                return member;
+            }
+            for (const snapshot of snapshots) {
+                const foreignReference = await findForeignReference(workspaceId, { projectId: snapshot.projectId, assigneeIds: snapshot.assigneeIds });
+                if (foreignReference) {
+                    return c.json({ error: foreignReference }, 400);
+                }
+            }
+
+            // A routine deleted meanwhile can't be pointed at any more
+            const routineIds = Array.from(new Set(snapshots.map((task) => task.routineId).filter((id): id is string => Boolean(id))));
+            const liveRoutines = new Set(routineIds.length
+                ? (await db.select({ id: routines.id }).from(routines).where(inArray(routines.id, routineIds))).map((row) => row.id)
+                : []);
+
+            const restored = await db.insert(tasks).values(snapshots.map((task) => ({
+                id: task.$id,
+                name: task.name,
+                status: task.status,
+                workspaceId: task.workspaceId,
+                projectId: task.projectId,
+                assigneeIds: task.assigneeIds,
+                description: task.description,
+                storyPoints: task.storyPoints,
+                position: task.position,
+                dueDate: task.dueDate ? new Date(task.dueDate) : null,
+                startAt: task.startAt ? new Date(task.startAt) : null,
+                durationMinutes: task.durationMinutes,
+                sprintId: task.sprintId,
+                routineId: task.routineId && liveRoutines.has(task.routineId) ? task.routineId : null,
+            // Skips a task that exists again meanwhile (same id, or its routine re-created that day)
+            }))).onConflictDoNothing().returning({ id: tasks.id });
+
+            return c.json({ data: { restored: restored.length } });
         }
     )
 
@@ -330,7 +450,7 @@ const app = new Hono()
             const { tasks: taskUpdates } = c.req.valid("json");
 
             const tasksToUpdate = await db
-                .select({ workspaceId: tasks.workspaceId })
+                .select({ id: tasks.id, workspaceId: tasks.workspaceId, status: tasks.status, assigneeIds: tasks.assigneeIds })
                 .from(tasks)
                 .where(inArray(tasks.id, taskUpdates.map((task) => task.$id)));
 
@@ -349,6 +469,22 @@ const app = new Hono()
             const member = await requireMember(c, workspaceId);
             if (member instanceof Response) {
                 return member;
+            }
+
+            // Dragging between columns is a status change, with the same rules as anywhere else;
+            // reordering within a column is fine for anyone who can work on tasks
+            const current = new Map(tasksToUpdate.map((task) => [task.id, task]));
+            for (const update of taskUpdates) {
+                const task = current.get(update.$id);
+                if (!task) continue;
+                const allowed = task.status === update.status
+                    ? member.role !== MemberRole.VIEWER
+                    : canSetStatus(member.role, { isAssignee: task.assigneeIds.includes(member.$id), from: task.status, to: update.status });
+                if (!allowed) {
+                    return c.json({ error: update.status === TaskStatus.DONE || task.status === TaskStatus.DONE
+                        ? "A reviewer approves work to Done. Move it to In Review."
+                        : "You can only move tasks assigned to you" }, 403);
+                }
             }
 
             const updatedTasks = await db.transaction((tx) =>

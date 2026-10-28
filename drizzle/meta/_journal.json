@@ -29,6 +29,69 @@
       "when": 1792896292448,
       "tag": "0003_task_times",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793025080187,
+      "tag": "0004_data_versions_holidays",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793035197136,
+      "tag": "0005_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793039670760,
+      "tag": "0006_session_devices",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793041174764,
+      "tag": "0007_invites_logins_resets",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793116361874,
+      "tag": "0008_placeholder_members",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793117191339,
+      "tag": "0009_work_day",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793121800318,
+      "tag": "0010_roles_multi_assignee",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793122564804,
+      "tag": "0011_change_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793168137560,
+      "tag": "0012_routine_views",
+      "breakpoints": true
     }
   ]
 }

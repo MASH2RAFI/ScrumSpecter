@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Form } from "@/components/ui/form";
 import { useConfirm } from "@/hooks/use-confirm";
-import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
+import { usePermissions } from "@/features/members/hooks/use-permissions";
 import {
     FormActions,
     SettingsActionButton,
@@ -40,7 +40,7 @@ export const EditProjectForm = ({ onCancel, initialValues }: EditProjectFormProp
     const router = useRouter();
     const { mutate, isPending } = useUpdateProject();
     const { mutate: deleteProject, isPending: isDeletingProject } = useDeleteProject();
-    const { isAdmin } = useIsAdmin({ workspaceId: initialValues.workspaceId });
+    const { canEditWork } = usePermissions({ workspaceId: initialValues.workspaceId });
 
     const [DeleteDialog, confirmDelete] = useConfirm(
         "Delete Project",
@@ -69,6 +69,7 @@ export const EditProjectForm = ({ onCancel, initialValues }: EditProjectFormProp
             param: { projectId: initialValues.$id },
         }, {
             onSuccess: () => {
+                onCancel?.();
                 router.push(`/workspaces/${initialValues.workspaceId}`);
             },
         });
@@ -76,7 +77,7 @@ export const EditProjectForm = ({ onCancel, initialValues }: EditProjectFormProp
 
     const onSubmit = (values: FormValues) => {
         // Only admins may change the sprint; members can still rename the project
-        const sprint = isAdmin ? {
+        const sprint = canEditWork ? {
             sprintDuration: sprintLengthInDays(values.currentSprintStartDate, values.currentSprintEndDate).toString(),
             // Store YYYY-MM-DD, the same format project creation uses
             currentSprintStartDate: convertDDMMYYYYToYYYYMMDD(values.currentSprintStartDate),
@@ -93,6 +94,8 @@ export const EditProjectForm = ({ onCancel, initialValues }: EditProjectFormProp
         mutate({
             form: finalValues,
             param: { projectId: initialValues.$id },
+        }, {
+            onSuccess: () => onCancel?.(),
         });
     };
 
@@ -109,7 +112,7 @@ export const EditProjectForm = ({ onCancel, initialValues }: EditProjectFormProp
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)}>
                             <div className="flex flex-col gap-y-4">
-                                {isAdmin && (
+                                {canEditWork && (
                                     <TextInputField
                                         control={form.control}
                                         name="name"
@@ -118,7 +121,7 @@ export const EditProjectForm = ({ onCancel, initialValues }: EditProjectFormProp
                                     />
                                 )}
                                 <SprintSettings>
-                                    {isAdmin && (
+                                    {canEditWork && (
                                         <>
                                             <SprintDateField control={form.control} name="currentSprintStartDate" label="Sprint Start Date" iconLabel />
                                             <SprintDateField control={form.control} name="currentSprintEndDate" label="Sprint End Date" iconLabel />
@@ -135,7 +138,7 @@ export const EditProjectForm = ({ onCancel, initialValues }: EditProjectFormProp
             <SettingsCard
                 title="Danger Zone"
                 description="Deleting a project is irreversible and will remove all associated data"
-                action={isAdmin && (
+                action={canEditWork && (
                     <SettingsActionButton
                         label="Delete Project"
                         disabled={isPending || isDeletingProject}

@@ -1,9 +1,10 @@
 import "server-only";
 
-import { and, eq, gte, inArray, max, type SQL } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, lt, max, type SQL } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { projects, routines, tasks } from "@/lib/db/schema";
+import { projects, routines, tasks, workspaces } from "@/lib/db/schema";
+import { getHolidays } from "@/lib/holidays";
 import { TaskStatus } from "@/features/tasks/types";
 import { isValidTimeZone, zonedTimeToUtc } from "@/lib/time-zone";
 
@@ -23,6 +24,9 @@ const MAX_HORIZON_DAYS = 366;
 const DAY_MS = 86_400_000;
 
 const startOfUtcDay = (date: Date) => Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+
+// Routine due dates are noon UTC, so their UTC date is the calendar day
+const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 
 // Days from today through the sprint's last day (inclusive); 0 once the sprint has ended
 export const daysUntilSprintEnd = (sprintEnd: string | null | undefined, from = new Date()) => {
@@ -50,15 +54,27 @@ export const routineDueDates = (weekdays: number[], from = new Date(), days = RO
 // the (routine_id, due_date) unique index turns repeats into no-ops.
 export const generateRoutineTasks = async (filter?: SQL) => {
     const active = await db
-        .select({ routine: routines, sprintEnd: projects.currentSprintEndDate })
+        .select({ routine: routines, sprintEnd: projects.currentSprintEndDate, holidayCountry: workspaces.holidayCountry })
         .from(routines)
         .innerJoin(projects, eq(projects.id, routines.projectId))
+        .innerJoin(workspaces, eq(workspaces.id, routines.workspaceId))
         .where(and(eq(routines.active, true), filter))
-        .then((rows) => rows.map(({ routine, sprintEnd }) => ({ ...routine, sprintEnd })));
+        .then((rows) => rows.map(({ routine, sprintEnd, holidayCountry }) => ({ ...routine, sprintEnd, holidayCountry })));
 
     if (active.length === 0) {
         return 0;
     }
+
+    // No routine tasks on public holidays or the workspace's own days off
+    const now = new Date();
+    const horizon = new Date(startOfUtcDay(now) + MAX_HORIZON_DAYS * DAY_MS);
+    const holidayDates = new Map<string, Set<string>>();
+    await Promise.all(Array.from(new Map(active.map((r) => [r.workspaceId, r.holidayCountry])).entries()).map(
+        async ([workspaceId, holidayCountry]) => {
+            const holidays = await getHolidays({ id: workspaceId, holidayCountry }, isoDate(now), isoDate(horizon));
+            holidayDates.set(workspaceId, new Set(holidays.map((holiday) => holiday.date)));
+        }
+    ));
 
     const projectIds = Array.from(new Set(active.map((routine) => routine.projectId)));
     const positions = await db
@@ -69,7 +85,9 @@ export const generateRoutineTasks = async (filter?: SQL) => {
     const nextPosition = new Map(positions.map((row) => [row.projectId, (row.position ?? 0) + 1000]));
 
     const rows = active.flatMap((routine) =>
-        routineDueDates(routine.weekdays, new Date(), daysUntilSprintEnd(routine.sprintEnd)).map((dueDate) => {
+        routineDueDates(routine.weekdays, now, daysUntilSprintEnd(routine.sprintEnd, now))
+            .filter((dueDate) => !holidayDates.get(routine.workspaceId)?.has(isoDate(dueDate)))
+            .map((dueDate) => {
             const position = nextPosition.get(routine.projectId) ?? 1000;
             nextPosition.set(routine.projectId, position + 1000);
             return {
@@ -78,7 +96,7 @@ export const generateRoutineTasks = async (filter?: SQL) => {
                 status: TaskStatus.TODO,
                 workspaceId: routine.workspaceId,
                 projectId: routine.projectId,
-                assigneeId: routine.assigneeId,
+                assigneeIds: routine.assigneeIds,
                 storyPoints: routine.storyPoints,
                 position,
                 dueDate,
@@ -118,5 +136,17 @@ export const retimeUpcomingRoutineTasks = async (routineId: string, time: Routin
                 durationMinutes: time.startTime ? time.durationMinutes : null,
             })
             .where(eq(tasks.id, task.id))
+    ));
+};
+
+// A new day off removes the routine tasks already generated for it, unless work has started
+export const removeRoutineTasksOn = async (workspaceId: string, date: string) => {
+    const start = new Date(`${date}T00:00:00.000Z`);
+    await db.delete(tasks).where(and(
+        eq(tasks.workspaceId, workspaceId),
+        isNotNull(tasks.routineId),
+        eq(tasks.status, TaskStatus.TODO),
+        gte(tasks.dueDate, start),
+        lt(tasks.dueDate, new Date(start.getTime() + DAY_MS)),
     ));
 };

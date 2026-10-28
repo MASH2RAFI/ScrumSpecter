@@ -1,4 +1,7 @@
+import { m } from "@/components/motion";
 import { useMedia } from "react-use";
+
+import { cn } from "@/lib/utils";
 
 import {
     Dialog,
@@ -18,6 +21,8 @@ interface ResponsiveModalProps {
     onOpenChange: (open: boolean) => void;
     // Announced by screen readers; the visible heading lives in the children
     title: string;
+    // Extra classes for the desktop dialog, e.g. a wider max-width
+    className?: string;
 }
 
 export const ResponsiveModal = ({
@@ -25,14 +30,18 @@ export const ResponsiveModal = ({
     open,
     onOpenChange,
     title,
+    className,
     }: ResponsiveModalProps) => {
     const isDesktop = useMedia("(min-width: 1024px)", true);
     if (isDesktop) {
         return (
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent aria-describedby={undefined} className="w-full sm:max-w-lg p-0 border-none overflow-y-auto hide-scrollbad max-h-[85vh]">
+                <DialogContent aria-describedby={undefined} className={cn("w-full sm:max-w-lg p-0 border-none overflow-y-auto hide-scrollbad max-h-[85vh]", className)}>
                     <DialogTitle className="sr-only">{title}</DialogTitle>
-                    {children}
+                    {/* The form settles into place as the dialog opens */}
+                    <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.05 }}>
+                        {children}
+                    </m.div>
                 </DialogContent>
             </Dialog>
         )

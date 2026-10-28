@@ -11,7 +11,7 @@ import { snakeCaseToTitleCase } from "@/lib/utils";
 import { TaskStatus } from "../types";
 import { Button } from "@/components/ui/button";
 import { useCreateTaskModal } from "../hooks/use-create-task-modal";
-import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
+import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 
 interface KanbanColumnHeaderProps {
@@ -45,7 +45,7 @@ export const KanbanColumnHeader = ({
 }: KanbanColumnHeaderProps) => {
     const { open } = useCreateTaskModal();
     const workspaceId = useWorkspaceId();
-    const { isAdmin } = useIsAdmin({ workspaceId });
+    const { canEditWork } = usePermissions({ workspaceId });
     const icon = statusIconMap [ board ]
     return (
         <div className="px-1 sm:px-2 py-1 sm:py-1.5 flex items-center justify-between">
@@ -64,7 +64,7 @@ export const KanbanColumnHeader = ({
                 )}
             </div>
 
-            {isAdmin && (
+            {canEditWork && (
                 <Button 
                     onClick={() => open(board)} 
                     variant="ghost" 
@@ -79,13 +79,13 @@ export const KanbanColumnHeader = ({
     );
 };
 
-// Bottom-of-column shortcut to create a task already in this status (admins only)
+// Bottom-of-column shortcut to create a task already in this status (admins and supervisors)
 export const KanbanQuickAdd = ({ board }: { board: TaskStatus }) => {
     const { open } = useCreateTaskModal();
     const workspaceId = useWorkspaceId();
-    const { isAdmin } = useIsAdmin({ workspaceId });
+    const { canEditWork } = usePermissions({ workspaceId });
 
-    if (!isAdmin) {
+    if (!canEditWork) {
         return null;
     }
 

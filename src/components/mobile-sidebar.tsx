@@ -6,6 +6,7 @@ import { MenuIcon } from "lucide-react";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { Sidebar } from "./sidebar";
+import { OpenSidebarProvider } from "./sidebar-context";
 
 export const MobileSidebar = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -29,10 +30,12 @@ export const MobileSidebar = () => {
             </SheetTrigger>
             <SheetContent
                 side="left"
-                className="p-0 w-80 sm:w-96 border-r border-border/50"
+                className="p-0 w-80 sm:w-96 border-r border-border/50 bg-panel"
             >
                 <div className="h-full overflow-y-auto">
-                    <Sidebar />
+                    <OpenSidebarProvider>
+                        <Sidebar />
+                    </OpenSidebarProvider>
                 </div>
             </SheetContent>
         </Sheet>

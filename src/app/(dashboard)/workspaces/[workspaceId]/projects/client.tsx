@@ -4,7 +4,7 @@ import { NoProjectsState, ProjectCard } from "@/components/project-card";
 import { Button } from "@/components/ui/button";
 import { useCreateProjectModal } from "@/features/projects/hooks/use-create-project-modal";
 import { Project } from "@/features/projects/types";
-import { useIsAdmin } from "@/features/members/hooks/use-is-admin";
+import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { PlusIcon } from "lucide-react";
 
 interface ProjectsClientProps {
@@ -17,7 +17,7 @@ interface ProjectsClientProps {
 
 export const ProjectsClient = ({ projects, workspaceId }: ProjectsClientProps) => {
     const { open } = useCreateProjectModal();
-    const { isAdmin } = useIsAdmin({ workspaceId });
+    const { canEditWork } = usePermissions({ workspaceId });
 
     return (
         <div className="space-y-6">
@@ -28,7 +28,7 @@ export const ProjectsClient = ({ projects, workspaceId }: ProjectsClientProps) =
                         Manage your projects and sprints
                     </p>
                 </div>
-                {isAdmin && (
+                {canEditWork && (
                     <Button onClick={() => open()}>
                         <PlusIcon className="mr-2 h-4 w-4" />
                         New Project
@@ -37,7 +37,7 @@ export const ProjectsClient = ({ projects, workspaceId }: ProjectsClientProps) =
             </div>
 
             {projects.documents.length === 0 ? (
-                <NoProjectsState canCreate={isAdmin} onCreate={() => open()} />
+                <NoProjectsState canCreate={canEditWork} onCreate={() => open()} />
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {projects.documents.map((project) => (

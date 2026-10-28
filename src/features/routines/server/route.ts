@@ -10,11 +10,12 @@ import { toDoc } from "@/lib/db/types";
 import { findForeignReference } from "@/lib/db/workspace-refs";
 import { generateRoutineTasks, retimeUpcomingRoutineTasks } from "@/lib/routines";
 import { isValidTimeZone } from "@/lib/time-zone";
-import { requireAdmin, requireMember } from "@/features/members/utils";
+import { requireMember, requireRole } from "@/features/members/utils";
+import { canEditWork } from "@/features/members/permissions";
 import { createRoutineSchema, updateRoutineSchema } from "../schemas";
 import { Routine } from "../types";
 
-const ADMINS_ONLY = "Only admins can manage routines";
+const EDITORS_ONLY = "Only admins and supervisors can manage routines";
 
 const toRoutine = (routine: typeof routines.$inferSelect) => toDoc(routine) as Routine;
 
@@ -56,12 +57,12 @@ const app = new Hono()
                 return c.json({ error: INVALID_TIME_ZONE }, 400);
             }
 
-            const member = await requireAdmin(c, workspaceId, ADMINS_ONLY);
+            const member = await requireRole(c, workspaceId, canEditWork, EDITORS_ONLY);
             if (member instanceof Response) {
                 return member;
             }
 
-            const foreignReference = await findForeignReference(workspaceId, fields);
+            const foreignReference = await findForeignReference(workspaceId, { projectId: fields.projectId, assigneeIds: fields.assigneeIds });
             if (foreignReference) {
                 return c.json({ error: foreignReference }, 400);
             }
@@ -95,12 +96,12 @@ const app = new Hono()
                 return c.json({ error: "Routine not found" }, 404);
             }
 
-            const member = await requireAdmin(c, existing.workspaceId, ADMINS_ONLY);
+            const member = await requireRole(c, existing.workspaceId, canEditWork, EDITORS_ONLY);
             if (member instanceof Response) {
                 return member;
             }
 
-            const foreignReference = await findForeignReference(existing.workspaceId, fields);
+            const foreignReference = await findForeignReference(existing.workspaceId, { projectId: fields.projectId, assigneeIds: fields.assigneeIds });
             if (foreignReference) {
                 return c.json({ error: foreignReference }, 400);
             }
@@ -140,7 +141,7 @@ const app = new Hono()
                 return c.json({ error: "Routine not found" }, 404);
             }
 
-            const member = await requireAdmin(c, existing.workspaceId, ADMINS_ONLY);
+            const member = await requireRole(c, existing.workspaceId, canEditWork, EDITORS_ONLY);
             if (member instanceof Response) {
                 return member;
             }
