@@ -11,6 +11,7 @@ import { toDoc } from "@/lib/db/types";
 import { getMember, handOverPlaceholder, isAdmin, requireMember } from "../utils";
 import { Member, MemberRole } from "../types";
 import { createPlaceholderSchema, replacePlaceholderSchema } from "../schemas";
+import { idString } from "@/lib/limits";
 
 // People only: placeholders never count towards "the only member" or "the only admin"
 const listWorkspaceMembers = (workspaceId: string) =>
@@ -30,7 +31,7 @@ const app = new Hono()
     .get(
         "/",
         sessionMiddleware,
-        zValidator("query", z.object({ workspaceId: z.string() })),
+        zValidator("query", z.object({ workspaceId: idString })),
         async (c) => {
             const { workspaceId } = c.req.valid("query");
 
@@ -213,7 +214,7 @@ const app = new Hono()
     .get(
         "/is-admin",
         sessionMiddleware,
-        zValidator("query", z.object({ workspaceId: z.string() })),
+        zValidator("query", z.object({ workspaceId: idString })),
         async (c) => {
             const user = c.get("user");
             const { workspaceId } = c.req.valid("query");
@@ -230,7 +231,7 @@ const app = new Hono()
     .post(
         "/leave-workspace",
         sessionMiddleware,
-        zValidator("json", z.object({ workspaceId: z.string() })),
+        zValidator("json", z.object({ workspaceId: idString })),
         async (c) => {
             const { workspaceId } = c.req.valid("json");
             const user = c.get("user");

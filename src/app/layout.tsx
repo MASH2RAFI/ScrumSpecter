@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Plus_Jakarta_Sans } from "next/font/google";
 
 import { cn } from "@/lib/utils";
@@ -51,10 +52,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Set by the middleware; reading it renders every page per request, which a nonce needs
+  const nonce = headers().get("x-nonce") ?? undefined;
   return (
     <html lang="en" className={jakarta.variable} suppressHydrationWarning>
       <body className={cn("antialiased min-h-screen")}>
         <ThemeProvider
+          nonce={nonce}
           attribute="class"
           defaultTheme="system"
           enableSystem

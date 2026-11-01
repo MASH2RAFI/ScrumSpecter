@@ -73,7 +73,7 @@ const app = new Hono()
         return c.json({ data: { success: true } });
     })
 
-    .delete("/subscriptions", sessionMiddleware, zValidator("json", z.object({ endpoint: z.string() })), async (c) => {
+    .delete("/subscriptions", sessionMiddleware, zValidator("json", z.object({ endpoint: z.string().max(2048) })), async (c) => {
         await db.delete(pushSubscriptions).where(and(
             eq(pushSubscriptions.userId, c.get("user").$id),
             eq(pushSubscriptions.endpoint, c.req.valid("json").endpoint),
@@ -94,8 +94,8 @@ const app = new Hono()
             dedupeKey: `test:${userId}:${now.getTime()}`,
         }).returning();
 
-        const pushed = await pushToUser(userId, [{ title: row.title, body: row.body, tag: row.dedupeKey }]);
-        return c.json({ data: { pushed } });
+        const { delivered, failed } = await pushToUser(userId, [{ title: row.title, body: row.body, tag: row.dedupeKey }]);
+        return c.json({ data: { pushed: delivered, failed } });
     });
 
 export default app;

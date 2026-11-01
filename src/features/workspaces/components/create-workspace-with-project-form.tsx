@@ -12,6 +12,7 @@ import { addDaysDDMMYYYY, formatDateDDMMYYYY } from "@/lib/sprint-utils";
 
 import { createWorkspaceWithProjectSchema } from "../schemas";
 import { useCreateWorkspaceWithProject } from "../api/use-create-workspace-with-project";
+import { MAX_TITLE, MAX_WORKSPACE_NAME } from "@/lib/limits";
 
 type FormValues = z.infer<typeof createWorkspaceWithProjectSchema>;
 
@@ -54,12 +55,14 @@ export const CreateWorkspaceWithProjectForm = ({ onCancel }: CreateWorkspaceWith
                                 name="workspaceName"
                                 label="Workspace Name"
                                 placeholder="Enter workspace name"
+                                maxLength={MAX_WORKSPACE_NAME}
                             />
                             <TextInputField
                                 control={form.control}
                                 name="projectName"
                                 label="Project Name"
                                 placeholder="Enter project name"
+                                maxLength={MAX_TITLE}
                             />
                             <SprintSettings>
                                 <SprintDateField control={form.control} name="currentSprintStartDate" label="Sprint Start Date" />

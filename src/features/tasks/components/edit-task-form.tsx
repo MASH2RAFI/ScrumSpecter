@@ -38,6 +38,7 @@ import {
 import { TaskTimeFields } from "./task-time-fields";
 import { HolidayNotice } from "@/features/workspaces/components/holiday-notice";
 import { combineDateAndTime, DEFAULT_DURATION_MINUTES, toTimeInput } from "../task-time";
+import { MAX_DESCRIPTION, MAX_TITLE } from "@/lib/limits";
 
 const formSchema = z.object({
     name: z.string().trim().min(1, "Required"),
@@ -173,6 +174,7 @@ export const EditTaskForm = ({ onCancel, projectOptions, memberOptions, initialV
                                             <Input
                                                 {...field}
                                                 placeholder="Enter task name"
+                                                maxLength={MAX_TITLE}
                                                 disabled={!canChangeDetails}
                                             />
                                         </FormControl>
@@ -193,6 +195,7 @@ export const EditTaskForm = ({ onCancel, projectOptions, memberOptions, initialV
                                             <Textarea
                                                 {...field}
                                                 placeholder="Enter task description"
+                                                maxLength={MAX_DESCRIPTION}
                                                 rows={3}
                                                 disabled={!canWorkOnIt && !canRequestChanges}
                                             />

@@ -12,6 +12,7 @@ import { MemberRole } from "@/features/members/types";
 import { requireAdmin, requireMember } from "@/features/members/utils";
 import { createProjectFormSchema, updateProjectFormSchema } from "../schemas";
 import { Project } from "../types";
+import { idString } from "@/lib/limits";
 
 const toProject = (project: typeof projects.$inferSelect) => toDoc(project) as Project;
 
@@ -47,7 +48,7 @@ const app = new Hono()
     .get(
         "/",
         sessionMiddleware,
-        zValidator("query", z.object({ workspaceId: z.string() })),
+        zValidator("query", z.object({ workspaceId: idString })),
         async (c) => {
             const { workspaceId } = c.req.valid("query");
 

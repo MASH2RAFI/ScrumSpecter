@@ -8,6 +8,7 @@ import { members, projects, routines, tasks, users, workspaces } from "@/lib/db/
 
 import { TaskStatus } from "../types";
 import { DEFAULT_DURATION_MINUTES } from "../task-time";
+import { idString } from "@/lib/limits";
 
 // GET /api/tasks: everything but workspaceId is optional, and with none of the extras it returns
 // every matching task as before. The extras let views load only what they show, so large
@@ -26,12 +27,11 @@ const isoDate = z.string().datetime({ offset: true });
 const flag = z.enum(["true", "false"]).transform((value) => value === "true");
 
 export const listQuerySchema = z.object({
-    workspaceId: z.string(),
-    projectId: z.string().nullish(),
-    assigneeId: z.string().nullish(),
+    workspaceId: idString,
+    projectId: idString.nullish(),
+    assigneeId: idString.nullish(),
     status: z.nativeEnum(TaskStatus).nullish(),
-    search: z.string().nullish(),
-    dueDate: z.string().nullish(),
+    search: z.string().max(200).nullish(),
     scope: z.enum(TASK_SCOPES).optional(),
     // The viewer's current week, [weekFrom, weekTo); needed for the list scopes' routine rule
     weekFrom: isoDate.optional(),
@@ -76,7 +76,6 @@ export const baseFilters = (q: ListQuery): SQL[] => {
     if (q.status) filters.push(eq(tasks.status, q.status));
     if (q.openOnly) filters.push(ne(tasks.status, TaskStatus.DONE));
     if (q.assigneeId) filters.push(sql`${q.assigneeId} = any(${tasks.assigneeIds})`);
-    if (q.dueDate) filters.push(eq(tasks.dueDate, new Date(q.dueDate)));
     if (q.search) filters.push(sql`${tasks.name} ilike ${`%${q.search.replace(/[\\%_]/g, "\\$&")}%`}`);
     if (q.from) filters.push(gte(tasks.dueDate, new Date(q.from)));
     if (q.to) filters.push(lt(tasks.dueDate, new Date(q.to)));

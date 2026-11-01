@@ -63,6 +63,11 @@ const dayKey = (date: Date) => format(date, "yyyy-MM-dd");
 // Local midnight of a YYYY-MM-DD day: new Date("yyyy-MM-dd") is UTC and shows a day early west of UTC
 const fromDayKey = (key: string) => parse(key, "yyyy-MM-dd", new Date());
 
+// Whole days at the same clock time: how the all-day row reports selections and drops (its days
+// start at the calendar's first visible hour, not midnight). A time-grid range stays inside one day.
+const isWholeDays = (start: Date, end: Date) => end > start
+    && start.getHours() === end.getHours() && start.getMinutes() === end.getMinutes() && start.getSeconds() === end.getSeconds();
+
 const title = (date: Date, view: CalendarView, weekStart: 0 | 1 | 6) => {
     if (view === "month") return format(date, "MMMM yyyy");
     if (view === "day") return format(date, "EEEE, MMM d, yyyy");
@@ -181,8 +186,10 @@ export const DataCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
 
     // One event per task: timed tasks as blocks, the rest all day on their due date
     const events: CalendarEvent[] = useMemo(() => [...scheduled].sort(byTimeThenName).map((task) => {
-        if (task.startAt) {
-            const { start, end } = taskTimeRange(task.startAt, task.durationMinutes);
+        const range = task.startAt ? taskTimeRange(task.startAt, task.durationMinutes) : null;
+        // Tasks saved as 00:00 + whole days (before the all-day fix) still show all day
+        if (range && !isWholeDays(range.start, range.end)) {
+            const { start, end } = range;
             // Month view places events by their day; keep timed ones on the due date's cell
             return { id: task.$id, title: task.name, start, end, task, allDay: false };
         }
@@ -218,17 +225,28 @@ export const DataCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
         });
     };
 
-    // Unscheduled task dropped on the week/day grid (react-big-calendar's outside-drag support)
-    const scheduleFromOutside = ({ start, allDay }: { start: string | Date; allDay: boolean }) => {
+    // Unscheduled task dropped on the week/day grid (react-big-calendar's outside-drag support).
+    // The all-day row reports allDay: false with start..start + 1 day, hence isWholeDays. A drop on
+    // that row can also reach the time column scrolled out of view beneath it, so one drop may call
+    // this twice in the same tick: collect both and let the all-day one win.
+    const pendingDrop = useRef<{ start: Date; allDay: boolean } | null>(null);
+    const scheduleFromOutside = ({ start, end, allDay }: { start: string | Date; end: string | Date; allDay: boolean }) => {
+        const drop = { start: new Date(start), allDay: allDay || isWholeDays(new Date(start), new Date(end)) };
+        const first = pendingDrop.current === null;
+        if (first || drop.allDay) pendingDrop.current = drop;
+        if (!first) return;
         const task = draggedTask;
-        setDraggedTask(null);
-        if (!task || !canReschedule) return;
-        const startDate = new Date(start);
-        const day = fromDayKey(dayKey(startDate));
-        warnIfHoliday(day);
-        reschedule(task, allDay
-            ? { dueDate: day, startAt: null, durationMinutes: null }
-            : { dueDate: day, startAt: startDate.toISOString(), durationMinutes: task.durationMinutes ?? Math.max(DEFAULT_DURATION_MINUTES, prefs.slotMinutes) });
+        setTimeout(() => {
+            const { start: startDate, allDay: wholeDay } = pendingDrop.current!;
+            pendingDrop.current = null;
+            setDraggedTask(null);
+            if (!task || !canReschedule) return;
+            const day = fromDayKey(dayKey(startDate));
+            warnIfHoliday(day);
+            reschedule(task, wholeDay
+                ? { dueDate: day, startAt: null, durationMinutes: null }
+                : { dueDate: day, startAt: startDate.toISOString(), durationMinutes: task.durationMinutes ?? Math.max(DEFAULT_DURATION_MINUTES, prefs.slotMinutes) });
+        });
     };
 
     // Month view: the day under the pointer (elementsFromPoint sees through the event layer)
@@ -291,13 +309,16 @@ export const DataCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
         );
     };
 
-    // Week/day column header: weekday + date, and the holiday name under it
+    // Week/day column header: weekday + date, and why the day is off (holiday or weekend)
     const TimeHeader = ({ date, label }: { date: Date; label: ReactNode }) => {
         const holiday = holidaysByDay.get(dayKey(date));
+        const off = holiday
+            ? { name: holiday.name, title: `${holiday.source === "public" ? "Public holiday" : "Workspace day off"}: ${holiday.name}` }
+            : weekend.has(date.getDay()) ? { name: "Weekend", title: "Weekend" } : null;
         return (
             <div className="flex flex-col items-center leading-tight">
                 <span>{label}</span>
-                {holiday && <span className="holiday-label truncate max-w-full" title={holiday.name}>{holiday.name}</span>}
+                {off && <span className="holiday-label truncate max-w-full" title={off.title}>{off.name}</span>}
             </div>
         );
     };
@@ -365,7 +386,7 @@ export const DataCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
                         selectable={canEditWork}
                         onSelectSlot={(slotInfo) => {
                             if (!canEditWork) return;
-                            if (view === "month" || slotInfo.action === "click" && slotInfo.slots.length === 1 && slotInfo.start.getHours() === 0 && slotInfo.start.getMinutes() === 0) {
+                            if (view === "month" || isWholeDays(slotInfo.start, slotInfo.end)) {
                                 // A day (month cell or all-day row): new all-day task on it
                                 warnIfHoliday(slotInfo.start);
                                 openCreateTask(undefined, { start: slotInfo.start, durationMinutes: 0 });

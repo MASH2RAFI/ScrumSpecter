@@ -21,6 +21,8 @@ import {
     reviewChangeRequestSchema,
 } from "../schemas";
 import { ChangeRequest } from "../types";
+import { idString } from "@/lib/limits";
+import { rateLimited } from "@/lib/rate-limit";
 
 // Enough to stop a runaway client; nobody needs more waiting at once
 const MAX_PENDING_PER_MEMBER = 50;
@@ -89,7 +91,7 @@ const app = new Hono()
     .get(
         "/",
         sessionMiddleware,
-        zValidator("query", z.object({ workspaceId: z.string().min(1) })),
+        zValidator("query", z.object({ workspaceId: idString })),
         async (c) => {
             const { workspaceId } = c.req.valid("query");
             const member = await requireMember(c, workspaceId);
@@ -149,6 +151,9 @@ const app = new Hono()
             if (pending >= MAX_PENDING_PER_MEMBER) {
                 return c.json({ error: `You have ${pending} requests waiting; wait for some to be reviewed` }, 429);
             }
+
+            const limited = await rateLimited(c, "changeRequest", member.$id);
+            if (limited) return limited;
 
             const taskName = body.kind === "create" ? body.changes.name : task!.name;
             const [row] = await db.insert(changeRequests).values({

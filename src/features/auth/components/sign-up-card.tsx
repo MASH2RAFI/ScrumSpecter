@@ -10,6 +10,7 @@ import { Form } from "@/components/ui/form";
 import { registerSchema } from "../schemas";
 import { useRegister } from "../api/use-register";
 import { AuthCard, AuthInputField, AuthSubmitButton } from "./auth-card";
+import { MAX_EMAIL, MAX_PASSWORD, MAX_PERSON_NAME } from "@/lib/limits";
 
 type FormValues = z.infer<typeof registerSchema>;
 
@@ -59,9 +60,9 @@ export const SignUpCard = ({ googleEnabled, error, next }: SignUpCardProps) => {
         >
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <AuthInputField control={form.control} name="name" type="text" placeholder="Enter your name" />
-                    <AuthInputField control={form.control} name="email" type="email" placeholder="Enter email address" />
-                    <AuthInputField control={form.control} name="password" type="password" placeholder="Enter password" />
+                    <AuthInputField control={form.control} name="name" type="text" placeholder="Enter your name" maxLength={MAX_PERSON_NAME} />
+                    <AuthInputField control={form.control} name="email" type="email" placeholder="Enter email address" maxLength={MAX_EMAIL} />
+                    <AuthInputField control={form.control} name="password" type="password" placeholder="Enter password" maxLength={MAX_PASSWORD} />
                     <AuthSubmitButton isPending={isPending} label="Create Account" pendingLabel="Creating Account..." />
                 </form>
             </Form>

@@ -64,13 +64,17 @@ export const useSendTestNotification = () => {
             if (!response.ok) {
                 throw new ApiError("Failed to send a test notification", response.status);
             }
-            return (await response.json()).data.pushed;
+            return (await response.json()).data;
         },
-        onSuccess: (pushed) => {
-            toast.success(pushed
-                ? `Test sent to ${pushed} ${pushed === 1 ? "device" : "devices"}`
-                : "Added to the bell. No device has notifications turned on yet.");
+        onSuccess: ({ pushed, failed }) => {
+            const devices = (n: number) => `${n} ${n === 1 ? "device" : "devices"}`;
+            if (!pushed && !failed) toast.success("Added to the bell. No device has notifications turned on yet.");
+            // Failed devices are forgotten by the server; turning notifications on again resubscribes them
+            else if (!pushed) toast.error(`Couldn't reach ${devices(failed)}. Turn notifications off and on again.`);
+            else if (failed) toast.warning(`Test sent to ${devices(pushed)}. Couldn't reach ${devices(failed)}; turn notifications off and on there.`);
+            else toast.success(`Test sent to ${devices(pushed)}`);
             queryClient.invalidateQueries({ queryKey: ["notifications"] });
+            queryClient.invalidateQueries({ queryKey: ["push-devices"] });
         },
         onError: (error) => toast.error(error.message),
     });

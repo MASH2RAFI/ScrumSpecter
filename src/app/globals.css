@@ -240,3 +240,10 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Printing the sprint report prints only the report, not the app around it */
+@media print {
+  body:has(> #sprint-report-print) > :not(#sprint-report-print) {
+    display: none !important;
+  }
+}

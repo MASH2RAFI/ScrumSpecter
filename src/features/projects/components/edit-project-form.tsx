@@ -22,6 +22,7 @@ import { projectFormSchema } from "../schemas";
 import { useUpdateProject } from "../api/use-update-project";
 import { useDeleteProject } from "../api/use-delete-project";
 import { SprintDateField, SprintSettings, TextInputField } from "./project-form-fields";
+import { MAX_TITLE } from "@/lib/limits";
 
 type FormValues = z.infer<typeof projectFormSchema>;
 
@@ -118,6 +119,7 @@ export const EditProjectForm = ({ onCancel, initialValues }: EditProjectFormProp
                                         name="name"
                                         label="Project Name"
                                         placeholder="Enter project name"
+                                        maxLength={MAX_TITLE}
                                     />
                                 )}
                                 <SprintSettings>

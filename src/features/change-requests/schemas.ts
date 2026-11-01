@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { idString } from "@/lib/limits";
+
 import { createTaskSchema } from "@/features/tasks/schemas";
 
 // A new task: everything the task form asks for (the status defaults to To Do)
@@ -16,9 +18,9 @@ export const proposedChangesSchema = createTaskSchema
 const note = z.string().trim().max(1000).optional();
 
 export const createChangeRequestSchema = z.discriminatedUnion("kind", [
-    z.object({ kind: z.literal("create"), workspaceId: z.string().min(1), changes: proposedTaskSchema, note }),
-    z.object({ kind: z.literal("update"), taskId: z.string().min(1), changes: proposedChangesSchema, note }),
-    z.object({ kind: z.literal("delete"), taskId: z.string().min(1), note }),
+    z.object({ kind: z.literal("create"), workspaceId: idString, changes: proposedTaskSchema, note }),
+    z.object({ kind: z.literal("update"), taskId: idString, changes: proposedChangesSchema, note }),
+    z.object({ kind: z.literal("delete"), taskId: idString, note }),
 ]);
 
 export const reviewChangeRequestSchema = z.object({ note: z.string().trim().max(1000).optional() });

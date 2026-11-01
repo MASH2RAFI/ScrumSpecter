@@ -41,7 +41,7 @@ const PAGE_SIZE = 25;
 // Kanban's Done column only ever grows; it shows the most recently finished
 const DONE_LIMIT = 100;
 
-type BaseQuery = Pick<UseGetTasksProps, "workspaceId" | "status" | "assigneeId" | "projectId" | "dueDate" | "search" | "excludeProjects">;
+type BaseQuery = Pick<UseGetTasksProps, "workspaceId" | "status" | "assigneeId" | "projectId" | "from" | "to" | "search" | "excludeProjects">;
 
 const SORTABLE = ["name", "project", "assignee", "dueDate", "storyPoints", "status"] as const;
 
@@ -126,11 +126,12 @@ const KanbanView = ({ base }: { base: BaseQuery }) => {
     );
 };
 
-// Only the dates on screen (the calendar reports its range), plus tasks with no date yet
+// Only the dates on screen (the calendar reports its range), plus tasks with no date yet.
+// The calendar hides the due filter, so its from/to never apply here
 const CalendarView = ({ base }: { base: BaseQuery }) => {
     const [range, setRange] = useState<{ from: string; to: string } | null>(null);
     const { data: dated } = useGetTasks({ ...base, scope: "calendar", from: range?.from, to: range?.to, enabled: Boolean(range) });
-    const { data: unscheduled } = useGetTasks({ ...base, scope: "calendar", unscheduled: true, limit: 100 });
+    const { data: unscheduled } = useGetTasks({ ...base, scope: "calendar", unscheduled: true, from: undefined, to: undefined, limit: 100 });
     const tasks = useMemo(() => [...(dated?.documents ?? []), ...(unscheduled?.documents ?? [])], [dated, unscheduled]);
     const onRangeChange = useCallback((from: Date, to: Date) => {
         setRange((current) => current?.from === from.toISOString() && current?.to === to.toISOString()
@@ -163,10 +164,16 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
     const { open } = useCreateTaskModal();
 
     const filterProject = paramProjectId || projectId;
+    // The due filter is a local midnight; match that whole local day, not the exact instant
+    // (a hand-edited, unparseable value is ignored)
+    const picked = dueDate ? new Date(dueDate) : null;
+    const day = picked && !isNaN(picked.getTime()) ? picked : null;
     // My Tasks leaves out the projects hidden with their eye; picking a project explicitly
     // (or a project's own page) still shows it
     const base: BaseQuery = {
-        workspaceId, status, assigneeId, projectId: filterProject, dueDate, search,
+        workspaceId, status, assigneeId, projectId: filterProject, search,
+        from: day?.toISOString(),
+        to: day ? new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).toISOString() : undefined,
         excludeProjects: filterProject ? undefined : hiddenProjects,
     };
 

@@ -184,7 +184,7 @@ const SecurityTab = ({ account }: { account: AccountInfo }) => {
                         <Field id="current-password" label="Current password" type="password" autoComplete="current-password"
                             value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
                     )}
-                    <Field id="new-password" label="New password" type="password" autoComplete="new-password" minLength={8}
+                    <Field id="new-password" label="New password" type="password" autoComplete="new-password" minLength={8} maxLength={128}
                         value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
                     <div className="flex justify-end">
                         <Button type="submit" disabled={changePassword.isPending}>{account.hasPassword ? "Change password" : "Set password"}</Button>

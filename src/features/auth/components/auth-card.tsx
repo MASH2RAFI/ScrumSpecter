@@ -117,9 +117,10 @@ interface AuthInputFieldProps<T extends FieldValues> {
     name: FieldPath<T>;
     type: "text" | "email" | "password";
     placeholder: string;
+    maxLength?: number;
 }
 
-export const AuthInputField = <T extends FieldValues>({ control, name, type, placeholder }: AuthInputFieldProps<T>) => (
+export const AuthInputField = <T extends FieldValues>({ control, name, type, placeholder, maxLength }: AuthInputFieldProps<T>) => (
     <FormField
         name={name}
         control={control}
@@ -130,6 +131,7 @@ export const AuthInputField = <T extends FieldValues>({ control, name, type, pla
                         {...field}
                         type={type}
                         placeholder={placeholder}
+                        maxLength={maxLength}
                         className="h-12 border-2 focus:border-primary/50 transition-colors duration-200"
                     />
                 </FormControl>

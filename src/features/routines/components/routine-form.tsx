@@ -26,6 +26,7 @@ import { routineFieldsSchema } from "../schemas";
 import { Routine, WEEKDAYS } from "../types";
 import { usePreferences } from "@/features/auth/hooks/use-preferences";
 import { isoWeekdayOrder } from "@/lib/week";
+import { MAX_DESCRIPTION, MAX_TITLE } from "@/lib/limits";
 
 type RoutineFields = z.infer<typeof routineFieldsSchema>;
 
@@ -96,7 +97,7 @@ export const RoutineForm = ({ initialValues, isPending, onSubmit, onCancel, proj
                                 <FormItem>
                                     <FormLabel>Task name</FormLabel>
                                     <FormControl>
-                                        <Input {...field} placeholder="e.g. Weekly team sync" />
+                                        <Input {...field} placeholder="e.g. Weekly team sync" maxLength={MAX_TITLE} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -187,7 +188,7 @@ export const RoutineForm = ({ initialValues, isPending, onSubmit, onCancel, proj
                                 <FormItem>
                                     <FormLabel>Description</FormLabel>
                                     <FormControl>
-                                        <Textarea {...field} rows={3} placeholder="Optional" />
+                                        <Textarea {...field} rows={3} placeholder="Optional" maxLength={MAX_DESCRIPTION} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

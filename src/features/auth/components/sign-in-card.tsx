@@ -11,6 +11,7 @@ import { Form } from "@/components/ui/form";
 import { loginSchema } from "../schemas";
 import { useLogin } from "../api/use-login";
 import { AuthCard, AuthInputField, AuthSubmitButton } from "./auth-card";
+import { MAX_EMAIL } from "@/lib/limits";
 
 type FormValues = z.infer<typeof loginSchema>;
 
@@ -51,7 +52,7 @@ export const SignInCard = ({ googleEnabled, error, next, linkGoogleEmail }: Sign
         >
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <AuthInputField control={form.control} name="email" type="email" placeholder="Enter email address" />
+                    <AuthInputField control={form.control} name="email" type="email" placeholder="Enter email address" maxLength={MAX_EMAIL} />
                     <AuthInputField control={form.control} name="password" type="password" placeholder="Enter password" />
                     <AuthSubmitButton isPending={isPending} label="Sign In" pendingLabel="Signing in..." />
                     <p className="text-center text-sm">

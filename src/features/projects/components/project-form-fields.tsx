@@ -24,6 +24,7 @@ interface TextInputFieldProps<T extends FieldValues> extends FieldProps<T> {
     label: string;
     placeholder: string;
     disabled?: boolean;
+    maxLength?: number;
 }
 
 export const TextInputField = <T extends FieldValues>({
@@ -33,6 +34,7 @@ export const TextInputField = <T extends FieldValues>({
     placeholder,
     className,
     disabled,
+    maxLength,
 }: TextInputFieldProps<T>) => (
     <FormField
         control={control}
@@ -46,6 +48,7 @@ export const TextInputField = <T extends FieldValues>({
                         placeholder={placeholder}
                         className={className}
                         disabled={disabled}
+                        maxLength={maxLength}
                     />
                 </FormControl>
                 <FormMessage />

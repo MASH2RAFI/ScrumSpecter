@@ -1,29 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileTextIcon, DownloadIcon, UsersIcon, TargetIcon } from "lucide-react";
+import { FileTextIcon, PrinterIcon, UsersIcon, TargetIcon } from "lucide-react";
 import { useGetTaskSummary, useGetTasks } from "@/features/tasks/api/use-get-tasks";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useGetMembers } from "@/features/members/api/use-get-members";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { TaskStatus } from "@/features/tasks/types";
-import { escapeHtml } from "@/lib/utils";
 import {
     BurndownDay,
     DEFAULT_SPRINT_DURATION,
     calculateAverageVelocity,
     calculateVelocity,
     generateBurndownData,
-    getBurndownAxisLabels,
-    getBurndownPolylinePoints,
     getProjectPointStats,
 } from "@/lib/sprint-utils";
 
-import { ProjectSelect } from "./analytics-shared";
+import { BurndownGraph, ProjectSelect } from "./analytics-shared";
 
 interface SprintReport {
     sprintName: string;
@@ -73,144 +71,98 @@ const EMPTY_REPORT: SprintReport = {
 
 const getReportSlug = (report: SprintReport) => report.sprintName.toLowerCase().replace(/\s+/g, '-');
 
-const sectionHtml = (title: string, columns: number, tiles: string) => `
-    <div style="margin-bottom: 40px;">
-        <h3 style="font-size: 20px; font-weight: 600; color: #1f2937; margin-bottom: 16px;">${title}</h3>
-        <div style="display: grid; grid-template-columns: ${Array(columns).fill("1fr").join(" ")}; gap: 16px;">
-            ${tiles}
-        </div>
-    </div>
-`;
-
-const overviewTileHtml = (label: string, value: string | number) => `
-    <div style="background-color: #f9fafb; padding: 16px; border-radius: 8px;">
-        <p style="font-size: 14px; color: #6b7280; margin-bottom: 4px;">${label}</p>
-        <p style="font-weight: 600;">${escapeHtml(value)}</p>
-    </div>
-`;
-
-interface ColorTile {
+interface Tile {
     label: string;
     value: string | number;
-    background: string;
-    labelColor: string;
-    valueColor: string;
+    className: string;
 }
 
-const colorTileHtml = (
-    { label, value, background, labelColor, valueColor }: ColorTile,
-    valueStyle: string,
-    tileStyle = "",
-) => `
-    <div style="background-color: ${background}; padding: 16px; border-radius: 8px;${tileStyle}">
-        <p style="font-size: 14px; color: ${labelColor}; margin-bottom: 4px;">${label}</p>
-        <p style="${valueStyle} color: ${valueColor};">${escapeHtml(value)}</p>
-    </div>
-`;
+interface ReportSectionProps {
+    title: string;
+    gridClassName: string;
+    valueClassName: string;
+    tiles: Tile[];
+}
 
-const buildReportHtml = (report: SprintReport) => {
-    const overview = [
-        overviewTileHtml("Team Members", report.teamMembers.join(", ")),
-        overviewTileHtml("Sprint Duration", `${report.sprintDuration} days`),
-        overviewTileHtml("Total Story Points", report.totalStoryPoints),
-        overviewTileHtml("Completed Story Points", report.completedStoryPoints),
-        overviewTileHtml("Tasks Completed", `${report.completedTasks}/${report.totalTasks}`),
-        overviewTileHtml("Velocity", `${report.velocity}%`),
-    ].join("");
+const ReportSection = ({ title, gridClassName, valueClassName, tiles }: ReportSectionProps) => (
+    <section className="mb-10 break-inside-avoid">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">{title}</h3>
+        <div className={`grid gap-4 ${gridClassName}`}>
+            {tiles.map((tile) => (
+                <div key={tile.label} className={`p-4 rounded-lg ${tile.className}`}>
+                    <p className="text-sm mb-1 opacity-80">{tile.label}</p>
+                    <p className={valueClassName}>{tile.value}</p>
+                </div>
+            ))}
+        </div>
+    </section>
+);
 
-    const velocityTiles: ColorTile[] = [
-        { label: "Average Velocity", value: `${report.averageVelocity}%`, background: "#e3f2e9", labelColor: "#1b6e45", valueColor: "#155a37" },
-        { label: "Best Velocity", value: `${report.bestVelocity}%`, background: "#f0fdf4", labelColor: "#16a34a", valueColor: "#15803d" },
-        { label: "Velocity Trend", value: report.velocityTrend, background: "#faf5ff", labelColor: "#9333ea", valueColor: "#7c3aed" },
-        { label: "Total Sprints", value: report.totalSprints, background: "#fff7ed", labelColor: "#ea580c", valueColor: "#c2410c" },
-    ];
-    const velocity = velocityTiles
-        .map((tile) => colorTileHtml(
-            tile,
-            tile.label === "Velocity Trend"
-                ? "font-size: 24px; font-weight: bold; text-transform: capitalize;"
-                : "font-size: 24px; font-weight: bold;",
-        ))
-        .join("");
-
-    const statusTiles: ColorTile[] = [
-        { label: "To Do", value: report.taskStatusBreakdown.todo, background: "#fef2f2", labelColor: "#dc2626", valueColor: "#b91c1c" },
-        { label: "In Progress", value: report.taskStatusBreakdown.inProgress, background: "#fefce8", labelColor: "#d97706", valueColor: "#b45309" },
-        { label: "Done", value: report.taskStatusBreakdown.done, background: "#f0fdf4", labelColor: "#16a34a", valueColor: "#15803d" },
-    ];
-    const status = statusTiles
-        .map((tile) => colorTileHtml(tile, "font-size: 32px; font-weight: bold;", " text-align: center;"))
-        .join("");
-
-    const axisLabels = getBurndownAxisLabels(report.totalStoryPoints)
-        .map((label) => `<span>${label}</span>`)
-        .join("");
-
-    return `
-        <div style="text-align: center; margin-bottom: 40px;">
-            <h1 style="font-size: 32px; font-weight: bold; color: #1f2937; margin-bottom: 8px;">Sprint Report</h1>
-            <h2 style="font-size: 24px; color: #4b5563; margin-bottom: 4px;">${escapeHtml(report.sprintName)}</h2>
-            <p style="color: #6b7280;">${escapeHtml(report.startDate)} to ${escapeHtml(report.endDate)}</p>
+// Shown only when printing (print rule in globals.css); every value is React text, never HTML
+const PrintableReport = ({ report }: { report: SprintReport }) => (
+    <div id="sprint-report-print" className="hidden print:block bg-white text-black p-10 font-sans [print-color-adjust:exact]">
+        <div className="text-center mb-10">
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Sprint Report</h1>
+            <h2 className="text-2xl text-gray-600 mb-1">{report.sprintName}</h2>
+            <p className="text-gray-500">{report.startDate} to {report.endDate}</p>
         </div>
 
-        ${sectionHtml("📅 Sprint Overview", 2, overview)}
-        ${sectionHtml("📊 Velocity Analytics", 2, velocity)}
-        ${sectionHtml("🎯 Task Status Breakdown", 3, status)}
+        <ReportSection
+            title="📅 Sprint Overview"
+            gridClassName="grid-cols-2"
+            valueClassName="font-semibold"
+            tiles={[
+                { label: "Team Members", value: report.teamMembers.join(", "), className: "bg-gray-50 text-gray-800" },
+                { label: "Sprint Duration", value: `${report.sprintDuration} days`, className: "bg-gray-50 text-gray-800" },
+                { label: "Total Story Points", value: report.totalStoryPoints, className: "bg-gray-50 text-gray-800" },
+                { label: "Completed Story Points", value: report.completedStoryPoints, className: "bg-gray-50 text-gray-800" },
+                { label: "Tasks Completed", value: `${report.completedTasks}/${report.totalTasks}`, className: "bg-gray-50 text-gray-800" },
+                { label: "Velocity", value: `${report.velocity}%`, className: "bg-gray-50 text-gray-800" },
+            ]}
+        />
+        <ReportSection
+            title="📊 Velocity Analytics"
+            gridClassName="grid-cols-2"
+            valueClassName="text-2xl font-bold capitalize"
+            tiles={[
+                { label: "Average Velocity", value: `${report.averageVelocity}%`, className: "bg-emerald-50 text-emerald-800" },
+                { label: "Best Velocity", value: `${report.bestVelocity}%`, className: "bg-green-50 text-green-700" },
+                { label: "Velocity Trend", value: report.velocityTrend, className: "bg-purple-50 text-purple-700" },
+                { label: "Total Sprints", value: report.totalSprints, className: "bg-orange-50 text-orange-700" },
+            ]}
+        />
+        <ReportSection
+            title="🎯 Task Status Breakdown"
+            gridClassName="grid-cols-3 text-center"
+            valueClassName="text-3xl font-bold"
+            tiles={[
+                { label: "To Do", value: report.taskStatusBreakdown.todo, className: "bg-red-50 text-red-700" },
+                { label: "In Progress", value: report.taskStatusBreakdown.inProgress, className: "bg-yellow-50 text-amber-700" },
+                { label: "Done", value: report.taskStatusBreakdown.done, className: "bg-green-50 text-green-700" },
+            ]}
+        />
 
-        <div style="margin-bottom: 40px;">
-            <h3 style="font-size: 20px; font-weight: 600; color: #1f2937; margin-bottom: 16px;">📈 Burndown Chart</h3>
-            <div style="background-color: #f9fafb; padding: 16px; border-radius: 8px;">
-                <div style="text-align: center; margin-bottom: 16px;">
-                    <p style="font-size: 14px; color: #6b7280; margin-bottom: 4px;">Story Points Remaining</p>
-                    <p style="font-size: 18px; font-weight: 600;">${report.totalStoryPoints - report.completedStoryPoints} / ${report.totalStoryPoints}</p>
+        <section className="mb-10 break-inside-avoid">
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">📈 Burndown Chart</h3>
+            <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="text-center mb-4">
+                    <p className="text-sm text-gray-500 mb-1">Story Points Remaining</p>
+                    <p className="text-lg font-semibold">
+                        {report.totalStoryPoints - report.completedStoryPoints} / {report.totalStoryPoints}
+                    </p>
                 </div>
-                <div style="background-color: white; border: 1px solid #d1d5db; border-radius: 8px; padding: 16px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6b7280; margin-bottom: 8px;">
-                        <span>Story Points</span>
-                        <span>Days</span>
-                    </div>
-                    <div style="position: relative; height: 128px; border-left: 1px solid #d1d5db; border-bottom: 1px solid #d1d5db;">
-                        <div style="position: absolute; left: 0; top: 0; height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; color: #6b7280;">
-                            ${axisLabels}
-                        </div>
-                        <div style="margin-left: 32px; height: 100%; position: relative;">
-                            <svg style="position: absolute; inset: 0; width: 100%; height: 100%;">
-                                <polyline
-                                    points="${getBurndownPolylinePoints(report.burndownData, report.totalStoryPoints, "idealBurndown")}"
-                                    fill="none"
-                                    stroke="#1b6e45"
-                                    stroke-width="2"
-                                    stroke-dasharray="5,5"
-                                />
-                                <polyline
-                                    points="${getBurndownPolylinePoints(report.burndownData, report.totalStoryPoints, "remainingWork")}"
-                                    fill="none"
-                                    stroke="#ef4444"
-                                    stroke-width="2"
-                                />
-                            </svg>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 16px; font-size: 14px; margin-top: 8px;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 12px; height: 2px; background-color: #1b6e45;"></div>
-                            <span>Ideal Burndown</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 12px; height: 2px; background-color: #ef4444;"></div>
-                            <span>Actual Burndown</span>
-                        </div>
-                    </div>
+                <div className="bg-white border border-gray-300 rounded-lg p-4">
+                    <BurndownGraph data={report.burndownData} totalPoints={report.totalStoryPoints} />
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div style="text-align: center; color: #6b7280; font-size: 14px;">
-            <p>Report generated on ${new Date().toLocaleDateString()}</p>
+        <div className="text-center text-gray-500 text-sm">
+            <p>Report generated on {new Date().toLocaleDateString()}</p>
             <p>ScrumSpecter Analytics Dashboard</p>
         </div>
-    `;
-};
+    </div>
+);
 
 export const SprintReportGenerator = () => {
     const workspaceId = useWorkspaceId();
@@ -268,75 +220,6 @@ export const SprintReportGenerator = () => {
     const calculateReportVelocity = () => {
         if (report.totalStoryPoints > 0) {
             setReport({ ...report, velocity: calculateVelocity(report.completedStoryPoints, report.totalStoryPoints) });
-        }
-    };
-
-    const generatePDFReport = async () => {
-        try {
-            // Rendered off-screen, captured to canvas, then paged into an A4 PDF
-            const pdfContent = document.createElement('div');
-            pdfContent.style.position = 'absolute';
-            pdfContent.style.left = '-9999px';
-            pdfContent.style.top = '0';
-            pdfContent.style.width = '800px';
-            pdfContent.style.backgroundColor = '#ffffff';
-            pdfContent.style.padding = '40px';
-            pdfContent.style.fontFamily = 'Arial, sans-serif';
-            pdfContent.style.color = '#000000';
-            // Reviewed: buildReportHtml escapes every user value (escapeHtml); §29 #8 replaces this with print
-            // eslint-disable-next-line no-restricted-syntax
-            pdfContent.innerHTML = buildReportHtml(report);
-
-            document.body.appendChild(pdfContent);
-
-            // ~500 KB of PDF tooling, loaded only when a report is generated
-            const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-                import('html2canvas'),
-                import('jspdf'),
-                new Promise(resolve => setTimeout(resolve, 100)),
-            ]);
-
-            // Create canvas from the content
-            const canvas = await html2canvas(pdfContent, {
-                scale: 2,
-                useCORS: true,
-                allowTaint: true,
-                backgroundColor: '#ffffff',
-                width: 800,
-                height: pdfContent.scrollHeight
-            });
-
-            // Remove the temporary element
-            document.body.removeChild(pdfContent);
-
-            // Create PDF
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const imgWidth = 210;
-            const pageHeight = 295;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            let heightLeft = imgHeight;
-
-            let position = 0;
-
-            // Add first page
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-
-            // Add additional pages if needed
-            while (heightLeft >= 0) {
-                position = heightLeft - imgHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-            }
-
-            // Download the PDF
-            pdf.save(`sprint-report-${getReportSlug(report)}.pdf`);
-
-        } catch (error) {
-            console.error('Error generating PDF:', error);
-            alert('Error generating PDF. Please try again or use the text report option.');
         }
     };
 
@@ -450,15 +333,17 @@ export const SprintReportGenerator = () => {
                             </div>
 
                             <div className="flex gap-4">
-                                <Button onClick={generatePDFReport} className="flex-1" size="lg">
-                                    <DownloadIcon className="h-4 w-4 mr-2" />
-                                    Generate PDF Report
+                                <Button onClick={() => window.print()} className="flex-1" size="lg">
+                                    <PrinterIcon className="h-4 w-4 mr-2" />
+                                    Print / Save as PDF
                                 </Button>
                                 <Button onClick={generateTextReport} variant="outline" size="lg">
                                     <FileTextIcon className="h-4 w-4 mr-2" />
                                     Text Report
                                 </Button>
                             </div>
+                            {/* A direct child of body, so the print rule can hide the rest of the app */}
+                            {createPortal(<PrintableReport report={report} />, document.body)}
                         </>
                     )}
                 </CardContent>

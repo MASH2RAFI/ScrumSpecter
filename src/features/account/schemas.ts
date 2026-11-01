@@ -1,25 +1,27 @@
 import { z } from "zod";
 
+import { MAX_EMAIL, MAX_LOGIN_PASSWORD, MAX_PASSWORD, MAX_PERSON_NAME } from "@/lib/limits";
+
 import { preferencesSchema } from "@/features/auth/preferences";
 
-const password = z.string().min(8, "Minimum 8 characters").max(200);
+const password = z.string().min(8, "Minimum 8 characters").max(MAX_PASSWORD, `At most ${MAX_PASSWORD} characters`);
 
 export const profileSchema = z.object({
-    name: z.string().trim().min(1, "Required").max(80).optional(),
-    email: z.string().trim().email().optional(),
+    name: z.string().trim().min(1, "Required").max(MAX_PERSON_NAME, `At most ${MAX_PERSON_NAME} characters`).optional(),
+    email: z.string().trim().max(MAX_EMAIL).email().optional(),
     // Required to change the email
-    currentPassword: z.string().optional(),
+    currentPassword: z.string().max(MAX_LOGIN_PASSWORD).optional(),
 });
 
 export const passwordSchema = z.object({
     // Omitted only when the account has no password yet (Google-only)
-    currentPassword: z.string().optional(),
+    currentPassword: z.string().max(MAX_LOGIN_PASSWORD).optional(),
     newPassword: password,
 });
 
 export const deleteAccountSchema = z.object({
-    confirmEmail: z.string().trim(),
-    password: z.string().optional(),
+    confirmEmail: z.string().trim().max(MAX_EMAIL),
+    password: z.string().max(MAX_LOGIN_PASSWORD).optional(),
 });
 
 export const preferencesUpdateSchema = preferencesSchema.partial();

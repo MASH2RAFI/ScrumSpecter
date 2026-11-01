@@ -112,12 +112,12 @@ export const ResetPasswordCard = ({ token }: { token: string | null }) => {
             <form onSubmit={submit} className="space-y-4">
                 <div className="space-y-1.5">
                     <Label htmlFor="new-password">New password</Label>
-                    <Input id="new-password" type="password" autoComplete="new-password" minLength={8} required
+                    <Input id="new-password" type="password" autoComplete="new-password" minLength={8} maxLength={128} required
                         value={password} onChange={(e) => setPassword(e.target.value)} className="h-11" />
                 </div>
                 <div className="space-y-1.5">
                     <Label htmlFor="confirm-password">Confirm new password</Label>
-                    <Input id="confirm-password" type="password" autoComplete="new-password" minLength={8} required
+                    <Input id="confirm-password" type="password" autoComplete="new-password" minLength={8} maxLength={128} required
                         value={confirm} onChange={(e) => setConfirm(e.target.value)} className="h-11" />
                 </div>
                 {error && (

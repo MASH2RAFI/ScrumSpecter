@@ -19,6 +19,7 @@ import { applyPlan, countPlan, finishPlan, loadContext, newWorkspaceContext, wri
 import { isValidTimeZone } from "@/lib/time-zone";
 import { createWorkspaceSchema, holidayChangeSchema, holidayRangeSchema, inviteLimitsSchema, updateWorkspaceSchema } from "../schemas";
 import { listUserWorkspaces } from "../queries";
+import { rateLimited } from "@/lib/rate-limit";
 
 // A workspace with its creator as admin; `memberId` lets bulk setup refer to that member up front
 const insertWorkspace = async (tx: Parameters<Parameters<typeof db.transaction>[0]>[0], userId: string, name: string, memberId?: string) => {
@@ -120,6 +121,9 @@ const app = new Hono()
         async (c) => {
             const user = c.get("user");
             const { name, script, apply } = c.req.valid("json");
+
+            const limited = await rateLimited(c, "bulk", user.$id) ?? (apply ? await rateLimited(c, "bulkApply", user.$id) : null);
+            if (limited) return limited;
             const timeZone = isValidTimeZone(user.preferences.timeZone) ? user.preferences.timeZone : "Asia/Dhaka";
 
             const memberId = randomUUID();
@@ -389,6 +393,9 @@ const app = new Hono()
             }
 
             const user = c.get("user");
+            const limited = await rateLimited(c, "bulk", user.$id) ?? (apply ? await rateLimited(c, "bulkApply", user.$id) : null);
+            if (limited) return limited;
+
             const timeZone = isValidTimeZone(user.preferences.timeZone) ? user.preferences.timeZone : "Asia/Dhaka";
             const context = await loadContext(workspaceId, member.$id, timeZone, canManageWorkspace(member.role));
             const { results, plan } = planScript(script, context);
@@ -435,11 +442,14 @@ const app = new Hono()
     .post(
         "/:workspaceId/join",
         sessionMiddleware,
-        zValidator("json", z.object({ code: z.string() })),
+        zValidator("json", z.object({ code: z.string().max(64) })),
         async (c) => {
             const { workspaceId } = c.req.param();
             const { code } = c.req.valid("json");
             const user = c.get("user");
+
+            const limited = await rateLimited(c, "join", user.$id);
+            if (limited) return limited;
 
             const member = await getMember({
                 workspaceId,

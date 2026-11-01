@@ -22,7 +22,9 @@ const urlBase64ToUint8Array = (base64: string) => {
     return Uint8Array.from(raw, (char) => char.charCodeAt(0));
 };
 
-const isIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent)
+const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((byte, i) => byte === b[i]);
+
+const isIos =() => /iPad|iPhone|iPod/.test(navigator.userAgent)
     || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
 const isStandalone = () =>
@@ -66,9 +68,19 @@ export const usePush = () => {
                 return false;
             }
             const reg = await registration();
+            // Pick up a new sw.js; offline is fine, the old worker still handles pushes
+            await reg.update().catch(() => undefined);
             await navigator.serviceWorker.ready;
-            const subscription = await reg.pushManager.getSubscription()
-                ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+            const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+            let subscription = await reg.pushManager.getSubscription();
+            // A subscription made with other VAPID keys is rejected by the push service (401/403)
+            const subscribedKey = subscription?.options.applicationServerKey;
+            if (subscription && subscribedKey && !sameBytes(new Uint8Array(subscribedKey), applicationServerKey)) {
+                await client.api.notifications.subscriptions.$delete({ json: { endpoint: subscription.endpoint } });
+                await subscription.unsubscribe();
+                subscription = null;
+            }
+            subscription ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
             const { endpoint, keys } = subscription.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
             const response = await client.api.notifications.subscriptions.$post({ json: { endpoint, keys } });
             if (!response.ok) throw new Error("Couldn't save this device");

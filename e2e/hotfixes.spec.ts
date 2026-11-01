@@ -1,31 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-import { createProject, createTask, createWorkspace, getMembers, registerUser, signInBrowser } from "./helpers";
+import { createProject, createWorkspace, getMembers, registerUser } from "./helpers";
 
 const isoDay = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
-
-// A member's display name goes into the sprint report's HTML; it must stay text
-test("sprint report PDF doesn't run HTML from a member's name", async ({ page, baseURL }) => {
-    test.setTimeout(120_000);
-    const payload = `<img src=x onerror="window.__xss=1">`;
-    const user = await registerUser(baseURL!, payload);
-    const workspaceId = (await createWorkspace(user.api, "XSS WS")).$id;
-    const projectId = (await createProject(user.api, workspaceId, "XSS Project")).$id;
-    const memberId = (await getMembers(user.api, workspaceId))[0].$id;
-    await createTask(user.api, { workspaceId, projectId, assigneeId: memberId });
-
-    await signInBrowser(page, user, baseURL!);
-    await page.goto(`/workspaces/${workspaceId}/analytics`);
-    await page.getByRole("tab", { name: "Sprint Report" }).click();
-    await page.getByRole("tabpanel").locator("#project-select").click();
-    await page.getByRole("option", { name: "XSS Project" }).click();
-    await expect(page.getByText(payload).first()).toBeVisible();
-
-    const download = page.waitForEvent("download", { timeout: 60_000 });
-    await page.getByRole("button", { name: "Generate PDF Report" }).click();
-    await download;
-    expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
-});
 
 // Postgres caps one statement at 65,535 parameters (~5,000 task rows); generation must batch
 test("extending a sprint creates more than 6,000 routine tasks in one go", async ({ baseURL }) => {

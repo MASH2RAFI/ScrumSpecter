@@ -15,6 +15,7 @@ import { addDaysDDMMYYYY, convertDDMMYYYYToYYYYMMDD, formatDateDDMMYYYY, sprintL
 import { projectFormSchema } from "../schemas";
 import { useCreateProject } from "../api/use-create-project";
 import { SprintDateField, SprintSettings, TextInputField } from "./project-form-fields";
+import { MAX_TITLE } from "@/lib/limits";
 
 type FormValues = z.infer<typeof projectFormSchema>;
 
@@ -73,6 +74,7 @@ export const CreateProjectForm = ({ onCancel }: CreateProjectFormProps) => {
                                 name="name"
                                 label="Project Name"
                                 placeholder="Enter project name"
+                                maxLength={MAX_TITLE}
                             />
                             <SprintSettings>
                                 <SprintDateField control={form.control} name="currentSprintStartDate" label="Sprint Start Date" />

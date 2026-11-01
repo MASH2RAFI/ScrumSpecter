@@ -44,3 +44,7 @@ next-env.d.ts
 
 # private working notes
 /TODO.md
+
+# local demo deployment (scripts/local-demo.mjs)
+/.local-demo/
+/.next-local/

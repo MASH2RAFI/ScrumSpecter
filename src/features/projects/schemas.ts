@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { idString, MAX_TITLE } from "@/lib/limits";
+
 import { sprintLengthInDays } from "@/lib/sprint-utils";
 
 const DD_MM_YYYY = /^\d{2}\/\d{2}\/\d{4}$/;
@@ -22,7 +24,7 @@ export const endNotBeforeStart = (
 
 // Create and edit project forms
 export const projectFormSchema = z.object({
-    name: z.string().trim().min(1, "Required"),
+    name: z.string().trim().min(1, "Required").max(MAX_TITLE, `At most ${MAX_TITLE} characters`),
     ...sprintDatesFields,
 }).superRefine(endNotBeforeStart);
 
@@ -37,19 +39,19 @@ const apiEndNotBeforeStart = (
 };
 
 export const createProjectFormSchema = z.object({
-    name: z.string().trim().min(1, "Required"),
-    workspaceId: z.string(),
-    sprintDuration: z.string().optional().transform((val) => val ? Number(val) : undefined),
-    currentSprintStartDate: z.string().optional(),
-    currentSprintEndDate: z.string().optional(),
+    name: z.string().trim().min(1, "Required").max(MAX_TITLE, `At most ${MAX_TITLE} characters`),
+    workspaceId: idString,
+    sprintDuration: z.string().max(8).optional().transform((val) => val ? Number(val) : undefined),
+    currentSprintStartDate: z.string().max(32).optional(),
+    currentSprintEndDate: z.string().max(32).optional(),
     sprintNumber: z.string().default("1").transform((val) => Number(val)), // Automatically set to 1
 }).superRefine(apiEndNotBeforeStart);
 
 export const updateProjectFormSchema = z.object({
-    name: z.string().trim().min(1, "Minimum 1 character required").optional(),
-    workspaceId: z.string(),
-    sprintDuration: z.string().optional().transform((val) => val ? Number(val) : undefined),
-    currentSprintStartDate: z.string().optional(),
-    currentSprintEndDate: z.string().optional(),
+    name: z.string().trim().min(1, "Minimum 1 character required").max(MAX_TITLE, `At most ${MAX_TITLE} characters`).optional(),
+    workspaceId: idString,
+    sprintDuration: z.string().max(8).optional().transform((val) => val ? Number(val) : undefined),
+    currentSprintStartDate: z.string().max(32).optional(),
+    currentSprintEndDate: z.string().max(32).optional(),
     sprintNumber: z.string().optional().transform((val) => val ? Number(val) : undefined),
 }).superRefine(apiEndNotBeforeStart);

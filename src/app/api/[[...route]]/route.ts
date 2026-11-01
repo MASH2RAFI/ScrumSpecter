@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { handle } from "hono/vercel";
+import { HTTPException } from "hono/http-exception";
 
 import account from "@/features/account/server/route";
 import auth from "@/features/auth/server/route";
@@ -13,6 +14,14 @@ import cron from "@/features/cron/route";
 import changeRequests from "@/features/change-requests/server/route";
 
 const app = new Hono().basePath("/api");
+
+app.onError((err, c) => {
+    if (err instanceof HTTPException) return err.getResponse();
+    console.error(err);
+    return c.json({ error: "Something went wrong" }, 500);
+});
+
+app.notFound((c) => c.json({ error: "Not found" }, 404));
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const routes = app

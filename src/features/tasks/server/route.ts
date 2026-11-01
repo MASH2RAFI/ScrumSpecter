@@ -15,6 +15,7 @@ import { Project } from "@/features/projects/types";
 import { bulkEditSchema, createTaskSchema, restoreTasksSchema } from "../schemas";
 import { baseFilters, countTasks, hiddenRoutineCount, listQuerySchema, orderFor, routineRule, selectTasks, taskSummary } from "./task-list";
 import { PopulatedAssignee, Task, TaskStatus } from "../types";
+import { idString } from "@/lib/limits";
 
 const MEMBER_NOT_FOUND = "Member not found in the workspace";
 
@@ -216,7 +217,7 @@ const app = new Hono()
         "/summary",
         sessionMiddleware,
         zValidator("query", z.object({
-            workspaceId: z.string(),
+            workspaceId: idString,
             weekFrom: z.string().datetime({ offset: true }),
             weekTo: z.string().datetime({ offset: true }),
         })),
@@ -435,7 +436,7 @@ const app = new Hono()
             z.object({
                 tasks: z.array(
                     z.object({
-                        $id: z.string(),
+                        $id: idString,
                         status: z.nativeEnum(TaskStatus),
                         position: z.number().int().positive().min(1000).max(1_000_000),
                     })

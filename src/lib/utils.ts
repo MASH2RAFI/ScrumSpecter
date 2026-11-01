@@ -14,10 +14,6 @@ export function generateInviteCode(length: number) {
   return Array.from(bytes, (n) => characters[n % characters.length]).join("");
 };
 
-const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-
-export const escapeHtml = (value: unknown) => String(value).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
-
 export function snakeCaseToTitleCase (str: string) {
   return str.toLowerCase()
     .replace(/_/g, " ")

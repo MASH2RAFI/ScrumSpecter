@@ -16,7 +16,6 @@ export interface UseGetTasksProps {
     status?: TaskStatus | null;
     search?: string | null;
     assigneeId?: string | null;
-    dueDate?: string | null;
     // The view asking: the server applies the routine rules for it (needs weekFrom/weekTo,
     // except "calendar")
     scope?: "table" | "kanban" | "calendar" | "home";
@@ -68,7 +67,6 @@ export const useGetTasks = ({ workspaceId, enabled = true, ids, excludeProjects,
                     status: params.status ?? undefined,
                     assigneeId: params.assigneeId ?? undefined,
                     search: params.search ?? undefined,
-                    dueDate: params.dueDate ?? undefined,
                     scope: params.scope,
                     weekFrom: params.weekFrom,
                     weekTo: params.weekTo,

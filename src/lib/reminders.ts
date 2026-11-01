@@ -140,5 +140,5 @@ export const runReminders = async (now = new Date()) => {
         pushToUser(userId, list.map((n) => ({ title: n.title, body: n.body, url: n.url, tag: n.dedupeKey })))
     ));
 
-    return { created: created.length, pushed: pushed.reduce((sum, n) => sum + n, 0) };
+    return { created: created.length, pushed: pushed.reduce((sum, { delivered }) => sum + delivered, 0) };
 };

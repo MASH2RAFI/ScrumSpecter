@@ -167,6 +167,8 @@ export const DataFilters = ({ hideProjectFilter, hideStatusFilter, hideDateFilte
                 <SimpleDatePicker
                     placeholder="Due date"
                     size="sm"
+                    // Same height as the other filters on phones
+                    className="h-9 lg:h-8"
                     value={dueDate ? new Date(dueDate) : undefined}
                     onChange={ (date) => {
                     setFilters ({ dueDate: date ? date.toISOString() : null })

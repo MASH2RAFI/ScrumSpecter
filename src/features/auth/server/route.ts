@@ -21,6 +21,7 @@ import {
 } from "@/lib/google-oauth";
 import { AUTH_COOKIE } from "../constants";
 import { loginSchema, registerSchema } from "../schemas";
+import { rateLimited } from "@/lib/rate-limit";
 
 // Lax: a link opened from email or chat arrives signed in. Cross-site POST/PATCH/DELETE still
 // go without the cookie, and every change in the API uses one of those.
@@ -130,6 +131,11 @@ const app = new Hono()
         zValidator("json", registerSchema),
         async (c) => {
             const { name, email, password } = c.req.valid("json");
+
+            // x-real-ip is set by Vercel (absent in local dev), so it can't be forged per request
+            const ip = c.req.header("x-real-ip");
+            const limited = ip ? await rateLimited(c, "signup", ip.slice(0, 64)) : null;
+            if (limited) return limited;
 
             const [existing] = await db
                 .select({ id: users.id })
@@ -265,7 +271,7 @@ const app = new Hono()
     })
     // Emails a single-use reset link. The answer is the same whether or not the address has an
     // account, so it can't be used to find out who is registered.
-    .post("/forgot-password", zValidator("json", z.object({ email: z.string().email() })), async (c) => {
+    .post("/forgot-password", zValidator("json", z.object({ email: registerSchema.shape.email })), async (c) => {
         const email = c.req.valid("json").email.toLowerCase();
         const keys = resetRequestKeys(email);
         const answer = { message: "If an account exists for that email, we've sent a link to reset the password." };

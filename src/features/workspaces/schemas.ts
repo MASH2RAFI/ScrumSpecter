@@ -1,15 +1,17 @@
 import { z } from "zod";
 
+import { MAX_TITLE, MAX_WORKSPACE_NAME } from "@/lib/limits";
+
 import { endNotBeforeStart, sprintDatesFields } from "@/features/projects/schemas";
 
 export const createWorkspaceSchema = z.object({
-    name: z.string().trim().min(1, "Required").max(100, "At most 100 characters"),
+    name: z.string().trim().min(1, "Required").max(MAX_WORKSPACE_NAME, `At most ${MAX_WORKSPACE_NAME} characters`),
 });
 
 const HH_MM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export const updateWorkspaceSchema = z.object({
-    name: z.string().trim().min(1, "Must be 1 or more characters").optional(),
+    name: z.string().trim().min(1, "Must be 1 or more characters").max(MAX_WORKSPACE_NAME, `At most ${MAX_WORKSPACE_NAME} characters`).optional(),
     // Country code for public holidays; "" = none
     holidayCountry: z.string().max(8).optional(),
     workDayStart: z.string().regex(HH_MM, "Use HH:MM").optional(),
@@ -34,8 +36,8 @@ export const holidayChangeSchema = z.object({
 });
 
 export const createWorkspaceWithProjectSchema = z.object({
-    workspaceName: z.string().trim().min(1, "Workspace name is required"),
-    projectName: z.string().trim().min(1, "Project name is required"),
+    workspaceName: z.string().trim().min(1, "Workspace name is required").max(MAX_WORKSPACE_NAME, `At most ${MAX_WORKSPACE_NAME} characters`),
+    projectName: z.string().trim().min(1, "Project name is required").max(MAX_TITLE, `At most ${MAX_TITLE} characters`),
     ...sprintDatesFields,
 }).superRefine(endNotBeforeStart);
 

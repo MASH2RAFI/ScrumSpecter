@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react";
+import { CalendarIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
@@ -83,24 +84,19 @@ export const SimpleDatePicker = ({
         onChange(date);
     };
 
-    // Fixed: Handle click instead of focus for mobile
-    const handleClick = (e: React.MouseEvent<HTMLInputElement>) => {
-        // On mobile, try to open the date picker directly
-        if (isMobile && !disabled) {
-            // Use a small delay to ensure this runs after the default browser behavior
-            setTimeout(() => {
-                e.currentTarget.showPicker?.();
-            }, 10);
-        }
-    };
-
-    // Alternative: Add a calendar button for mobile
+    // Tapping the field opens the native picker by itself; this button is the only extra trigger
     const handleCalendarButtonClick = () => {
         if (inputRef.current && !disabled) {
             inputRef.current.focus();
-            inputRef.current.showPicker?.();
+            try {
+                inputRef.current.showPicker?.();
+            } catch {
+                // Not allowed here; the focused field still opens on tap
+            }
         }
     };
+
+    const empty = !value;
 
     return (
         <div className="space-y-2">
@@ -115,8 +111,8 @@ export const SimpleDatePicker = ({
                     type="date"
                     value={formatDateForInput(value)}
                     onChange={handleChange}
-                    onClick={handleClick}
                     disabled={disabled}
+                    aria-label={label ? undefined : placeholder}
                     className={cn(
                         "w-full lg:w-auto",
                         "border border-input bg-background",
@@ -126,13 +122,17 @@ export const SimpleDatePicker = ({
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                         "disabled:cursor-not-allowed disabled:opacity-50",
                         "text-base", // Prevent zoom on iOS
+                        // The native field and picker follow the app's theme
+                        "[color-scheme:light] dark:[color-scheme:dark]",
                         hasError && "border-destructive focus-visible:ring-destructive",
                         // Size variants
                         size === "sm" && "h-8",
                         size === "md" && "h-10",
                         size === "lg" && "h-12",
-                        // Add padding for calendar icon on mobile
-                        isMobile && "pr-10",
+                        // Room for the calendar button, plus the clear button once a date is set
+                        isMobile && (empty ? "pr-10" : "pr-16"),
+                        // iOS shows nothing in an empty date field: the placeholder below stands in
+                        isMobile && empty && "text-transparent",
                         className
                     )}
                     placeholder={placeholder}
@@ -142,48 +142,40 @@ export const SimpleDatePicker = ({
                         MozAppearance: 'textfield',
                         // Improve mobile date picker behavior
                         fontSize: isMobile ? '16px' : '14px', // Prevent zoom on iOS
-                        // Ensure proper mobile date picker display
-                        ...(isMobile && {
-                            colorScheme: 'light', // Ensure proper contrast
-                            WebkitTextFillColor: 'initial',
-                        })
                     }}
                     // Mobile-specific attributes
                     inputMode="none" // Prevent virtual keyboard on mobile
                     autoComplete="off"
                 />
 
-                {/* Calendar icon for mobile - acts as a trigger */}
+                {isMobile && empty && (
+                    <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-base text-muted-foreground">
+                        {placeholder}
+                    </span>
+                )}
+
                 {isMobile && !disabled && (
-                    <button
-                        type="button"
-                        onClick={handleCalendarButtonClick}
-                        className="absolute inset-y-0 right-0 flex items-center pr-3"
-                        aria-label="Open date picker"
-                        style={{
-                            background: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="text-muted-foreground"
+                    <div className="absolute inset-y-0 right-0 flex items-center gap-1 pr-2">
+                        {/* iOS's picker has no reliable "clear" */}
+                        {!empty && (
+                            <button
+                                type="button"
+                                onClick={() => onChange(undefined)}
+                                className="flex size-6 min-h-0 min-w-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                                aria-label="Clear date"
+                            >
+                                <XIcon className="size-4" />
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={handleCalendarButtonClick}
+                            className="flex size-6 min-h-0 min-w-0 items-center justify-center text-muted-foreground"
+                            aria-label="Open date picker"
                         >
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                            <line x1="16" y1="2" x2="16" y2="6"></line>
-                            <line x1="8" y1="2" x2="8" y2="6"></line>
-                            <line x1="3" y1="10" x2="21" y2="10"></line>
-                        </svg>
-                    </button>
+                            <CalendarIcon className="size-4" />
+                        </button>
+                    </div>
                 )}
             </div>
             {presets && !disabled && (

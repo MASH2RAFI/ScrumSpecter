@@ -54,7 +54,7 @@ const GeneralSettings = ({ workspace, isAdmin }: { workspace: Workspace; isAdmin
         <form onSubmit={save} className="space-y-4">
             <Section title="Workspace name">
                 <Label htmlFor="workspace-name" className="sr-only">Workspace name</Label>
-                <Input id="workspace-name" value={name} onChange={(e) => setName(e.target.value)} disabled={!isAdmin} required maxLength={80} />
+                <Input id="workspace-name" value={name} onChange={(e) => setName(e.target.value)} disabled={!isAdmin} required maxLength={100} />
             </Section>
 
             <Section

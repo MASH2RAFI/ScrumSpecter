@@ -14,6 +14,7 @@ import { requireMember, requireRole } from "@/features/members/utils";
 import { canEditWork } from "@/features/members/permissions";
 import { createRoutineSchema, updateRoutineSchema } from "../schemas";
 import { Routine } from "../types";
+import { idString } from "@/lib/limits";
 
 const EDITORS_ONLY = "Only admins and supervisors can manage routines";
 
@@ -28,7 +29,7 @@ const app = new Hono()
     .get(
         "/",
         sessionMiddleware,
-        zValidator("query", z.object({ workspaceId: z.string() })),
+        zValidator("query", z.object({ workspaceId: idString })),
         async (c) => {
             const { workspaceId } = c.req.valid("query");
 
