@@ -1,10 +1,10 @@
 import "server-only";
 
-import { getCookie } from "hono/cookie";
+import { getCookie, setCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
 
 import { AUTH_COOKIE } from "@/features/auth/constants";
-import { getUserFromToken, type SessionUser } from "@/lib/auth";
+import { getUserFromToken, SESSION_COOKIE_OPTIONS, type SessionUser } from "@/lib/auth";
 
 export type SessionEnv = {
     Variables: {
@@ -21,13 +21,18 @@ export const sessionMiddleware = createMiddleware<SessionEnv>(
             return c.json({ error: "Unauthorized" }, 401);
         }
 
-        const user = await getUserFromToken(session);
+        const found = await getUserFromToken(session);
 
-        if (!user) {
+        if (!found) {
             return c.json({ error: "Unauthorized" }, 401);
         }
 
-        c.set("user", user);
+        // Keep the cookie alive as long as the session (idle expiry)
+        if (found.refreshed) {
+            setCookie(c, AUTH_COOKIE, session, SESSION_COOKIE_OPTIONS);
+        }
+
+        c.set("user", found.user);
         c.set("sessionToken", session);
 
         await next();

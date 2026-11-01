@@ -1,0 +1,25 @@
+name: Uptime
+
+# An outside check of the live site and its database (the Pi). A failed run emails the repo
+# owner (GitHub's default for scheduled workflows). GitHub may delay scheduled runs, and pauses
+# them after 60 days without commits; re-enable from the Actions tab if that happens.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: GET /api/health
+        run: |
+          for attempt in 1 2 3; do
+            if curl -fsS --max-time 20 https://scrumspecter.vercel.app/api/health; then exit 0; fi
+            sleep 30
+          done
+          echo "::error::ScrumSpecter health check failed 3 times (site or database down)"
+          exit 1

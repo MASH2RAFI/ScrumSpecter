@@ -16,6 +16,7 @@ import { bulkEditSchema, createTaskSchema, restoreTasksSchema } from "../schemas
 import { baseFilters, countTasks, hiddenRoutineCount, listQuerySchema, orderFor, routineRule, selectTasks, taskSummary } from "./task-list";
 import { PopulatedAssignee, Task, TaskStatus } from "../types";
 import { idString } from "@/lib/limits";
+import { assertRoom } from "@/lib/volume-caps";
 
 const MEMBER_NOT_FOUND = "Member not found in the workspace";
 
@@ -266,6 +267,7 @@ const app = new Hono()
 
             const newPosition = (highestPosition?.position ?? 0) + 1000;
 
+            await assertRoom("tasks", workspaceId);
             const [task] = await db
                 .insert(tasks)
                 .values({
@@ -406,6 +408,7 @@ const app = new Hono()
                 ? (await db.select({ id: routines.id }).from(routines).where(inArray(routines.id, routineIds))).map((row) => row.id)
                 : []);
 
+            await assertRoom("tasks", workspaceId, snapshots.length);
             const restored = await db.insert(tasks).values(snapshots.map((task) => ({
                 id: task.$id,
                 name: task.name,

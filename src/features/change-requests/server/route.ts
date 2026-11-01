@@ -23,6 +23,7 @@ import {
 import { ChangeRequest } from "../types";
 import { idString } from "@/lib/limits";
 import { rateLimited } from "@/lib/rate-limit";
+import { assertRoom } from "@/lib/volume-caps";
 
 // Enough to stop a runaway client; nobody needs more waiting at once
 const MAX_PENDING_PER_MEMBER = 50;
@@ -241,6 +242,7 @@ const app = new Hono()
                 if (request.kind === "create") {
                     const proposed = changes as z.infer<typeof proposedTaskSchema>;
                     const status = proposed.status ?? TaskStatus.TODO;
+                    await assertRoom("tasks", request.workspaceId, 1, tx);
                     const [highest] = await tx.select({ position: max(tasks.position) }).from(tasks)
                         .where(and(eq(tasks.status, status), eq(tasks.projectId, proposed.projectId)));
                     const [task] = await tx.insert(tasks).values({

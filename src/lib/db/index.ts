@@ -16,8 +16,13 @@ const pool =
     globalForDb.pgPool ??
     new Pool({
         ...poolConfig(process.env.DATABASE_URL!),
-        max: 5,
+        // Per server copy; Vercel adds copies under load, so keep each small to spare the Pi
+        max: 3,
         idleTimeoutMillis: 5 * 60_000,
+        // Fail fast when the Pi or the Funnel is down, instead of hanging the request
+        connectionTimeoutMillis: 10_000,
+        // One slow query can't hold a connection forever
+        statement_timeout: 15_000,
         keepAlive: true,
     });
 

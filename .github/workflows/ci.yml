@@ -1,0 +1,55 @@
+name: CI
+
+# Checks on every push and pull request; the e2e suite on pull requests and on main.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm run build
+      # Next 14's own advisory stays until the Next.js upgrade, so this only warns for now
+      - run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
+
+  e2e:
+    needs: checks
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # No external services: the suite starts PGlite (e2e/db-server.mjs) and `next dev` itself.
+      # Google Chrome is preinstalled on GitHub's Ubuntu runners.
+      - run: npx playwright test
+        env:
+          CHROMIUM_PATH: /usr/bin/google-chrome
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7

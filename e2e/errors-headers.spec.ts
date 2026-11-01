@@ -47,3 +47,12 @@ test("security headers are set", async ({ baseURL }) => {
     expect((await anon.get("/sw.js")).headers()["cache-control"]).toBe("no-cache");
     await anon.dispose();
 });
+
+test("health check reports the database as up, without auth or caching", async ({ baseURL }) => {
+    const anon = await request.newContext({ baseURL });
+    const res = await anon.get("/api/health");
+    expect(res.status()).toBe(200);
+    expect(res.headers()["cache-control"]).toBe("no-store");
+    expect(await res.json()).toMatchObject({ ok: true, db: "up" });
+    await anon.dispose();
+});

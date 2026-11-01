@@ -20,9 +20,11 @@ import { isValidTimeZone } from "@/lib/time-zone";
 import { createWorkspaceSchema, holidayChangeSchema, holidayRangeSchema, inviteLimitsSchema, updateWorkspaceSchema } from "../schemas";
 import { listUserWorkspaces } from "../queries";
 import { rateLimited } from "@/lib/rate-limit";
+import { assertRoom } from "@/lib/volume-caps";
 
 // A workspace with its creator as admin; `memberId` lets bulk setup refer to that member up front
 const insertWorkspace = async (tx: Parameters<Parameters<typeof db.transaction>[0]>[0], userId: string, name: string, memberId?: string) => {
+    await assertRoom("workspaces", userId, 1, tx);
     const [created] = await tx
         .insert(workspaces)
         .values({

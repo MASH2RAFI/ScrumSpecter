@@ -128,3 +128,35 @@ test("another workspace's ids are refused", async ({ baseURL }) => {
     const tasks = (await (await admin.api.get(`/api/tasks?workspaceId=${workspaceId}&search=Cross`)).json()).data.documents;
     expect(tasks).toHaveLength(0);
 });
+
+test("invalid dates and numbers are a 400, not a database error", async () => {
+    const project = (fields: Record<string, string>) => admin.api.post("/api/projects", { multipart: { name: "Dates", workspaceId, ...fields } });
+    expect((await project({ currentSprintEndDate: "soon" })).status()).toBe(400);
+    expect((await project({ currentSprintStartDate: "2026-02-30" })).status()).toBe(400);
+    expect((await project({ sprintNumber: "many" })).status()).toBe(400);
+    expect((await project({ sprintDuration: "-5" })).status()).toBe(400);
+    expect((await admin.api.patch(`/api/projects/${projectId}`, { multipart: { workspaceId, currentSprintEndDate: "31/12/2026" } })).status()).toBe(400);
+
+    const snapshot = { $id: "restored-1", name: "Restored", status: "TODO", workspaceId, projectId, assigneeIds: [memberId], position: 1000 };
+    expect((await admin.api.post("/api/tasks/restore", { data: { tasks: [{ ...snapshot, dueDate: "not a date" }] } })).status()).toBe(400);
+    expect((await admin.api.post("/api/tasks/restore", { data: { tasks: [{ ...snapshot, startAt: "yesterday" }] } })).status()).toBe(400);
+});
+
+test("volume caps: workspaces per account, projects per workspace", async ({ baseURL }) => {
+    test.setTimeout(120_000);
+    const hoarder = await registerUser(baseURL!, "Hoarder");
+    for (let i = 0; i < 20; i++) await createWorkspace(hoarder.api, `Hoard ${i}`);
+    const over = await hoarder.api.post("/api/workspaces", { multipart: { name: "One too many" } });
+    expect(over.status()).toBe(409);
+    expect((await over.json()).error).toMatch(/at most 20 workspaces/);
+    // Bulk setup makes a workspace too
+    expect((await hoarder.api.post("/api/workspaces/setup", { data: { name: "Via setup", script: `project add "P"`, apply: true } })).status()).toBe(409);
+
+    // 101 projects in one bulk run: refused, and nothing from it is saved
+    const ws = (await hoarder.api.get("/api/workspaces")).ok() ? (await (await hoarder.api.get("/api/workspaces")).json()).data.documents[0].$id : "";
+    const script = Array.from({ length: 101 }, (_, i) => `project add "P${i}"`).join("\n");
+    const bulk = await hoarder.api.post(`/api/workspaces/${ws}/bulk`, { data: { script, apply: true } });
+    expect(bulk.status()).toBe(409);
+    expect((await bulk.json()).error).toMatch(/at most 100 projects/);
+    expect((await (await hoarder.api.get(`/api/projects?workspaceId=${ws}`)).json()).data.documents).toHaveLength(0);
+});

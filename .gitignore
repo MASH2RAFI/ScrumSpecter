@@ -48,3 +48,6 @@ next-env.d.ts
 # local demo deployment (scripts/local-demo.mjs)
 /.local-demo/
 /.next-local/
+
+# Claude Code agent worktrees
+/.claude/worktrees/

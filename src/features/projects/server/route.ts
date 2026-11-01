@@ -13,6 +13,7 @@ import { requireAdmin, requireMember } from "@/features/members/utils";
 import { createProjectFormSchema, updateProjectFormSchema } from "../schemas";
 import { Project } from "../types";
 import { idString } from "@/lib/limits";
+import { assertRoom } from "@/lib/volume-caps";
 
 const toProject = (project: typeof projects.$inferSelect) => toDoc(project) as Project;
 
@@ -28,6 +29,7 @@ const app = new Hono()
             if (member instanceof Response) {
                 return member;
             }
+            await assertRoom("projects", workspaceId);
 
             const [project] = await db
                 .insert(projects)

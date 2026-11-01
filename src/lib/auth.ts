@@ -8,7 +8,16 @@ import { db } from "@/lib/db";
 import { sessions, users } from "@/lib/db/schema";
 import { resolvePreferences, type UserPreferences } from "@/features/auth/preferences";
 
+// Idle expiry: a session ends after this long unused; each use (checked every few minutes) moves the end forward
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
+
+export const SESSION_COOKIE_OPTIONS = {
+    path: "/",
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax",
+    maxAge: SESSION_MAX_AGE,
+} as const;
 
 export type SessionUser = {
     $id: string;
@@ -68,12 +77,13 @@ export const createSession = async (userId: string, device: SessionDevice = {}) 
     return token;
 };
 
-export const getUserFromToken = async (token: string): Promise<SessionUser | null> => {
+// refreshed: the session's expiry just moved forward, so the cookie's should too
+export const getUserFromToken = async (token: string): Promise<{ user: SessionUser; refreshed: boolean } | null> => {
     const id = hashToken(token);
     const cached = sessionCache.get(id);
 
     if (cached && cached.expiresAt > Date.now()) {
-        return cached.user;
+        return { user: cached.user, refreshed: false };
     }
 
     const [row] = await db
@@ -90,9 +100,14 @@ export const getUserFromToken = async (token: string): Promise<SessionUser | nul
 
     const { sessionExpiresAt, lastSeenAt, preferences, ...rest } = row;
 
-    // "Last active" for the devices list; written at most every few minutes, and never awaited
-    if (!lastSeenAt || Date.now() - lastSeenAt.getTime() > LAST_SEEN_INTERVAL) {
-        db.update(sessions).set({ lastSeenAt: new Date() }).where(eq(sessions.id, id)).catch(() => {});
+    // "Last active" for the devices list, and the idle expiry moved forward; written at most
+    // every few minutes, and never awaited
+    const refreshed = !lastSeenAt || Date.now() - lastSeenAt.getTime() > LAST_SEEN_INTERVAL;
+    if (refreshed) {
+        db.update(sessions)
+            .set({ lastSeenAt: new Date(), expiresAt: new Date(Date.now() + SESSION_MAX_AGE * 1000) })
+            .where(eq(sessions.id, id))
+            .catch(() => {});
     }
     const user = { ...rest, preferences: resolvePreferences(preferences) };
 
@@ -104,7 +119,7 @@ export const getUserFromToken = async (token: string): Promise<SessionUser | nul
         expiresAt: Math.min(Date.now() + SESSION_CACHE_TTL, sessionExpiresAt.getTime()),
     });
 
-    return user;
+    return { user, refreshed };
 };
 
 export const sessionIdFromToken = hashToken;

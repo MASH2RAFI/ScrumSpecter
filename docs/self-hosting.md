@@ -35,3 +35,33 @@ Vercel's free cron runs only once a day, so the Pi calls `GET /api/cron/reminder
 - **Script:** `~/docker/postgres/reminders.sh` calls `https://scrumspecter.vercel.app/api/cron/reminders` with `Authorization: Bearer <CRON_SECRET>`.
 - **Secret:** read from `~/docker/postgres/cron-secret` (owner-only). It must match `CRON_SECRET` on Vercel.
 - **Log:** only failures are written, to `~/docker/postgres/reminders.log`, which keeps the last 200 lines. An empty or missing log means every run worked.
+
+## Backups and restore
+`backup.sh` writes a full `pg_dump` every night at 03:00 to `backups/` and keeps 14. Those copies sit on the same disk as the database, so each night's dump also goes off the Pi, **encrypted**, to a private Telegram channel. The scripts are in this repo under `scripts/pi/`; copy them to `~/docker/postgres/` on the Pi.
+
+One-time setup:
+1. **Bot and channel:** create a bot with @BotFather, make a private channel only you are in, and add the bot as an admin that can post. Put the token and the channel id in `~/docker/postgres/telegram.env` (`chmod 600`):
+   ```
+   TELEGRAM_BOT_TOKEN=<bot token>
+   TELEGRAM_CHAT_ID=<channel id, starts with -100>
+   ```
+   Never commit this file or paste its values anywhere.
+2. **Encryption key:** on your own computer, `age-keygen -o scrumspecter-backup.key`. Keep that file (the private key) in your password manager, not on the Pi. Copy only the public key line (`age1…`) to `~/docker/postgres/backup-age.pub` on the Pi. Install `age` on the Pi (`sudo apt install age`).
+3. **Hook it into the nightly job:** at the end of `backup.sh`, after the dump is written: `sh "$HOME/docker/postgres/backup-offsite.sh" "<path of the dump it just wrote>"`.
+
+What it does: encrypts the dump with `age`, splits it into 19 MB parts (the Bot API downloads at most 20 MB per file), posts each part with a caption (`scrumspecter · <date> · <size> · sha256 <hash> · part n/N`), and logs date, part, hash and `file_id` to `telegram-backups.log`, because a bot can't list old messages. Any failure sends "❌ backup failed: <step>"; every Sunday it sends a "✅ N backups this week" summary.
+
+**Restore test (monthly):** copy the private key to the Pi for the test only, then:
+```
+sh ~/docker/postgres/restore-test.sh /path/to/scrumspecter-backup.key            # latest backup
+sh ~/docker/postgres/restore-test.sh /path/to/scrumspecter-backup.key 2026-11-01 # a given day
+shred -u /path/to/scrumspecter-backup.key
+```
+It downloads that day's parts, checks the hash, decrypts, restores into a throwaway `postgres:17` container, prints row counts for users, workspaces and tasks, and removes the container. The live database isn't touched.
+
+Limits to know: the channel grows forever (bots can't delete their messages after 48 hours; a few MB a night is fine), and Telegram isn't a storage service, so the 14 local dumps stay the first copy.
+
+## Monitoring
+- **Uptime:** `.github/workflows/uptime.yml` calls `/api/health` every 15 minutes from GitHub. The endpoint answers 200 with `{"ok":true,"db":"up"}`, or 503 when the database can't be reached in 3 seconds. A failing run emails the repo owner.
+- **Disk space:** `scripts/pi/disk-alert.sh` posts to the Telegram channel when `/mnt/pgdata` or `/mnt/torrents` is over 80% full (once a day per disk). Crontab: `0 * * * * sh /home/<ssh-user>/docker/postgres/disk-alert.sh`.
+- **Database limits for the app role:** run `scripts/pi/app-role-limits.sql` once (instructions inside): at most 30 connections, a 15-second statement timeout, and a 60-second limit on idle open transactions. The app also keeps at most 3 connections per server copy and gives up connecting after 10 seconds.

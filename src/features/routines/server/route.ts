@@ -15,6 +15,7 @@ import { canEditWork } from "@/features/members/permissions";
 import { createRoutineSchema, updateRoutineSchema } from "../schemas";
 import { Routine } from "../types";
 import { idString } from "@/lib/limits";
+import { assertRoom } from "@/lib/volume-caps";
 
 const EDITORS_ONLY = "Only admins and supervisors can manage routines";
 
@@ -68,6 +69,7 @@ const app = new Hono()
                 return c.json({ error: foreignReference }, 400);
             }
 
+            await assertRoom("routines", workspaceId);
             const [routine] = await db
                 .insert(routines)
                 .values({ ...fields, workspaceId, weekdays: normalizeWeekdays(weekdays) })

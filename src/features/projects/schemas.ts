@@ -38,20 +38,25 @@ const apiEndNotBeforeStart = (
     }
 };
 
+// API form fields: a real YYYY-MM-DD day, and whole numbers (bad input is a 400, not a database error)
+const apiDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
+    .refine((day) => !Number.isNaN(Date.parse(`${day}T00:00:00Z`)) && new Date(`${day}T00:00:00Z`).toISOString().startsWith(day), "Not a real date");
+const apiWholeNumber = z.string().regex(/^\d{1,6}$/, "Use a whole number");
+
 export const createProjectFormSchema = z.object({
     name: z.string().trim().min(1, "Required").max(MAX_TITLE, `At most ${MAX_TITLE} characters`),
     workspaceId: idString,
-    sprintDuration: z.string().max(8).optional().transform((val) => val ? Number(val) : undefined),
-    currentSprintStartDate: z.string().max(32).optional(),
-    currentSprintEndDate: z.string().max(32).optional(),
-    sprintNumber: z.string().default("1").transform((val) => Number(val)), // Automatically set to 1
+    sprintDuration: apiWholeNumber.optional().transform((val) => val ? Number(val) : undefined),
+    currentSprintStartDate: apiDay.optional(),
+    currentSprintEndDate: apiDay.optional(),
+    sprintNumber: apiWholeNumber.default("1").transform((val) => Number(val)), // Automatically set to 1
 }).superRefine(apiEndNotBeforeStart);
 
 export const updateProjectFormSchema = z.object({
     name: z.string().trim().min(1, "Minimum 1 character required").max(MAX_TITLE, `At most ${MAX_TITLE} characters`).optional(),
     workspaceId: idString,
-    sprintDuration: z.string().max(8).optional().transform((val) => val ? Number(val) : undefined),
-    currentSprintStartDate: z.string().max(32).optional(),
-    currentSprintEndDate: z.string().max(32).optional(),
-    sprintNumber: z.string().optional().transform((val) => val ? Number(val) : undefined),
+    sprintDuration: apiWholeNumber.optional().transform((val) => val ? Number(val) : undefined),
+    currentSprintStartDate: apiDay.optional(),
+    currentSprintEndDate: apiDay.optional(),
+    sprintNumber: apiWholeNumber.optional().transform((val) => val ? Number(val) : undefined),
 }).superRefine(apiEndNotBeforeStart);

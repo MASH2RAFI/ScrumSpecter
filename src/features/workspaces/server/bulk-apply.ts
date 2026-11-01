@@ -9,6 +9,7 @@ import { localDate } from "@/lib/reminders";
 import { MemberRole } from "@/features/members/types";
 
 import { AMBIGUOUS, type Context, type Planned } from "./bulk-input";
+import { assertRoom } from "@/lib/volume-caps";
 
 // What a script can refer to: the workspace's projects and members (people and placeholders)
 export const loadContext = async (workspaceId: string, me: string, timeZone: string, canManage: boolean): Promise<Context> => {
@@ -60,6 +61,10 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 // Writes a checked plan inside the caller's transaction (bulk setup also creates the workspace
 // in the same one)
 export const writePlan = async (tx: Tx, workspaceId: string, plan: Planned[]) => {
+    const adding = countPlan(plan);
+    await assertRoom("projects", workspaceId, adding.project ?? 0, tx);
+    await assertRoom("routines", workspaceId, adding.routine ?? 0, tx);
+    await assertRoom("tasks", workspaceId, adding.task ?? 0, tx);
     for (const step of plan.filter((p) => p.kind === "project")) {
         if (step.kind !== "project") continue;
         await tx.insert(projects).values({

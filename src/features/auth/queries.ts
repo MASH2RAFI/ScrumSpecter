@@ -13,7 +13,7 @@ export const getCurrent = async () => {
             return null;
         }
 
-        return await getUserFromToken(session.value);
+        return (await getUserFromToken(session.value))?.user ?? null;
     } catch {
         return null;
     }

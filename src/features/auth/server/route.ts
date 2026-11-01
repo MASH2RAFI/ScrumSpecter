@@ -5,7 +5,7 @@ import { createHash, randomBytes } from "crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { sessionMiddleware } from "@/lib/session-middleware";
-import { createSession, deleteSession, deviceFromHeaders, forgetCachedSessions, getUserFromToken, hashPassword, SESSION_MAX_AGE, sessionIdFromToken, verifyPassword } from "@/lib/auth";
+import { createSession, deleteSession, deviceFromHeaders, forgetCachedSessions, getUserFromToken, hashPassword, SESSION_COOKIE_OPTIONS, sessionIdFromToken, verifyPassword } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import { attemptKeys, clearFailures, lockedMinutes, recordFailure, resetRequestKeys, tooManyAttempts } from "@/lib/login-limit";
 import { PENDING_GOOGLE_COOKIE, PENDING_GOOGLE_MAX_AGE, readPendingLink, signPendingLink } from "@/lib/pending-google-link";
@@ -25,13 +25,7 @@ import { rateLimited } from "@/lib/rate-limit";
 
 // Lax: a link opened from email or chat arrives signed in. Cross-site POST/PATCH/DELETE still
 // go without the cookie, and every change in the API uses one of those.
-const cookieOptions = {
-    path: "/",
-    httpOnly: true,
-    secure: true,
-    sameSite: "Lax",
-    maxAge: SESSION_MAX_AGE,
-} as const;
+const cookieOptions = SESSION_COOKIE_OPTIONS;
 
 // Holds a Google sign-in waiting for the matching account's password (see pending-google-link.ts)
 const pendingGoogleCookieOptions = {
