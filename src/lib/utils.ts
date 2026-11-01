@@ -8,12 +8,15 @@ export function cn(...inputs: ClassValue[]) {
 export function generateInviteCode(length: number) {
   // URL-safe only: codes go into invite link paths
   const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890";
-  let result = "";
-  for (let i = 0; i < length; i++) {
-    result += characters.charAt(Math.floor(Math.random()*characters.length));
-  }
-  return result;
+  // CSPRNG, not Math.random: codes grant workspace access (modulo bias over 2^32 is negligible)
+  const bytes = new Uint32Array(length);
+  globalThis.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (n) => characters[n % characters.length]).join("");
 };
+
+const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+export const escapeHtml = (value: unknown) => String(value).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
 
 export function snakeCaseToTitleCase (str: string) {
   return str.toLowerCase()

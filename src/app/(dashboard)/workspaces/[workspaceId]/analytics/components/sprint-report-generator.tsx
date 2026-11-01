@@ -11,6 +11,7 @@ import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useGetMembers } from "@/features/members/api/use-get-members";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { TaskStatus } from "@/features/tasks/types";
+import { escapeHtml } from "@/lib/utils";
 import {
     BurndownDay,
     DEFAULT_SPRINT_DURATION,
@@ -84,7 +85,7 @@ const sectionHtml = (title: string, columns: number, tiles: string) => `
 const overviewTileHtml = (label: string, value: string | number) => `
     <div style="background-color: #f9fafb; padding: 16px; border-radius: 8px;">
         <p style="font-size: 14px; color: #6b7280; margin-bottom: 4px;">${label}</p>
-        <p style="font-weight: 600;">${value}</p>
+        <p style="font-weight: 600;">${escapeHtml(value)}</p>
     </div>
 `;
 
@@ -103,7 +104,7 @@ const colorTileHtml = (
 ) => `
     <div style="background-color: ${background}; padding: 16px; border-radius: 8px;${tileStyle}">
         <p style="font-size: 14px; color: ${labelColor}; margin-bottom: 4px;">${label}</p>
-        <p style="${valueStyle} color: ${valueColor};">${value}</p>
+        <p style="${valueStyle} color: ${valueColor};">${escapeHtml(value)}</p>
     </div>
 `;
 
@@ -148,8 +149,8 @@ const buildReportHtml = (report: SprintReport) => {
     return `
         <div style="text-align: center; margin-bottom: 40px;">
             <h1 style="font-size: 32px; font-weight: bold; color: #1f2937; margin-bottom: 8px;">Sprint Report</h1>
-            <h2 style="font-size: 24px; color: #4b5563; margin-bottom: 4px;">${report.sprintName}</h2>
-            <p style="color: #6b7280;">${report.startDate} to ${report.endDate}</p>
+            <h2 style="font-size: 24px; color: #4b5563; margin-bottom: 4px;">${escapeHtml(report.sprintName)}</h2>
+            <p style="color: #6b7280;">${escapeHtml(report.startDate)} to ${escapeHtml(report.endDate)}</p>
         </div>
 
         ${sectionHtml("📅 Sprint Overview", 2, overview)}
@@ -282,6 +283,8 @@ export const SprintReportGenerator = () => {
             pdfContent.style.padding = '40px';
             pdfContent.style.fontFamily = 'Arial, sans-serif';
             pdfContent.style.color = '#000000';
+            // Reviewed: buildReportHtml escapes every user value (escapeHtml); §29 #8 replaces this with print
+            // eslint-disable-next-line no-restricted-syntax
             pdfContent.innerHTML = buildReportHtml(report);
 
             document.body.appendChild(pdfContent);

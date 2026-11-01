@@ -1,3 +1,20 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"]
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "AssignmentExpression > MemberExpression.left[property.name=/^(innerHTML|outerHTML)$/]",
+        "message": "HTML from strings runs injected script. Use React or textContent; if unavoidable, escape every value and disable this rule on that line."
+      },
+      {
+        "selector": "CallExpression[callee.property.name='insertAdjacentHTML']",
+        "message": "HTML from strings runs injected script. Use React or textContent."
+      },
+      {
+        "selector": "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+        "message": "HTML from strings runs injected script. Use React children instead."
+      }
+    ]
+  }
 }

@@ -23,6 +23,8 @@ const MAX_HORIZON_DAYS = 366;
 
 const DAY_MS = 86_400_000;
 
+const INSERT_CHUNK_ROWS = 1000;
+
 const startOfUtcDay = (date: Date) => Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 
 // Routine due dates are noon UTC, so their UTC date is the calendar day
@@ -107,17 +109,18 @@ export const generateRoutineTasks = async (filter?: SQL) => {
         })
     );
 
-    if (rows.length === 0) {
-        return 0;
+    // Postgres allows 65,535 bind parameters per statement; 13 columns x 1,000 rows stays well under it
+    let createdCount = 0;
+    for (let i = 0; i < rows.length; i += INSERT_CHUNK_ROWS) {
+        const created = await db
+            .insert(tasks)
+            .values(rows.slice(i, i + INSERT_CHUNK_ROWS))
+            .onConflictDoNothing({ target: [tasks.routineId, tasks.dueDate] })
+            .returning({ id: tasks.id });
+        createdCount += created.length;
     }
 
-    const created = await db
-        .insert(tasks)
-        .values(rows)
-        .onConflictDoNothing({ target: [tasks.routineId, tasks.dueDate] })
-        .returning({ id: tasks.id });
-
-    return created.length;
+    return createdCount;
 };
 
 // After a routine's time changes, move its upcoming not-started tasks to the new time
