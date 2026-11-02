@@ -18,15 +18,6 @@ export const useGetStarIds = (workspaceId: string) => useAppQuery({
     },
 });
 
-export const useGetStarred = (includeDone: boolean) => useAppQuery({
-    queryKey: ["stars", "all", includeDone],
-    queryFn: async () => {
-        const response = await client.api.stars.$get({ query: { includeDone: String(includeDone) as "true" | "false" } });
-        if (!response.ok) throw new ApiError("Failed to fetch starred items", response.status);
-        return (await response.json()).data;
-    },
-});
-
 // Optimistic: the star fills at once and rolls back with a toast if the server says no
 export const useToggleStar = (workspaceId: string) => {
     const queryClient = useQueryClient();
@@ -55,6 +46,9 @@ export const useToggleStar = (workspaceId: string) => {
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ["stars"] });
+            // Task lists filtered to starred ones change with every star
+            queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === "tasks"
+                && (query.queryKey[2] as { starred?: boolean } | undefined)?.starred === true });
         },
     });
 };

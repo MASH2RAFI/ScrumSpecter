@@ -137,7 +137,7 @@ const PrintableReport = ({ report, today }: { report: SprintReport; today: strin
             gridClassName="grid-cols-3 text-center"
             valueClassName="text-3xl font-bold"
             tiles={[
-                { label: "To Do", value: report.taskStatusBreakdown.todo, className: "bg-red-50 text-red-700" },
+                { label: "Todo", value: report.taskStatusBreakdown.todo, className: "bg-red-50 text-red-700" },
                 { label: "In Progress", value: report.taskStatusBreakdown.inProgress, className: "bg-yellow-50 text-amber-700" },
                 { label: "Done", value: report.taskStatusBreakdown.done, className: "bg-green-50 text-green-700" },
             ]}

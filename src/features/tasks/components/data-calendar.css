@@ -35,9 +35,15 @@
     @apply pt-1 pr-0 text-xs;
 }
 
-.calendar-container .rbc-button-link {
+/* A month cell's day number (only there: the week headers' links hold a whole label) */
+.calendar-container .rbc-date-cell .rbc-button-link {
     @apply inline-flex size-6 items-center justify-center rounded-full font-medium hover:bg-accent;
     /* Not a 44px touch target like other buttons: it sits in the corner of a day cell */
+    min-height: 0;
+    min-width: 0;
+}
+
+.calendar-container .rbc-header .rbc-button-link {
     min-height: 0;
     min-width: 0;
 }
@@ -75,6 +81,11 @@
 
 .calendar-container .holiday-label {
     @apply text-[10px] font-semibold text-destructive;
+}
+
+/* In the week/day all-day strip; clicks and drops go through to the cell */
+.calendar-container .day-off-label {
+    @apply pointer-events-none block truncate px-1 pt-1 text-center text-[11px];
 }
 
 /* Month events: one issue card per row, "+N more" when the day is full */
@@ -134,6 +145,11 @@
     @apply h-full;
 }
 
+/* All-day tasks are drawn in the timeline now, so the all-day row stays empty: a thin strip that still
+   takes drops and selections (no time), sized to itself so it can't squeeze the day headers */
+.calendar-container .rbc-time-view .rbc-time-header-cell { flex-shrink: 0; }
+.calendar-container .rbc-time-view .rbc-allday-cell { height: auto; min-height: 1.5rem; }
+
 .calendar-container .rbc-time-view .rbc-allday-cell .rbc-row-segment {
     @apply px-1 pb-[2px];
 }
@@ -165,4 +181,9 @@
     .calendar-container .rbc-header {
         @apply text-[10px] px-0;
     }
+
+    /* Week: seven columns don't fit a phone; the grid scrolls sideways instead (gutter + 7 × 5.5rem) */
+    .calendar-view-week .rbc-time-view { overflow-x: auto; }
+    .calendar-view-week .rbc-time-view > .rbc-time-header,
+    .calendar-view-week .rbc-time-view > .rbc-time-content { min-width: 42rem; flex-shrink: 0; }
 }

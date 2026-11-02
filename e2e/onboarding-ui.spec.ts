@@ -42,13 +42,13 @@ test("an assignee walks through the tour on first sign-in", async ({ browser, ba
 
         const tour = page.getByRole("dialog", { name: "Welcome to ScrumSpecter, Tara!" });
         await expect(tour).toContainText("You're an Assignee in Onboarding");
-        await expect(tour).toContainText("Step 1 of 11");
+        await expect(tour).toContainText("Step 1 of 10");
         await expect(tour.getByRole("button", { name: "Show me around" })).toBeFocused();
         await tour.getByRole("button", { name: "Show me around" }).click();
 
         // Points at the sidebar's Home item, with the card beside it
         const card = page.getByRole("dialog", { name: "Home" });
-        await expect(card).toContainText("Step 2 of 11");
+        await expect(card).toContainText("Step 2 of 10");
         const home = page.locator('[data-tour="nav-home"]').first();
         await expect(home).toBeVisible();
         const [homeBox, cardBox] = [await home.boundingBox(), await card.boundingBox()];
@@ -63,13 +63,13 @@ test("an assignee walks through the tour on first sign-in", async ({ browser, ba
         await page.keyboard.press("ArrowLeft");
         await expect(page.getByRole("dialog", { name: "Home" })).toBeVisible();
 
-        for (const title of ["My Tasks", "Starred", "Routines", "Requests", "Members", "Analytics", "Notifications", "Your account"]) {
+        for (const title of ["My Tasks", "Routines", "Requests", "Members", "Analytics", "Notifications", "Your account"]) {
             await page.getByRole("button", { name: "Next" }).click();
             await expect(page.getByRole("dialog", { name: title })).toBeVisible();
         }
         await page.getByRole("button", { name: "Next" }).click();
         const done = page.getByRole("dialog", { name: "You're all set" });
-        await expect(done).toContainText("Step 11 of 11");
+        await expect(done).toContainText("Step 10 of 10");
         await done.getByRole("button", { name: "Get started" }).click();
         await expect(page.getByTestId("welcome-tour")).toHaveCount(0);
         await expect.poll(() => showTutorial(assignee)).toBe(false);
@@ -107,7 +107,7 @@ test("a viewer on a phone gets a shorter tour, centred where the sidebar is hidd
         const tour = page.getByRole("dialog", { name: "Welcome to ScrumSpecter, Vince!" });
         await expect(tour).toContainText("You're a Viewer in Onboarding");
         // No Requests step for viewers
-        await expect(tour).toContainText("Step 1 of 10");
+        await expect(tour).toContainText("Step 1 of 9");
         await tour.getByRole("button", { name: "Show me around" }).click();
         await page.getByRole("button", { name: "Next" }).click();
 

@@ -114,10 +114,10 @@ test("a workspace you can't open leads to your own, not to workspace creation", 
 test("task table lists tasks and search filters them", async () => {
     await page.goto(`/workspaces/${workspaceId}/tasks`);
     await expect(page.getByRole("cell", { name: "Fix login bug", exact: true })).toBeVisible();
-    await page.getByPlaceholder("Search tasks...").fill("release");
+    await page.getByLabel("Search tasks").fill("release");
     await expect(page.getByRole("cell", { name: "Write release notes", exact: true })).toBeVisible();
     await expect(page.getByRole("cell", { name: "Fix login bug", exact: true })).toHaveCount(0);
-    await page.getByPlaceholder("Search tasks...").fill("");
+    await page.getByLabel("Search tasks").fill("");
     await expect(page.getByRole("cell", { name: "Fix login bug", exact: true })).toBeVisible();
 });
 

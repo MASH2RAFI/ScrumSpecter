@@ -1,10 +1,10 @@
 import "server-only";
 
 import { z } from "zod";
-import { and, asc, count, desc, eq, gte, inArray, isNull, lt, ne, notInArray, or, sql, type SQL } from "drizzle-orm";
+import { and, arrayOverlaps, asc, count, desc, eq, gte, inArray, isNull, lt, ne, notInArray, or, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { members, projects, routines, tasks, users, workspaces } from "@/lib/db/schema";
+import { members, projects, routines, stars, tasks, users, workspaces } from "@/lib/db/schema";
 
 import { toDoc } from "@/lib/db/types";
 
@@ -49,6 +49,13 @@ export const listQuerySchema = z.object({
     to: isoDate.optional(),
     unscheduled: flag.optional(),
     openOnly: flag.optional(),
+    // Only what the caller starred: the task itself, or the routine it came from
+    starred: flag.optional(),
+    // The saved My Tasks filter: several people (member ids or "me") and statuses, each "any of";
+    // overdue: not done and past its end (time block, else the due date's end of working day)
+    assignees: z.string().max(4000).optional(),
+    statuses: z.string().max(200).optional(),
+    overdue: flag.optional(),
     ids: z.string().max(4000).optional(),
     // Projects to leave out (My Tasks' hidden projects)
     excludeProjects: z.string().max(4000).optional(),
@@ -78,24 +85,45 @@ export const routineRule = (q: ListQuery): SQL | undefined => {
     return or(isNull(tasks.routineId), and(eq(VIEW_FLAG[q.scope], true), week));
 };
 
+const list = (value: string | null | undefined) => (value ?? "").split(",").map((part) => part.trim()).filter(Boolean);
+
+// When a task ends: its time block, else the end of the working day on its due date
+const endsAt = sql`case
+    when ${tasks.startAt} is not null then ${tasks.startAt} + make_interval(mins => coalesce(${tasks.durationMinutes}, ${DEFAULT_DURATION_MINUTES}))
+    when ${tasks.dueDate} is not null then ${tasks.dueDate} + coalesce((select ${workspaces.workDayEnd} from ${workspaces} where ${workspaces.id} = ${tasks.workspaceId}), '18:00')::interval
+end`;
+
+export type SavedFilterQuery = Pick<ListQuery, "assignees" | "statuses" | "starred" | "overdue" | "excludeProjects">;
+
+// The saved My Tasks filter as SQL; Home's summary applies the same
+export const savedFilters = (q: SavedFilterQuery, memberId: string, userId: string): SQL[] => {
+    const filters: SQL[] = [];
+    const people = list(q.assignees).slice(0, 50).map((id) => (id === "me" ? memberId : id));
+    if (people.length) filters.push(arrayOverlaps(tasks.assigneeIds, people));
+    const statuses = list(q.statuses).filter((status): status is TaskStatus => (Object.values(TaskStatus) as string[]).includes(status));
+    if (statuses.length) filters.push(inArray(tasks.status, statuses));
+    if (q.starred) filters.push(sql`exists (select 1 from ${stars} where ${stars.userId} = ${userId}
+        and (${stars.taskId} = ${tasks.id} or ${stars.routineId} = ${tasks.routineId}))`);
+    if (q.overdue) filters.push(and(ne(tasks.status, TaskStatus.DONE), sql`${endsAt} < now()`)!);
+    const hidden = notInProjects(q.excludeProjects);
+    if (hidden) filters.push(hidden);
+    return filters;
+};
+
 // Filters that don't depend on the scope
-// memberId: the caller's own member id, which "assigneeId=me" stands for
-export const baseFilters = (q: ListQuery, memberId: string): SQL[] => {
+// memberId / userId: the caller's member id ("assigneeId=me") and account (their stars)
+export const baseFilters = (q: ListQuery, memberId: string, userId: string): SQL[] => {
     const filters: SQL[] = [eq(tasks.workspaceId, q.workspaceId)];
     // "none": personal tasks (no project)
     if (q.projectId) filters.push(q.projectId === "none" ? isNull(tasks.projectId) : eq(tasks.projectId, q.projectId));
     if (q.status) filters.push(eq(tasks.status, q.status));
     if (q.openOnly) filters.push(ne(tasks.status, TaskStatus.DONE));
+    filters.push(...savedFilters(q, memberId, userId));
     if (q.assigneeId) filters.push(sql`${q.assigneeId === "me" ? memberId : q.assigneeId} = any(${tasks.assigneeIds})`);
     if (q.search) filters.push(sql`${tasks.name} ilike ${`%${q.search.replace(/[\\%_]/g, "\\$&")}%`}`);
     if (q.from) filters.push(gte(tasks.dueDate, new Date(q.from)));
     if (q.to) filters.push(lt(tasks.dueDate, new Date(q.to)));
     if (q.unscheduled) filters.push(isNull(tasks.dueDate));
-    if (q.excludeProjects) {
-        const hidden = q.excludeProjects.split(",").map((id) => id.trim()).filter(Boolean).slice(0, 200);
-        // NOT IN is never true for NULL, so personal tasks need their own branch to stay visible
-        if (hidden.length) filters.push(or(isNull(tasks.projectId), notInArray(tasks.projectId, hidden))!);
-    }
     if (q.ids) {
         const ids = q.ids.split(",").map((id) => id.trim()).filter(Boolean).slice(0, 200);
         filters.push(ids.length ? inArray(tasks.id, ids) : sql`false`);
@@ -155,10 +183,18 @@ export const hiddenRoutineCount = (q: ListQuery, filters: SQL[]) =>
 // Home's numbers, counted in the database. Tasks are the "home" scope ones (routine tasks only
 // this week's and not done); `overdue` mirrors taskEndAt: a timed task ends at start + duration,
 // a date-only one at the end of the working day on its due date.
-export const taskSummary = async (workspaceId: string, weekFrom: string, weekTo: string, now = new Date()) => {
+// "Hidden in My Tasks" (the eye beside each project, a comma-separated id list) as a filter
+export const notInProjects = (excludeProjects: string | null | undefined) => {
+    const hidden = (excludeProjects ?? "").split(",").map((id) => id.trim()).filter(Boolean).slice(0, 200);
+    // NOT IN is never true for NULL, so personal tasks need their own branch to stay visible
+    return hidden.length ? or(isNull(tasks.projectId), notInArray(tasks.projectId, hidden)) : undefined;
+};
+
+// filters: the saved My Tasks filter (savedFilters), which Home follows
+export const taskSummary = async (workspaceId: string, weekFrom: string, weekTo: string, filters: SQL[] = [], now = new Date()) => {
     const [workspace] = await db.select({ dayEnd: workspaces.workDayEnd }).from(workspaces).where(eq(workspaces.id, workspaceId));
     const dayEnd = workspace?.dayEnd ?? "18:00";
-    const scope = and(eq(tasks.workspaceId, workspaceId), or(isNull(tasks.routineId), inRoutineWeek(weekFrom, weekTo)));
+    const scope = and(eq(tasks.workspaceId, workspaceId), or(isNull(tasks.routineId), inRoutineWeek(weekFrom, weekTo)), ...filters);
     const open = ne(tasks.status, TaskStatus.DONE);
     const endsAt = sql`case
         when ${tasks.startAt} is not null then ${tasks.startAt} + make_interval(mins => coalesce(${tasks.durationMinutes}, ${DEFAULT_DURATION_MINUTES}))
@@ -182,7 +218,7 @@ export const taskSummary = async (workspaceId: string, weekFrom: string, weekTo:
             donePoints: sql<number>`coalesce(sum(${tasks.storyPoints}) filter (where ${tasks.status} = ${TaskStatus.DONE}), 0)`.mapWith(Number),
             progressPoints: sql<number>`coalesce(sum(${tasks.storyPoints}) filter (where ${tasks.status} in (${TaskStatus.IN_PROGRESS}, ${TaskStatus.IN_REVIEW})), 0)`.mapWith(Number),
             overdue: sql<number>`count(*) filter (where ${open} and ${tasks.dueDate} < ${now})`.mapWith(Number),
-        }).from(tasks).where(eq(tasks.workspaceId, workspaceId)).groupBy(tasks.projectId)
+        }).from(tasks).where(and(eq(tasks.workspaceId, workspaceId), ...filters)).groupBy(tasks.projectId)
             // Per-project numbers leave out personal tasks (the totals above still count them)
             .then((rows) => rows.flatMap((row) => row.projectId ? [{ ...row, projectId: row.projectId }] : [])),
         // Each assignee of each open task, counted per member
@@ -197,5 +233,38 @@ export const taskSummary = async (workspaceId: string, weekFrom: string, weekTo:
         ...totals[0],
         projects: perProject,
         openByMember: Object.fromEntries(perMember.rows.map((row) => [row.member_id, Number(row.open)])),
+    };
+};
+
+// The live counts on My Tasks' filter chips. Each row is counted with every other choice applied
+// but its own, so a chip's number is what picking it would show (like a faceted search).
+export const taskFacets = async (q: ListQuery, memberId: string, userId: string) => {
+    const where = (without: Partial<ListQuery>) => and(...baseFilters({ ...q, ...without }, memberId, userId), routineRule(q));
+    const counted = (condition: SQL | undefined) => db.select({ n: count() }).from(tasks)
+        .leftJoin(routines, eq(routines.id, tasks.routineId)).where(condition).then((rows) => rows[0]?.n ?? 0);
+
+    const peopleWhere = where({ assignees: undefined });
+    const statusWhere = where({ statuses: undefined });
+    const [everyone, perPerson, allStatuses, perStatus, starred, overdue] = await Promise.all([
+        counted(peopleWhere),
+        db.execute<{ member_id: string; n: number }>(sql`
+            select a.member_id, count(*)::int as n
+            from ${tasks} left join ${routines} on ${routines.id} = ${tasks.routineId}
+            cross join unnest(${tasks.assigneeIds}) as a(member_id)
+            where ${peopleWhere}
+            group by a.member_id`),
+        counted(statusWhere),
+        db.select({ status: tasks.status, n: count() }).from(tasks)
+            .leftJoin(routines, eq(routines.id, tasks.routineId)).where(statusWhere).groupBy(tasks.status),
+        counted(and(where({ starred: undefined }), ...savedFilters({ starred: true }, memberId, userId))),
+        counted(and(where({ overdue: undefined }), ...savedFilters({ overdue: true }, memberId, userId))),
+    ]);
+    return {
+        everyone,
+        people: Object.fromEntries(perPerson.rows.map((row) => [row.member_id, Number(row.n)])),
+        allStatuses,
+        statuses: Object.fromEntries(perStatus.map((row) => [row.status, row.n])),
+        starred,
+        overdue,
     };
 };

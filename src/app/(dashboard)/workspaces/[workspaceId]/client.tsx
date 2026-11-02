@@ -29,7 +29,12 @@ import { formatTime, formatTimeRange, taskCountdown, taskEndAt } from "@/feature
 import { useNow } from "@/hooks/use-now";
 import { useGetWorkspace } from "@/features/workspaces/api/use-get-workspace";
 import { EnableRemindersCard } from "@/features/notifications/components/enable-reminders-card";
+import Link from "next/link";
 import { useTaskPanel } from "@/features/tasks/hooks/use-task-panel";
+import { taskFilterQuery, useTaskFilter } from "@/features/tasks/hooks/use-saved-filters";
+import { STATUS_CHIPS } from "@/features/tasks/components/data-filters";
+import type { TaskFilter } from "@/features/auth/preferences";
+import type { Member } from "@/features/members/types";
 
 // Sprint dates are calendar days (YYYY-MM-DD), so compare them without timezones
 const getSprintSummary = (startDate: string, endDate: string) => {
@@ -102,6 +107,31 @@ const TaskTiming = ({ task, now, dayEnd }: { task: Task; now: number; dayEnd?: s
                 <span aria-hidden>· </span>{countdown.label}
             </span>
         </span>
+    );
+};
+
+// What Home is following, when the My Tasks filter narrows anything, with a way back to change it
+const FollowingNote = ({ workspaceId, filter, hiddenCount, members, memberId }: {
+    workspaceId: string; filter: TaskFilter; hiddenCount: number; members: Member[]; memberId?: string;
+}) => {
+    const people = filter.people.map((id) => (id === "me" || id === memberId ? "Me" : members.find((m) => m.$id === id)?.name ?? "Someone"));
+    const kinds = [
+        // In board order, whatever order they were picked in
+        ...STATUS_CHIPS.filter((chip) => filter.statuses.includes(chip.status)).map((chip) => chip.label),
+        ...(filter.starred ? ["Starred"] : []),
+        ...(filter.overdue ? ["Overdue"] : []),
+    ];
+    if (!people.length && !kinds.length && !hiddenCount) return null;
+    const parts = [people.length ? people.join(" + ") : "Everyone", kinds.length ? kinds.join(" + ") : "All"];
+    if (hiddenCount) parts.push(`${hiddenCount} project${hiddenCount === 1 ? "" : "s"} hidden`);
+    return (
+        <StaggerItem>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-primary/10 px-3 py-2 text-sm text-muted-foreground" data-testid="home-following">
+                <span>Following My Tasks:</span>
+                <span className="font-semibold text-foreground">{parts.join(" · ")}</span>
+                <Link href={`/workspaces/${workspaceId}/tasks`} className="ml-auto text-xs font-semibold text-primary hover:underline">Change</Link>
+            </p>
+        </StaggerItem>
     );
 };
 
@@ -188,13 +218,16 @@ export const WorkspaceIdClient = () => {
     // Only what Home shows, however large the workspace: counts from the server, this week's
     // tasks for the chart, and the signed-in person's open tasks due by the end of tomorrow
     const week = useCurrentWeek();
-    const { data: summary, isLoading: isLoadingSummary, error: summaryError } = useGetTaskSummary({ workspaceId });
+    // Home follows the saved My Tasks filter (people, statuses, Starred, Overdue, hidden projects)
+    const { weekStart } = usePreferences();
+    const { filter, hiddenProjects } = useTaskFilter(workspaceId);
+    const followed = taskFilterQuery(filter, hiddenProjects);
+    const { data: summary, isLoading: isLoadingSummary, error: summaryError } = useGetTaskSummary({ workspaceId, filter: followed });
     const { data: projects, isLoading: isLoadingProjects, error: projectsError } = useGetProjects({ workspaceId });
     const { data: members, isLoading: isLoadingMembers, error: membersError } = useGetMembers({ workspaceId });
     const { data: currentUser } = useCurrent();
-    const { weekStart } = usePreferences();
     const memberId = members?.documents.find((member) => member.userId === currentUser?.$id)?.$id;
-    const { data: weekTasks } = useGetTasks({ workspaceId, scope: "home", ...week, from: week.weekFrom, to: week.weekTo });
+    const { data: weekTasks } = useGetTasks({ workspaceId, scope: "home", ...week, from: week.weekFrom, to: week.weekTo, ...followed });
     const dayAfterTomorrow = new Date();
     dayAfterTomorrow.setHours(0, 0, 0, 0);
     dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
@@ -202,6 +235,8 @@ export const WorkspaceIdClient = () => {
         // "me" lets it start with the other requests instead of after the members list
         workspaceId, scope: "home", ...week, assigneeId: "me", openOnly: true,
         to: dayAfterTomorrow.toISOString(),
+        // Always your own tasks: the rest of the filter applies, the people choice doesn't
+        ...followed, assignees: undefined,
     });
 
     useRedirectOnAccessError(summaryError, projectsError, membersError);
@@ -216,10 +251,13 @@ export const WorkspaceIdClient = () => {
     }
 
     const statsFor = (projectId: string) => summary.projects.find((row) => row.projectId === projectId);
+    const visibleProjects = projects.documents.filter((project) => !hiddenProjects.includes(project.$id));
+    const hiddenCount = projects.documents.length - visibleProjects.length;
 
     return (
         <Stagger className="flex flex-col gap-6">
             <StaggerItem><EnableRemindersCard /></StaggerItem>
+            <FollowingNote workspaceId={workspaceId} filter={filter} hiddenCount={hiddenProjects.length} members={members.documents} memberId={memberId} />
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <StatCards counts={summary} workspaceId={workspaceId} />
@@ -230,7 +268,7 @@ export const WorkspaceIdClient = () => {
                     <WeekChart tasks={weekTasks?.documents ?? []} memberId={memberId} weekStart={weekStart} />
                 </StaggerItem>
                 <StaggerItem>
-                    <SprintDonut stats={summary.projects} projects={projects.documents} />
+                    <SprintDonut stats={summary.projects} projects={visibleProjects} />
                 </StaggerItem>
             </div>
 
@@ -255,11 +293,16 @@ export const WorkspaceIdClient = () => {
                     )}
                 </div>
 
+                {hiddenCount > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                        {hiddenCount} hidden in My Tasks; the eye beside a project there shows it again.
+                    </p>
+                )}
                 {projects.documents.length === 0 ? (
                     <NoProjectsState canCreate={canEditWork} onCreate={openCreateProject} />
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {projects.documents.map((project) => (
+                        {visibleProjects.map((project) => (
                             <ProjectCard
                                 key={project.$id}
                                 href={`/workspaces/${workspaceId}/projects/${project.$id}`}

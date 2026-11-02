@@ -88,7 +88,8 @@ export const IssueCard = ({ task, variant, compact, draggable, onDragStart, onDr
                     {task.routineId && <RepeatIcon className="size-3 shrink-0 text-primary" aria-label="Routine" />}
                     {task.startAt && (
                         <span className="shrink-0 text-muted-foreground">
-                            {variant === "month" ? formatTimeRange(task.startAt, task.durationMinutes) : formatTime(task.startAt)}
+                            {/* The start only: a whole range filled a month cell and hid the name */}
+                            {formatTime(task.startAt)}
                         </span>
                     )}
                     <span className={cn("min-w-0 truncate flex-1 font-medium", done && "line-through text-muted-foreground")}>{task.name}</span>

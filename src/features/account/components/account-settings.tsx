@@ -277,7 +277,7 @@ const PreferencesTab = ({ preferences }: { preferences: UserPreferences }) => {
                     if (option) mutate({ [key]: option.value } as Partial<UserPreferences>);
                 }}
             >
-                <SelectTrigger id={`pref-${key}`} className="w-40">
+                <SelectTrigger id={`pref-${key}`} className="w-auto min-w-40 gap-2">
                     <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

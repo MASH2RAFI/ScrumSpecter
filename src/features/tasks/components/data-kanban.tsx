@@ -184,7 +184,7 @@ export const Datakanban = ({
                 {boards.map( (board) => {
                     return (
                         <StaggerItem key={board} className={cn(
-                            "bg-muted/50 p-2 rounded-card border border-border/60 md:flex-1 md:mx-1.5 md:min-w-[200px] transition-[flex-grow,min-width] duration-300",
+                            "flex flex-col bg-muted/50 p-2 rounded-card border border-border/60 md:flex-1 md:mx-1.5 md:min-w-[200px] transition-[flex-grow,min-width] duration-300",
                             // Narrowed rather than hidden, so a card can still be dropped into it
                             kanbanShrinkEmpty && tasks[board].length === 0 && "md:flex-none md:w-48 md:min-w-0",
                         )}>
@@ -199,7 +199,8 @@ export const Datakanban = ({
                                     <div
                                         {...provided.droppableProps}
                                         ref={provided.innerRef}
-                                        className="min-h-[72px] py-1.5 md:min-h-[200px]"
+                                        // Fills the column, "Add task" included, so a card dropped anywhere in it lands there
+                                        className="flex flex-1 flex-col min-h-[72px] py-1.5 md:min-h-[200px]"
                                     >
 
                                         {tasks[board].map( (task, index) => (
@@ -223,10 +224,12 @@ export const Datakanban = ({
                                         ))}
 
                                         {provided.placeholder}
+                                        <div className="mt-auto pt-1">
+                                            <KanbanQuickAdd board={board} />
+                                        </div>
                                     </div>
                                 )}
                             </Droppable>
-                            <KanbanQuickAdd board={board} />
 
                         </StaggerItem>
                     )

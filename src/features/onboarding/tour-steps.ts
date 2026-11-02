@@ -22,12 +22,12 @@ export const buildTourSteps = ({ name, role, workspaceName }: { name: string; ro
     const where = workspaceName ? ` in ${workspaceName}` : "";
 
     const tasksBody = editor
-        ? "Every task in the workspace, as a table, a kanban board or a calendar. Press C anywhere to create one."
+        ? "Every task in the workspace, as a table, a kanban board or a calendar; the Starred filter narrows it to the ones you starred. Press C anywhere to create one."
         : canReview(role)
-            ? "Every task in the workspace, as a table, a kanban board or a calendar. You can move any task, including approving work to Done or sending it back."
+            ? "Every task in the workspace, as a table, a kanban board or a calendar; the Starred filter narrows it to the ones you starred. You can move any task, including approving work to Done or sending it back."
             : role === MemberRole.ASSIGNEE
-                ? "Every task in the workspace, as a table, a kanban board or a calendar. Move your own tasks along up to In Review; a reviewer then approves them to Done."
-                : "Every task in the workspace, as a table, a kanban board or a calendar. You can look at everything, but not change it.";
+                ? "Every task in the workspace, as a table, a kanban board or a calendar; the Starred filter narrows it to the ones you starred. Move your own tasks along up to In Review; a reviewer then approves them to Done."
+                : "Every task in the workspace, as a table, a kanban board or a calendar; the Starred filter narrows it to the ones you starred. You can look at everything, but not change it.";
 
     const steps: (TourStep | false)[] = [
         {
@@ -42,12 +42,6 @@ export const buildTourSteps = ({ name, role, workspaceName }: { name: string; ro
             body: "Your day at a glance: what's overdue, due today and due tomorrow, with a countdown to each task's end time.",
         },
         { id: "tasks", target: "nav-my-tasks", title: "My Tasks", body: tasksBody },
-        {
-            id: "starred",
-            target: "nav-starred",
-            title: "Starred",
-            body: "Star any task or routine to keep it here, across all your workspaces.",
-        },
         {
             id: "routines",
             target: "nav-routines",

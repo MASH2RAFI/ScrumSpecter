@@ -103,3 +103,10 @@ export const taskCountdown = (
         ? { phase: "running" as const, label: formatCountdown(end, now), msLeft: end.getTime() - now }
         : { phase: "ended" as const, label: formatCountdown(end, now), msLeft: 0 };
 };
+
+// A wall-clock "HH:MM" as people read it: "18:00" → "6 PM" (or "18:00" for 24-hour people)
+export const clockLabel = (time: string, timeFormat: "12h" | "24h") => {
+    if (timeFormat === "24h") return time;
+    const [hour, minute] = time.split(":").map(Number);
+    return `${hour % 12 || 12}${minute ? `:${String(minute).padStart(2, "0")}` : ""} ${hour < 12 ? "AM" : "PM"}`;
+};

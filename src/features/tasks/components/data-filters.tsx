@@ -1,230 +1,257 @@
-import { 
-    Select,
-    SelectContent, 
-    SelectItem, 
-    SelectSeparator, 
-    SelectTrigger, 
-    SelectValue
-} from "@/components/ui/select";
+"use client";
 
-import { useGetMembers } from "@/features/members/api/use-get-members";
-import { useGetProjects } from "@/features/projects/api/use-get-projects";
-import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
-import { FolderIcon, ListChecksIcon, UserIcon, SearchIcon, SlidersHorizontalIcon } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { SearchIcon, SlidersHorizontalIcon, StarIcon } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { TaskStatus } from "../types";
-import { useState } from "react";
-import { useDebounce } from "@/hooks/use-debounce";
 import { Input } from "@/components/ui/input";
-import { useTaskFilters } from "../hooks/use-task-filters";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SimpleDatePicker } from "@/components/simple-date-picker";
+import { useDebounce } from "@/hooks/use-debounce";
+import { cn } from "@/lib/utils";
+import { useCurrent } from "@/features/auth/api/use-current";
+import { usePreferences, useSavePreferences } from "@/features/auth/hooks/use-preferences";
+import { EMPTY_TASK_FILTER, TASK_SORTS, type UserPreferences } from "@/features/auth/preferences";
+import { useGetMembers } from "@/features/members/api/use-get-members";
+import { MemberAvatar } from "@/features/members/components/member-avatar";
+import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 
+import { useGetTaskFacets, type UseGetTasksProps } from "../api/use-get-tasks";
+import { useTaskFilters } from "../hooks/use-task-filters";
+import { useTaskFilter } from "../hooks/use-saved-filters";
+import { TaskStatus } from "../types";
+import { parseSearch } from "../search-tokens";
+import { ProjectVisibility } from "./project-visibility";
 
-interface DataFiltersProps {
-    hideProjectFilter?: boolean;
-    hideStatusFilter?: boolean;
-    hideDateFilter?: boolean;
+export const STATUS_CHIPS: { status: TaskStatus; label: string; dot: string }[] = [
+    { status: TaskStatus.BACKLOG, label: "Backlog", dot: "bg-rose-400" },
+    { status: TaskStatus.TODO, label: "Todo", dot: "bg-slate-400" },
+    { status: TaskStatus.IN_PROGRESS, label: "In Progress", dot: "bg-amber-500" },
+    { status: TaskStatus.IN_REVIEW, label: "In Review", dot: "bg-sky-500" },
+    { status: TaskStatus.DONE, label: "Done", dot: "bg-emerald-600" },
+];
+
+const SORT_LABELS: Record<UserPreferences["taskSort"], string> = {
+    newest: "Newest first",
+    dueDate: "Due date",
+    name: "Name, A to Z",
+    storyPoints: "Story points",
 };
 
-export const DataFilters = ({ hideProjectFilter, hideStatusFilter, hideDateFilter }: DataFiltersProps) => {
+// One filter choice: a small toggle with its live count
+export const FilterChip = ({ pressed, onClick, count, children, label }: {
+    pressed: boolean;
+    onClick: () => void;
+    count?: number;
+    children: ReactNode;
+    // The accessible name when the visible content isn't enough
+    label?: string;
+}) => (
+    <button
+        type="button"
+        aria-pressed={pressed}
+        aria-label={label}
+        onClick={onClick}
+        className={cn(
+            "inline-flex h-6 min-h-0 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2 text-xs font-medium leading-none transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            pressed ? "border-primary bg-primary text-primary-foreground" : "border-border bg-muted/50 text-foreground hover:bg-accent",
+        )}
+    >
+        {children}
+        {count !== undefined && (
+            <span className={cn("tabular-nums text-[10px] font-semibold", pressed ? "text-primary-foreground/80" : "text-muted-foreground")}>{count}</span>
+        )}
+    </button>
+);
 
+// A labelled row of the filter block; the label sits on the first line of controls
+export const FilterRow = ({ label, children, className }: { label: string; children: ReactNode; className?: string }) => (
+    <div className={cn("grid grid-cols-[3.25rem_1fr] items-start gap-1.5 border-t border-border/70 px-2 py-1 first:border-t-0", className)}>
+        <span className="text-[9.5px] font-bold uppercase leading-7 tracking-wider text-muted-foreground">{label}</span>
+        <div className="flex min-h-7 min-w-0 flex-wrap items-center gap-1">{children}</div>
+    </div>
+);
+
+interface DataFiltersProps {
+    // The list query the table makes (for the chips' counts)
+    base: UseGetTasksProps;
+    hideProjectFilter?: boolean;
+    hideDateFilter?: boolean;
+    // How the search words were read (search-tokens.ts), shown under the box
+    understood?: string[];
+};
+
+// My Tasks' filter block: search (with field shortcuts), due date and sort; then whose tasks, which
+// statuses (plus Starred and Overdue), and the project eyes. The choices are saved on the account
+// per workspace, and Home follows them. Within a row a choice means "any of"; Starred and Overdue
+// narrow what's left.
+export const DataFilters = ({ base, hideProjectFilter, hideDateFilter, understood = [] }: DataFiltersProps) => {
     const workspaceId = useWorkspaceId();
-
-    const { data: projects, isLoading: isLoadingProjects } = useGetProjects({workspaceId})
-    const { data: members, isLoading: isLoadingMembers } = useGetMembers({workspaceId})
-
-    const isLoading = isLoadingProjects || isLoadingMembers;
-
-    const projectOptions = projects?.documents.map( (project) => ({
-        value: project.$id,
-        label: project?.name || "Unknown Project",
-    }));
-
-    const memberOptions = members?.documents.map( (member) => ({
-        value: member.$id,
-        label: member?.name || "Unknown Member",
-    }));
-
-    const [{
-        status,
-        assigneeId,
-        projectId,
-        dueDate,
-        search,
-    }, setFilters] = useTaskFilters();
+    const { data: members } = useGetMembers({ workspaceId });
+    const { data: currentUser } = useCurrent();
+    const { filter, setFilter } = useTaskFilter(workspaceId);
+    const { taskSort } = usePreferences();
+    const savePreferences = useSavePreferences();
+    const [{ search, dueDate, status: urlStatus }, setUrl] = useTaskFilters();
+    const { data: facets } = useGetTaskFacets(base);
 
     // Typing updates local state at once; the URL (and the query) follows after a pause
     const [searchText, setSearchText] = useState(search ?? "");
     const [filtersOpen, setFiltersOpen] = useState(false);
     useDebounce(() => {
         const next = searchText.trim() || null;
-        if (next !== (search ?? null)) {
-            setFilters({ search: next });
-        }
+        if (next !== (search ?? null)) setUrl({ search: next });
     }, 300, [searchText]);
 
-    const onStatusChange = (value: string) => {
-        setFilters({ status: value === "all" ? null : value as TaskStatus });
+    // A link like Home's "Done" card picks a status for this visit; the saved choice otherwise
+    const statuses = urlStatus ? [urlStatus] : filter.statuses;
+    const toggleStatus = (status: TaskStatus) => {
+        const next = statuses.includes(status) ? statuses.filter((s) => s !== status) : [...statuses, status];
+        setFilter({ statuses: next });
+        if (urlStatus) setUrl({ status: null });
+    };
+    const togglePerson = (id: string) =>
+        setFilter({ people: filter.people.includes(id) ? filter.people.filter((p) => p !== id) : [...filter.people, id] });
+    // Enter turns what the search understood into chips (saved), leaving the other words in the box.
+    // People and statuses replace their row; Starred and Overdue switch on; today/tomorrow pick the
+    // due date. Project words stay as typed (projects have eyes, not chips).
+    const lockIn = () => {
+        const tokens = parseSearch(
+            searchText,
+            (members?.documents ?? []).map((member) => ({ id: member.$id, name: member.name })),
+            [],
+        );
+        const changes: Partial<typeof filter> = {};
+        if (tokens.people) changes.people = [...new Set(tokens.people)];
+        if (tokens.statuses) changes.statuses = tokens.statuses;
+        if (tokens.starred) changes.starred = true;
+        if (tokens.overdue) changes.overdue = true;
+        if (!Object.keys(changes).length && !tokens.due) return;
+        setFilter(changes);
+        const text = tokens.text;
+        setSearchText(text);
+        setUrl({ search: text || null, status: null, ...(tokens.due && { dueDate: tokens.due.from.toISOString() }) });
+    };
+    const reset = () => {
+        setFilter(EMPTY_TASK_FILTER);
+        setUrl({ status: null, assigneeId: null, projectId: null, dueDate: null, search: null });
+        setSearchText("");
     };
 
-    const onAssigneeChange = (value: string) => {
-        setFilters({ assigneeId: value === "all" ? null : value as string });
-    };
-
-    const onProjectChange = (value: string) => {
-        setFilters({ projectId: value === "all" ? null : value as string });
-    };
-    
-    if (isLoading) return null;
-
-    const activeFilters = [assigneeId, !hideProjectFilter && projectId, !hideDateFilter && dueDate, !hideStatusFilter && status]
-        .filter(Boolean).length;
+    // Me first, then everyone else (placeholders too), by name
+    const me = members?.documents.find((member) => member.userId === currentUser?.$id);
+    const others = (members?.documents ?? []).filter((member) => member.$id !== me?.$id)
+        .sort((a, b) => a.name.localeCompare(b.name));
+    const personCount = (memberId: string | undefined) => (memberId && facets ? facets.people[memberId] ?? 0 : undefined);
+    const nothingPicked = !statuses.length && !filter.starred && !filter.overdue;
+    const active = filter.people.length + statuses.length + Number(filter.starred) + Number(filter.overdue);
 
     return (
-        <div className="flex flex-col lg:flex-row gap-2 lg:gap-3">
-            <div className="flex gap-2">
-            <div className="relative w-full lg:w-64">
-                <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-                <Input
-                    id="task-search"
-                    type="search"
-                    value={searchText}
-                    onChange={(e) => setSearchText(e.target.value)}
-                    placeholder="Search tasks..."
-                    aria-label="Search tasks"
-                    className="pl-8 h-9 lg:h-8 min-h-0"
-                />
-                <kbd className="hidden lg:inline absolute right-2 top-1/2 -translate-y-1/2 rounded border bg-muted px-1.5 text-[10px] text-muted-foreground pointer-events-none">/</kbd>
-            </div>
-            {/* Phones: the filters fold away behind this button */}
-            <Button
-                type="button"
-                variant={filtersOpen || activeFilters ? "secondary" : "outline"}
-                className="h-9 shrink-0 gap-1.5 px-3 min-h-0 lg:hidden"
-                aria-expanded={filtersOpen}
-                aria-controls="task-filters"
-                onClick={() => setFiltersOpen((open) => !open)}
-            >
-                <SlidersHorizontalIcon className="size-4" />
-                Filters
-                {activeFilters > 0 && (
-                    <span className="rounded-full bg-primary px-1.5 text-[10px] leading-4 text-primary-foreground">{activeFilters}</span>
+        <div className="rounded-lg border border-border/70 text-sm" data-testid="task-filters">
+            <FilterRow label="Search">
+                <div className="relative min-w-[12rem] flex-1">
+                    <SearchIcon className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        id="task-search"
+                        type="search"
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lockIn(); } }}
+                        placeholder="Search: theo in review, overdue, starred…"
+                        aria-label="Search tasks"
+                        className="h-7 min-h-0 pl-7 text-xs"
+                    />
+                </div>
+                {!hideDateFilter && (
+                    <SimpleDatePicker
+                        placeholder="Due date"
+                        size="sm"
+                        className="h-7 text-xs"
+                        value={dueDate ? new Date(dueDate) : undefined}
+                        onChange={(date) => setUrl({ dueDate: date ? date.toISOString() : null })}
+                    />
                 )}
-            </Button>
-            </div>
-
-            <div
-                id="task-filters"
-                className={cn("grid grid-cols-2 gap-2 lg:flex lg:gap-3", !filtersOpen && "hidden lg:flex")}
-            >
-
-            <Select
-                defaultValue={assigneeId ?? undefined} 
-                onValueChange={(value) => {onAssigneeChange(value)}} 
-            >
-                <SelectTrigger className="w-full lg:w-auto h-9 lg:h-8 min-h-0" aria-label="Filter by assignee"> 
-                    <div className="flex items-center pr-2"> 
-                        <UserIcon className="size-4 mr-2 text-emerald-600" /> 
-                        <SelectValue placeholder="All assignees" /> 
-                    </div> 
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">All assignees</SelectItem>
-                    <SelectSeparator />
-                    {memberOptions?.map( (member) => (
-                    <SelectItem key={member.value} value={member.value}>
-                        {member.label}
-                    </SelectItem>
-                    ))}
-                </SelectContent >
-            </Select>
-
-            {!hideProjectFilter && ( 
-                <Select
-                    defaultValue={projectId ?? undefined} 
-                    onValueChange={(value) => {onProjectChange(value)}} 
-                >
-                <SelectTrigger className="w-full lg:w-auto h-9 lg:h-8 min-h-0" aria-label="Filter by project"> 
-                    <div className="flex items-center pr-2"> 
-                        <FolderIcon className="size-4 mr-2 text-purple-600" /> 
-                        <SelectValue placeholder="All projects" /> 
-                    </div> 
-                </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All projects</SelectItem>
-                        {/* Personal tasks; the API reads projectId=none as "no project" */}
-                        <SelectItem value="none">No project</SelectItem>
-                        <SelectSeparator />
-                        {projectOptions?.map( (project) => (
-                        <SelectItem key={project.value} value={project.value}>
-                            {project.label}
-                        </SelectItem>
-                        ))}
-                    </SelectContent >
-                </Select>
-            )}
-
-            {!hideDateFilter && (
-                <SimpleDatePicker
-                    placeholder="Due date"
-                    size="sm"
-                    // Same height as the other filters on phones
-                    className="h-9 lg:h-8"
-                    value={dueDate ? new Date(dueDate) : undefined}
-                    onChange={ (date) => {
-                    setFilters ({ dueDate: date ? date.toISOString() : null })
-                    }}
-                />
-            )}
-
-            {!hideStatusFilter && (
-                <Select
-                    defaultValue={status ?? undefined} 
-                    onValueChange={(value) => {onStatusChange(value)}} 
-                >
-                    <SelectTrigger className="w-full lg:w-auto h-9 lg:h-8 min-h-0" aria-label="Filter by status"> 
-                        <div className="flex items-center pr-2"> 
-                            <ListChecksIcon className="size-4 mr-2 text-blue-600" /> 
-                            <SelectValue placeholder="All statuses" /> 
-                        </div> 
+                <Select value={taskSort} onValueChange={(value) => savePreferences({ taskSort: value as UserPreferences["taskSort"] })}>
+                    <SelectTrigger className="h-7 min-h-0 w-auto gap-1 text-xs" aria-label="Sort">
+                        <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All statuses</SelectItem>
-                        <SelectSeparator />
-                        <SelectItem value={TaskStatus.BACKLOG}>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-slate-500"></div>
-                                Backlog
-                            </div>
-                        </SelectItem>
-                        <SelectItem value={TaskStatus.TODO}>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                                Todo
-                            </div>
-                        </SelectItem>
-                        <SelectItem value={TaskStatus.IN_PROGRESS}>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                                In Progress
-                            </div>
-                        </SelectItem>
-                        <SelectItem value={TaskStatus.IN_REVIEW}>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-blue-600"></div>
-                                In Review
-                            </div>
-                        </SelectItem>
-                        <SelectItem value={TaskStatus.DONE}>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-emerald-600"></div>
-                                Done
-                            </div>
-                        </SelectItem>
-                    </SelectContent >
+                        {TASK_SORTS.map((sort) => <SelectItem key={sort} value={sort}>{SORT_LABELS[sort]}</SelectItem>)}
+                    </SelectContent>
                 </Select>
+                {/* Phones: the rows below fold away behind this */}
+                <Button
+                    type="button"
+                    variant={filtersOpen || active ? "secondary" : "outline"}
+                    className="h-7 min-h-0 shrink-0 gap-1 px-2 text-xs lg:hidden"
+                    aria-expanded={filtersOpen}
+                    aria-controls="task-filter-rows"
+                    onClick={() => setFiltersOpen((open) => !open)}
+                >
+                    <SlidersHorizontalIcon className="size-3.5" />
+                    Filters
+                    {active > 0 && <span className="rounded-full bg-primary px-1.5 text-[10px] leading-4 text-primary-foreground">{active}</span>}
+                </Button>
+            </FilterRow>
+            {search && understood.length > 0 && (
+                <p className="border-t border-border/70 px-2 py-1 text-[11px] text-muted-foreground" aria-live="polite" data-testid="search-understood">
+                    Showing <span className="font-semibold text-foreground">{understood.join(" · ")}</span>
+                    <span className="hidden sm:inline"> · Enter turns these into filters · &quot;quotes&quot; search names only</span>
+                </p>
             )}
+
+            <div id="task-filter-rows" className={cn(!filtersOpen && "hidden lg:block")}>
+                <FilterRow label="Show">
+                    <FilterChip pressed={filter.people.length === 0} onClick={() => setFilter({ people: [] })} count={facets?.everyone}>
+                        Everyone
+                    </FilterChip>
+                    {me && (
+                        <FilterChip pressed={filter.people.includes("me")} onClick={() => togglePerson("me")} count={personCount(me.$id)}>
+                            <span aria-hidden><MemberAvatar name={me.name} className="size-4" fallbackClassName="text-[8px]" /></span>
+                            Me
+                        </FilterChip>
+                    )}
+                    {others.map((member) => (
+                        <FilterChip key={member.$id} pressed={filter.people.includes(member.$id)} onClick={() => togglePerson(member.$id)} count={personCount(member.$id)}>
+                            <span aria-hidden><MemberAvatar name={member.name} className="size-4" fallbackClassName="text-[8px]" /></span>
+                            {member.name}
+                        </FilterChip>
+                    ))}
+                </FilterRow>
+
+                <FilterRow label="Filter">
+                    <FilterChip
+                        pressed={nothingPicked}
+                        onClick={() => { setFilter({ statuses: [], starred: false, overdue: false }); setUrl({ status: null }); }}
+                        count={facets?.allStatuses}
+                    >
+                        All
+                    </FilterChip>
+                    {STATUS_CHIPS.map(({ status, label, dot }) => (
+                        <FilterChip key={status} pressed={statuses.includes(status)} onClick={() => toggleStatus(status)} count={facets ? facets.statuses[status] ?? 0 : undefined}>
+                            <span className={cn("size-1.5 rounded-full", dot)} aria-hidden />
+                            {label}
+                        </FilterChip>
+                    ))}
+                    <span className="mx-0.5 h-3.5 w-px bg-border" aria-hidden />
+                    <FilterChip pressed={filter.starred} onClick={() => setFilter({ starred: !filter.starred })} count={facets?.starred}>
+                        <StarIcon className={cn("size-3", filter.starred ? "fill-current" : "fill-amber-400 text-amber-500")} aria-hidden />
+                        Starred
+                    </FilterChip>
+                    <FilterChip pressed={filter.overdue} onClick={() => setFilter({ overdue: !filter.overdue })} count={facets?.overdue}>
+                        Overdue
+                    </FilterChip>
+                    <button type="button" onClick={reset} className="ml-auto h-6 min-h-0 px-1 text-xs font-semibold text-primary hover:underline">
+                        Reset
+                    </button>
+                </FilterRow>
+
+                {!hideProjectFilter && (
+                    <FilterRow label="Projects">
+                        <ProjectVisibility workspaceId={workspaceId} compact />
+                    </FilterRow>
+                )}
             </div>
         </div>
     );

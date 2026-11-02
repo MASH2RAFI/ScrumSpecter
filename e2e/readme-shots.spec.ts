@@ -48,6 +48,11 @@ test("README screenshots", async ({ browser, baseURL }) => {
         });
         expect(res.status(), await res.text()).toBe(200);
     }
+    // Due on a day with no time: the calendar spreads them over the working day
+    for (const [name, projectId, offset, assignee] of [["Launch checklist", website, 1, me], ["App review notes", mobile, 3, tom]] as const) {
+        const res = await createTask(admin.api, { workspaceId: workspace.$id, projectId, assigneeId: assignee, name, status: "TODO", dueDate: day(offset), storyPoints: 2 });
+        expect(res.status(), await res.text()).toBe(200);
+    }
     const routine = await admin.api.post("/api/routines", {
         data: { workspaceId: workspace.$id, name: "Standup", projectId: website, assigneeIds: [me, tom], weekdays: [1, 2, 3, 4, 7], startTime: "09:30", durationMinutes: 15, timeZone: "Asia/Dhaka" },
     });
@@ -91,6 +96,10 @@ test("README screenshots", async ({ browser, baseURL }) => {
                 await page.waitForTimeout(1000);
                 await shot("task-panel");
                 await page.keyboard.press("Escape");
+
+                await page.goto(`${base}/tasks?task-view=calendar&cal=week`, { timeout: 120_000 });
+                await settle(page);
+                await shot("calendar");
 
                 await page.goto(`${base}/analytics`, { timeout: 120_000 });
                 await settle(page);

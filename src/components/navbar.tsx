@@ -11,17 +11,13 @@ import { HeadingReveal } from "./motion";
 import { openQuickJump } from "./command-palette";
 
 const pathnameMap =  {
-    "starred": {
-        title: "Starred",
-        description: "Your starred tasks and routines, from every workspace",
-    },
     "tasks": {
         title: "My Tasks",
         description: "View all of your tasks here",
     },
     "projects": {
-        title: "My Project",
-        description: "View tasks of your project here"
+        title: "Projects",
+        description: "Your projects, their sprints and tasks"
     },
     "members": {
         title: "Members",
@@ -36,12 +32,13 @@ const pathnameMap =  {
         description: "Set up tasks that repeat every week",
     },
     "requests": {
-        title: "Change requests",
+        // The sidebar's name; short enough for a phone's header
+        title: "Requests",
         description: "Task changes waiting for an admin or supervisor",
     },
     "analytics": {
-        title: "Analytics Dashboard",
-        description: "View analytics and reports here"
+        title: "Analytics",
+        description: "Capacity, burndown, velocity and sprint reports"
     },
 };
 

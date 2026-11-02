@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Builds the visual inspector page from e2e/inspect.spec.ts's captures: each scene's desktop and
-// phone screenshots side by side, with what is being fixed.
+// Builds the visual inspector page from e2e/inspect.spec.ts's captures: for each scene, light and
+// dark rows, each with the desktop and phone screenshots side by side, grouped by area.
 // Usage: INSPECT=<folder> npx playwright test e2e/inspect.spec.ts && node scripts/inspect-report.mjs <folder>
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -13,16 +13,25 @@ if (!dir) {
 const { taken, scenes } = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8"));
 const esc = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const when = new Date(taken).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Dhaka" });
+const groups = [...new Set(scenes.map((scene) => scene.group ?? "Screens"))];
+const shot = (scene, theme, view) => scene.shots.find((s) => s.theme === theme && s.view === view)?.file;
 
-const sections = scenes.map((scene, i) => `
-  <section id="${esc(scene.id)}">
-    <h2><span class="num">${i + 1}</span>${esc(scene.title)}</h2>
-    <p class="note">${esc(scene.note)}</p>
-    <div class="pair">
-      <figure class="desktop"><figcaption>Desktop · 1440 × 900</figcaption><img src="${esc(scene.shots.desktop)}" alt="${esc(scene.title)}, desktop" loading="lazy"></figure>
-      <figure class="mobile"><figcaption>Phone · 390 × 844</figcaption><img src="${esc(scene.shots.mobile)}" alt="${esc(scene.title)}, phone" loading="lazy"></figure>
-    </div>
-  </section>`).join("");
+const row = (scene, theme) => `
+      <div class="pair">
+        <figure class="desktop"><figcaption>${theme === "dark" ? "Dark" : "Light"} · desktop 1440 × 900</figcaption><img src="${esc(shot(scene, theme, "desktop"))}" alt="${esc(scene.title)}, ${theme}, desktop" loading="lazy"></figure>
+        <figure class="mobile"><figcaption>${theme === "dark" ? "Dark" : "Light"} · phone 390 × 844</figcaption><img src="${esc(shot(scene, theme, "mobile"))}" alt="${esc(scene.title)}, ${theme}, phone" loading="lazy"></figure>
+      </div>`;
+
+let n = 0;
+const sections = groups.map((group) => `
+  <h2 class="group" id="g-${esc(group.toLowerCase().replace(/\W+/g, "-"))}">${esc(group)}</h2>
+  ${scenes.filter((scene) => (scene.group ?? "Screens") === group).map((scene) => `
+    <section id="${esc(scene.id)}">
+      <h3><span class="num">${++n}</span>${esc(scene.title)}</h3>
+      <p class="note">${esc(scene.note)}</p>
+      ${row(scene, "light")}
+      ${row(scene, "dark")}
+    </section>`).join("")}`).join("");
 
 writeFileSync(join(dir, "index.html"), `<!DOCTYPE html>
 <html lang="en">
@@ -39,13 +48,14 @@ writeFileSync(join(dir, "index.html"), `<!DOCTYPE html>
   header { padding: 28px 16px 8px; max-width: 1400px; margin: 0 auto; }
   h1 { margin: 0 0 4px; font-size: 24px; }
   .meta { color: var(--muted); margin: 0; }
-  nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-  nav a { color: var(--accent); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; background: var(--card); font-size: 13px; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+  nav a { color: var(--accent); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; background: var(--card); font-size: 13px; }
   main { max-width: 1400px; margin: 0 auto; padding: 8px 16px 48px; }
-  section { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-top: 18px; }
-  h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: 18px; }
-  .num { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--card); font-size: 13px; }
-  .note { margin: 0 0 14px; color: var(--muted); max-width: 90ch; }
+  h2.group { margin: 32px 0 0; font-size: 20px; padding-bottom: 6px; border-bottom: 2px solid var(--accent); }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-top: 16px; display: grid; gap: 12px; }
+  h3 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 17px; }
+  .num { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 13px; background: var(--accent); color: var(--card); font-size: 13px; }
+  .note { margin: 0; color: var(--muted); max-width: 90ch; }
   .pair { display: grid; grid-template-columns: minmax(0, 3.7fr) minmax(0, 1fr); gap: 16px; align-items: start; }
   figure { margin: 0; }
   figcaption { font-size: 12px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
@@ -57,8 +67,8 @@ writeFileSync(join(dir, "index.html"), `<!DOCTYPE html>
 <body>
 <header>
   <h1>ScrumSpecter Inspector</h1>
-  <p class="meta">What's being fixed, desktop and phone side by side. Captured ${esc(when)} (Dhaka) from the local test build.</p>
-  <nav>${scenes.map((scene, i) => `<a href="#${esc(scene.id)}">${i + 1}. ${esc(scene.title)}</a>`).join("")}</nav>
+  <p class="meta">${scenes.length} screens, each in light and dark at desktop and phone size. Captured ${esc(when)} (Dhaka) from the local test build.</p>
+  <nav>${groups.map((group) => `<a href="#g-${esc(group.toLowerCase().replace(/\W+/g, "-"))}">${esc(group)}</a>`).join("")}</nav>
 </header>
 <main>${sections}
 </main>

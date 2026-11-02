@@ -24,7 +24,7 @@ const PHONE = { width: 390, height: 844 };
 const TOP_BAR = 71;
 // At most this many screens from the Home capture
 const HOME_SCREENS = 4;
-const DESKTOP_VIEWS = ["home", "kanban", "table", "task-panel", "analytics", "routines"];
+const DESKTOP_VIEWS = ["home", "kanban", "table", "task-panel", "calendar", "analytics", "routines"];
 const THEMES = {
     light: { page: "#E8ECE9", edge: "#CFD8D2" },
     dark: { page: "#0C110E", edge: "#2B3530" },

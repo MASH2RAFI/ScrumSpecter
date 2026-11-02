@@ -157,3 +157,31 @@ test("date format, My Tasks defaults and Kanban options follow the account", asy
     const width = async (id: string) => (await page.locator(`[data-rfd-droppable-id="${id}"]`).boundingBox())!.width;
     expect(await width("IN_REVIEW")).toBeLessThan(await width("TODO") / 1.5);
 });
+
+test("projects hidden in My Tasks are left out of Home too", async () => {
+    // A workspace of its own, so other tests' tasks don't change the counts
+    const ws = (await createWorkspace(user.api, "Hidden on Home")).$id;
+    const me = (await getMembers(user.api, ws))[0].$id;
+    const shown = (await createProject(user.api, ws, "Shown project")).$id;
+    const hidden = (await createProject(user.api, ws, "Hidden project")).$id;
+    for (const [projectId, name] of [[shown, "Visible task"], [hidden, "Secret task 1"], [hidden, "Secret task 2"]]) {
+        expect((await createTask(user.api, { workspaceId: ws, projectId, assigneeId: me, name })).status()).toBe(200);
+    }
+    const week = { weekFrom: new Date(Date.now() - 7 * 86_400_000).toISOString(), weekTo: new Date(Date.now() + 7 * 86_400_000).toISOString() };
+    const summary = async (excludeProjects?: string) =>
+        (await (await user.api.get("/api/tasks/summary", { params: { workspaceId: ws, ...week, ...(excludeProjects && { excludeProjects }) } })).json()).data;
+    expect((await summary()).total).toBe(3);
+    const filtered = await summary(hidden);
+    expect(filtered.total).toBe(1);
+    expect(filtered.projects.map((row: { projectId: string }) => row.projectId)).toEqual([shown]);
+
+    expect((await user.api.patch("/api/account/preferences", { data: { hiddenProjects: [hidden] } })).status()).toBe(200);
+    await page.goto(`/workspaces/${ws}`, { timeout: 90_000 });
+    // Home's own project cards (the sidebar still lists every project, to get to it)
+    const home = page.getByRole("main");
+    await expect(home.getByText("Shown project", { exact: true }).first()).toBeVisible();
+    await expect(home.getByText("Hidden project", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("1 hidden in My Tasks")).toBeVisible();
+    await expect(page.getByText("Secret task 1")).toHaveCount(0);
+    expect((await user.api.patch("/api/account/preferences", { data: { hiddenProjects: [] } })).status()).toBe(200);
+});

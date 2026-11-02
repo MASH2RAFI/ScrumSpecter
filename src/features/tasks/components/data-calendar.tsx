@@ -34,6 +34,8 @@ import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 
 import { Task } from "../types";
 import { useUpdateTask } from "../api/use-update-task";
+import { useDeleteTask } from "../api/use-delete-task";
+import { DropBin, useDropBin } from "@/components/drop-bin";
 import { toastWithUndo } from "../api/undo";
 import { useCalendarPrefs } from "@/features/auth/hooks/use-calendar-prefs";
 import { useCreateTaskModal } from "../hooks/use-create-task-modal";
@@ -58,6 +60,8 @@ interface CalendarEvent {
     end: Date;
     task: Task;
     allDay: boolean;
+    // A task with a due date but no time block, drawn over the working day on the week/day grid
+    untimed?: boolean;
 }
 
 const DnDCalendar = withDragAndDrop<CalendarEvent>(Calendar);
@@ -165,6 +169,51 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
     const [dropDate, setDropDate] = useState<string | null>(null);
     const [draggedTask, setDraggedTask] = useState<Task | null>(null);
     const [dayPopup, setDayPopup] = useState<{ tasks: Task[]; date: Date; position: { x: number; y: number } } | null>(null);
+
+    // The bin (for people who may delete). Month cards and the Unscheduled panel use the browser's
+    // own drag, so the bin is a normal drop target for them; the week/day grid's drags are the
+    // calendar's own, so there it's found by the pointer's position when the drag ends.
+    const { mutate: deleteTask } = useDeleteTask();
+    const [nativeDragging, setNativeDragging] = useState(false);
+    const [gridDragging, setGridDragging] = useState(false);
+    const [overBin, setOverBin] = useState(false);
+    const binRef = useRef<HTMLDivElement>(null);
+    // Set when a grid drag ends on the bin, so the calendar's own drop doesn't also move it
+    const droppedInBin = useRef(false);
+    const { bin } = useDropBin((taskId) => {
+        setNativeDragging(false);
+        deleteTask({ param: { taskId } });
+    }, TASK_DRAG_TYPE);
+    // The calendar reports a drag on mouse-down, before any move. Nothing renders until the pointer
+    // really moves: a render mid-click rebuilt the card under it, and the click (open) was lost.
+    const beginGridDrag = (task: Task) => {
+        const origin = { ...pointer.current };
+        let moving = false;
+        const onBin = (event: PointerEvent) => {
+            const box = binRef.current?.getBoundingClientRect();
+            return Boolean(box && event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom);
+        };
+        const onMove = (event: PointerEvent) => {
+            if (!moving && Math.hypot(event.clientX - origin.x, event.clientY - origin.y) < 5) return;
+            if (!moving) setGridDragging(true);
+            moving = true;
+            setOverBin(onBin(event));
+        };
+        const onUp = (event: PointerEvent) => {
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+            if (!moving) return;
+            if (onBin(event)) {
+                droppedInBin.current = true;
+                setTimeout(() => { droppedInBin.current = false; }, 0);
+                deleteTask({ param: { taskId: task.$id } });
+            }
+            setGridDragging(false);
+            setOverBin(false);
+        };
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+    };
     const pointer = useRef({ x: 0, y: 0 });
 
     const localizer = useMemo(() => dateFnsLocalizer({
@@ -200,18 +249,28 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
     const scheduled = useMemo(() => data.filter((task) => task.dueDate), [data]);
     const unscheduled = useMemo(() => data.filter((task) => !task.dueDate).sort((a, b) => a.name.localeCompare(b.name)), [data]);
 
-    // One event per task: timed tasks as blocks, the rest all day on their due date
+    // One event per task: timed tasks as blocks; the rest on their due date (month) or across it (week/day)
     const events: CalendarEvent[] = useMemo(() => [...scheduled].sort(byTimeThenName).map((task) => {
         const range = task.startAt ? taskTimeRange(task.startAt, task.durationMinutes) : null;
-        // Tasks saved as 00:00 + whole days (before the all-day fix) still show all day
-        if (range && !isWholeDays(range.start, range.end)) {
-            const { start, end } = range;
+        if (range) {
+            const { start } = range;
+            // Ending exactly at the next midnight, the calendar would move it to the all-day row;
+            // drawn a minute short, it stays in the time slots (the task keeps its real end)
+            const end = range.end.getHours() === 0 && range.end.getMinutes() === 0 && range.end > start
+                ? new Date(range.end.getTime() - 60_000) : range.end;
             // Month view places events by their day; keep timed ones on the due date's cell
             return { id: task.$id, title: task.name, start, end, task, allDay: false };
         }
         const day = fromDayKey(dayKey(new Date(task.dueDate)));
-        return { id: task.$id, title: task.name, start: day, end: day, task, allDay: true };
-    }), [scheduled]);
+        if (view === "month") return { id: task.$id, title: task.name, start: day, end: day, task, allDay: true };
+        // Week/day: in the timeline, across the working day (or the visible hours, if it's outside them)
+        const at = (hours: number) => new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, Math.round(hours * 60));
+        const from = Math.max(prefs.workDay.start, prefs.startHour);
+        const to = Math.min(prefs.workDay.end, prefs.endHour);
+        const [startH, endH] = from < to ? [from, to] : [prefs.startHour, prefs.endHour];
+        // A minute short of midnight, like timed blocks, to stay out of the all-day row
+        return { id: task.$id, title: task.name, start: at(startH), end: at(endH === 24 ? 24 - 1 / 60 : endH), task, allDay: false, untimed: true };
+    }), [scheduled, view, prefs.workDay.start, prefs.workDay.end, prefs.startHour, prefs.endHour]);
 
     // Week/day grid bounds from the visible-hours setting
     const min = new Date(1970, 0, 1, prefs.startHour);
@@ -223,20 +282,23 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
 
     // Drag/resize in week & day views: a drop on the all-day row clears the time
     const moveTask = ({ event, start, end, isAllDay }: EventInteractionArgs<CalendarEvent>) => {
-        if (!canReschedule) return;
+        if (!canReschedule || droppedInBin.current) return;
         const startDate = new Date(start);
         const day = fromDayKey(dayKey(startDate));
         warnIfHoliday(day);
 
-        if (isAllDay) {
+        // A whole-day block only changes day; a time is set in the task itself
+        if (isAllDay || event.untimed) {
             reschedule(event.task, { dueDate: day, startAt: null, durationMinutes: null });
             return;
         }
-        const minutes = Math.max(prefs.slotMinutes, Math.round((new Date(end).getTime() - startDate.getTime()) / 60_000));
+        // To 5 minutes: a task ending at midnight is drawn a minute short (see events), and a move
+        // keeps its real length
+        const minutes = Math.max(prefs.slotMinutes, Math.round((new Date(end).getTime() - startDate.getTime()) / 300_000) * 5);
         reschedule(event.task, {
             dueDate: day,
             startAt: startDate.toISOString(),
-            // An all-day task dropped into the grid gets the default length
+            // An all-day task moved to a time gets the default length
             durationMinutes: event.allDay ? Math.max(DEFAULT_DURATION_MINUTES, prefs.slotMinutes) : minutes,
         });
     };
@@ -325,22 +387,37 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
         );
     };
 
-    // Week/day column header: weekday + date, and why the day is off (holiday or weekend)
-    const TimeHeader = ({ date, label }: { date: Date; label: ReactNode }) => {
+    // Why a day is off: a holiday, or the workspace's weekend
+    const dayOff = (date: Date) => {
         const holiday = holidaysByDay.get(dayKey(date));
-        const off = holiday
+        return holiday
             ? { name: holiday.name, title: `${holiday.source === "public" ? "Public holiday" : "Workspace day off"}: ${holiday.name}` }
             : weekend.has(date.getDay()) ? { name: "Weekend", title: "Weekend" } : null;
+    };
+
+    // Week/day column header: weekday + date (the reason a day is off sits in the all-day strip below)
+    const TimeHeader = ({ date, label }: { date: Date; label: ReactNode }) => {
+        const off = dayOff(date);
         return (
-            <div className="flex flex-col items-center leading-tight">
-                <span>{label}</span>
-                {off && <span className="holiday-label truncate max-w-full" title={off.title}>{off.name}</span>}
+            <div className="flex flex-col items-center leading-tight" title={off?.title}>
+                <span className="hidden sm:inline">{label}</span>
+                {/* Phones: a week's seven columns are narrow, so the day's letter over its date; a day off is a red date */}
+                <span className="flex flex-col items-center sm:hidden" aria-label={typeof label === "string" ? label : undefined}>
+                    <span>{format(date, "EEEEE")}</span>
+                    <span className={cn("font-semibold", off && "text-destructive")}>{format(date, "d")}</span>
+                </span>
             </div>
         );
     };
 
     return (
-        <div className="flex w-full flex-col rounded-lg border bg-background">
+        <div
+            className="flex w-full flex-col rounded-lg border bg-background"
+            // Month cards and Unscheduled cards: show the bin while one is dragged (capture: the
+            // cards stop their dragstart from bubbling)
+            onDragStartCapture={(e) => { if (canEditWork && (e.target as Element).closest?.("[data-task-id][draggable=true]")) setNativeDragging(true); }}
+            onDragEndCapture={() => setNativeDragging(false)}
+        >
             <div className="border-b px-3 py-2">
                 <CalendarToolbar
                     title={title(value, view, weekStart)}
@@ -400,8 +477,9 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
                         // Week/day: drag blocks to move, drag the bottom edge to resize (admins)
                         draggableAccessor={() => view !== "month" && canReschedule}
                         resizable
-                        resizableAccessor={(event) => view !== "month" && canReschedule && !event.allDay}
+                        resizableAccessor={(event) => view !== "month" && canReschedule && !event.allDay && !event.untimed}
                         onEventDrop={moveTask}
+                        onDragStart={({ event, action }) => { if (action === "move" && canEditWork) beginGridDrag(event.task); }}
                         onEventResize={moveTask}
                         // Typed as an accessor, but react-big-calendar calls it for the dragged event itself
                         dragFromOutsideItem={view !== "month" && draggedTask
@@ -412,7 +490,10 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
                         selectable={canEditWork}
                         onSelectSlot={(slotInfo) => {
                             if (!canEditWork) return;
-                            if (view === "month" || isWholeDays(slotInfo.start, slotInfo.end)) {
+                            // Selections in the time slots come with a box (click) or bounds (drag); the
+                            // all-day row's don't. A whole day selected in the slots stays a timed task.
+                            const fromAllDayRow = !slotInfo.box && !slotInfo.bounds;
+                            if (view === "month" || fromAllDayRow) {
                                 // A day (month cell or all-day row): new all-day task on it
                                 warnIfHoliday(slotInfo.start);
                                 openCreateTask(undefined, { start: slotInfo.start, durationMinutes: 0 });
@@ -440,10 +521,16 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
                             eventTimeRangeFormat: () => "",
                         }}
                         components={{
-                            // Tag each day cell with its date so drops can find it
-                            dateCellWrapper: ({ children, value: cellDate }) => isValidElement(children)
-                                ? cloneElement(children as ReactElement, { "data-date": dayKey(cellDate) } as Record<string, unknown>)
-                                : <>{children}</>,
+                            // Tag each day cell with its date so drops can find it. Week/day: these cells are
+                            // the all-day strip, which says why a day is off
+                            dateCellWrapper: ({ children, value: cellDate }) => {
+                                if (!isValidElement(children)) return <>{children}</>;
+                                const off = view === "month" ? null : dayOff(cellDate);
+                                return cloneElement(children as ReactElement, {
+                                    "data-date": dayKey(cellDate),
+                                    ...(off && { children: <span className="holiday-label day-off-label" title={off.title}>{off.name}</span> }),
+                                } as Record<string, unknown>);
+                            },
                             month: { dateHeader: MonthDateHeader },
                             week: { header: TimeHeader },
                             day: { header: TimeHeader },
@@ -452,7 +539,7 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
                                     task={event.task}
                                     variant={view === "month" ? "month" : event.allDay ? "allday" : "block"}
                                     // Under about 1.5 grid rows there's only room for one line
-                                    compact={!event.allDay && (event.end.getTime() - event.start.getTime()) / 60_000 < prefs.slotMinutes * 1.5}
+                                    compact={!event.allDay && !event.untimed && (event.end.getTime() - event.start.getTime()) / 60_000 < prefs.slotMinutes * 1.5}
                                     // Month cards use native drag (onto another day); the grid uses the calendar's own
                                     draggable={view === "month" && canReschedule}
                                     onOpen={view === "month" ? openTask : undefined}
@@ -480,6 +567,9 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
                 onClose={() => setDayPopup(null)}
                 position={dayPopup?.position ?? { x: 0, y: 0 }}
             />
+            {canEditWork && (
+                <DropBin ref={binRef} {...bin} visible={nativeDragging || gridDragging} over={bin.over || overBin} label="Drop to delete" />
+            )}
         </div>
     );
 };

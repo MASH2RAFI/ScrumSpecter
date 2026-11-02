@@ -128,10 +128,12 @@ export const MembersList = ({ onClose }: { onClose?: () => void }) => {
                                             size="sm"
                                             onClick={handleLeaveWorkspace}
                                             disabled={isLeavingWorkspace || isLastAdmin}
-                                            className="text-xs"
-                                            title={isLastAdmin ? "Cannot leave as the only admin. Promote another member to admin first." : ""}
+                                            className="shrink-0 text-xs"
+                                            title={isLastAdmin ? "You can't leave as the only admin. Make someone else an admin first." : ""}
+                                            aria-label={isLastAdmin ? "Can't leave: you're the only admin" : "Leave workspace"}
                                         >
-                                            {isLastAdmin ? "Cannot Leave (Last Admin)" : "Leave Workspace"}
+                                            {/* Short, so the row fits a phone; the title and label explain */}
+                                            {isLastAdmin ? "Only admin" : "Leave"}
                                         </Button>
                                     )}
 

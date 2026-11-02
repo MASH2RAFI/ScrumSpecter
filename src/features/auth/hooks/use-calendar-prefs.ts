@@ -12,6 +12,8 @@ export type CalendarPrefs = {
     startHour: number;
     endHour: number;
     showUnscheduled: boolean;
+    // The workspace's working hours (9 to 18 if unset): all-day tasks fill them on the week/day grid
+    workDay: { start: number; end: number };
 };
 
 // "09:30" -> 9.5
@@ -38,6 +40,7 @@ export const useCalendarPrefs = () => {
         startHour,
         endHour,
         showUnscheduled: preferences.calendarShowUnscheduled,
+        workDay: workDay ?? { start: 9, end: 18 },
     };
 
     const update = (changes: Partial<CalendarPrefs>) => save({

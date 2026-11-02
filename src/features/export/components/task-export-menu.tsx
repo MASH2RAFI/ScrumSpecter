@@ -18,6 +18,10 @@ export type ExportFilters = {
     from?: string;
     to?: string;
     excludeProjects?: string[];
+    starred?: boolean;
+    assignees?: string[];
+    statuses?: string[];
+    overdue?: boolean;
 };
 
 // The Tasks page's Export menu: the table's tasks (current filters) as CSV, and the calendar
@@ -29,8 +33,16 @@ export const TaskExportMenu = ({ filters, week, calendarRange }: {
     calendarRange?: { from: string; to: string } | null;
 }) => {
     const [pending, setPending] = useState(false);
-    const { excludeProjects, from, to, ...rest } = filters;
-    const common = { ...rest, excludeProjects: excludeProjects?.length ? [...excludeProjects].sort().join(",") : undefined };
+    const { excludeProjects, from, to, starred, assignees, statuses, overdue, ...rest } = filters;
+    const list = (values?: string[]) => (values?.length ? [...values].sort().join(",") : undefined);
+    const common = {
+        ...rest,
+        excludeProjects: list(excludeProjects),
+        assignees: list(assignees),
+        statuses: list(statuses),
+        starred: starred ? "true" : undefined,
+        overdue: overdue ? "true" : undefined,
+    };
 
     const run = async (query: Record<string, string | null | undefined>, filename: string) => {
         setPending(true);

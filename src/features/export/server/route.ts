@@ -138,7 +138,7 @@ const app = new Hono()
             if (member instanceof Response) return member;
 
             const timeZone = c.get("user").preferences.timeZone;
-            const filters = and(...baseFilters(q, member.$id), routineRule(q));
+            const filters = and(...baseFilters(q, member.$id, c.get("user").$id), routineRule(q));
 
             if (format === "csv") {
                 const [people, routineRows] = await Promise.all([

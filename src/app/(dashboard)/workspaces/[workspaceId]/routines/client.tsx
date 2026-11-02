@@ -1,6 +1,6 @@
 "use client";
 
-import { ClockIcon, PauseIcon, PencilIcon, PlayIcon, PlusIcon, RepeatIcon, TargetIcon, TrashIcon } from "lucide-react";
+import { ClockIcon, PauseIcon, PencilIcon, PlayIcon, PlusIcon, RepeatIcon, StarIcon, TargetIcon, TrashIcon } from "lucide-react";
 import { formatDuration } from "@/features/tasks/task-time";
 
 import { PageError } from "@/components/page-error";
@@ -25,6 +25,13 @@ import { isoWeekdayOrder } from "@/lib/week";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { cn } from "@/lib/utils";
 import { StarButton } from "@/features/stars/components/star-button";
+import { useGetStarIds } from "@/features/stars/api/use-stars";
+import { useCurrent } from "@/features/auth/api/use-current";
+import { EMPTY_ROUTINE_FILTER, ROUTINE_TAGS, type RoutineFilter } from "@/features/auth/preferences";
+import { MemberAvatar } from "@/features/members/components/member-avatar";
+import { FilterChip, FilterRow } from "@/features/tasks/components/data-filters";
+import { useRoutineFilter } from "@/features/tasks/hooks/use-saved-filters";
+import type { Routine } from "@/features/routines/types";
 
 export const RoutinesClient = () => {
     const workspaceId = useWorkspaceId();
@@ -34,6 +41,10 @@ export const RoutinesClient = () => {
     const { data: projects } = useGetProjects({ workspaceId });
     const { data: members } = useGetMembers({ workspaceId });
     const { mutate: updateRoutine, isPending: isUpdating } = useUpdateRoutine();
+    // The Routines page's own filter (independent of My Tasks), saved on the account
+    const { filter, setFilter } = useRoutineFilter(workspaceId);
+    const { data: starIds } = useGetStarIds(workspaceId);
+    const { data: currentUser } = useCurrent();
     const { mutate: deleteRoutine, isPending: isDeleting } = useDeleteRoutine();
     const { weekStart, hiddenRoutineProjects } = usePreferences();
     const orderedWeekdays = isoWeekdayOrder(weekStart).map((day) => WEEKDAYS.find((weekday) => weekday.value === day)!);
@@ -55,8 +66,27 @@ export const RoutinesClient = () => {
     }
 
     const hidden = new Set(hiddenRoutineProjects);
+    const me = members?.documents.find((member) => member.userId === currentUser?.$id);
+    const people = filter.people.map((id) => (id === "me" ? me?.$id ?? "" : id));
+    const TAGS: Record<RoutineFilter["tags"][number], { label: string; test: (routine: Routine) => boolean }> = {
+        active: { label: "Active", test: (routine) => routine.active },
+        paused: { label: "Paused", test: (routine) => !routine.active },
+        starred: { label: "Starred", test: (routine) => Boolean(starIds?.routineIds.includes(routine.$id)) },
+        personal: { label: "Personal", test: (routine) => !routine.projectId },
+    };
     // Personal routines (no project) have no eye to hide them
-    const visibleRoutines = routines.documents.filter((routine) => !(routine.projectId && hidden.has(routine.projectId)));
+    const shown = routines.documents.filter((routine) => !(routine.projectId && hidden.has(routine.projectId)));
+    // People: any of them; tags narrow together (Active + Starred = starred active routines)
+    const byPeople = (list: Routine[]) => people.length ? list.filter((routine) => people.some((id) => routine.assigneeIds.includes(id))) : list;
+    const byTags = (list: Routine[]) => list.filter((routine) => filter.tags.every((tag) => TAGS[tag].test(routine)));
+    const visibleRoutines = byTags(byPeople(shown));
+    const togglePerson = (id: string) =>
+        setFilter({ people: filter.people.includes(id) ? filter.people.filter((p) => p !== id) : [...filter.people, id] });
+    const toggleTag = (tag: RoutineFilter["tags"][number]) =>
+        setFilter({ tags: filter.tags.includes(tag) ? filter.tags.filter((t) => t !== tag) : [...filter.tags, tag] });
+    const others = (members?.documents ?? []).filter((member) => member.$id !== me?.$id).sort((a, b) => a.name.localeCompare(b.name));
+    const tagged = byTags(shown);
+    const peopled = byPeople(shown);
     const projectName = (id: string | null) => id ? projects?.documents.find((p) => p.$id === id)?.name ?? "Unknown project" : "Personal";
     const memberName = (ids: string[]) =>
         ids.map((id) => members?.documents.find((m) => m.$id === id)?.name).filter(Boolean).join(", ") || "Unassigned";
@@ -90,7 +120,41 @@ export const RoutinesClient = () => {
                 </Card>
             ) : (
                 <>
-                <ProjectVisibility workspaceId={workspaceId} setting="hiddenRoutineProjects" page="Routines" />
+                <div className="rounded-lg border border-border/70 bg-card text-sm" data-testid="routine-filters">
+                    <FilterRow label="Show">
+                        <FilterChip pressed={filter.people.length === 0} onClick={() => setFilter({ people: [] })} count={tagged.length}>Everyone</FilterChip>
+                        {me && (
+                            <FilterChip pressed={filter.people.includes("me")} onClick={() => togglePerson("me")} count={tagged.filter((r) => r.assigneeIds.includes(me.$id)).length}>
+                                <span aria-hidden><MemberAvatar name={me.name} className="size-4" fallbackClassName="text-[8px]" /></span>
+                                Me
+                            </FilterChip>
+                        )}
+                        {others.map((member) => (
+                            <FilterChip key={member.$id} pressed={filter.people.includes(member.$id)} onClick={() => togglePerson(member.$id)} count={tagged.filter((r) => r.assigneeIds.includes(member.$id)).length}>
+                                <span aria-hidden><MemberAvatar name={member.name} className="size-4" fallbackClassName="text-[8px]" /></span>
+                                {member.name}
+                            </FilterChip>
+                        ))}
+                    </FilterRow>
+                    <FilterRow label="Filter">
+                        <FilterChip pressed={filter.tags.length === 0} onClick={() => setFilter({ tags: [] })} count={peopled.length}>All</FilterChip>
+                        {ROUTINE_TAGS.map((tag) => (
+                            <FilterChip key={tag} pressed={filter.tags.includes(tag)} onClick={() => toggleTag(tag)} count={peopled.filter(TAGS[tag].test).length}>
+                                {tag === "starred" && <StarIcon className={cn("size-3", filter.tags.includes(tag) ? "fill-current" : "fill-amber-400 text-amber-500")} aria-hidden />}
+                                {TAGS[tag].label}
+                            </FilterChip>
+                        ))}
+                        <button type="button" onClick={() => setFilter(EMPTY_ROUTINE_FILTER)} className="ml-auto h-6 min-h-0 px-1 text-xs font-semibold text-primary hover:underline">
+                            Reset
+                        </button>
+                    </FilterRow>
+                    <FilterRow label="Projects">
+                        <ProjectVisibility workspaceId={workspaceId} setting="hiddenRoutineProjects" page="Routines" compact />
+                    </FilterRow>
+                </div>
+                {visibleRoutines.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No routines match this filter. Reset shows them all.</p>
+                )}
                 <RoutineWeek
                     routines={visibleRoutines}
                     projectName={projectName}

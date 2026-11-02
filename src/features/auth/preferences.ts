@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { isValidTimeZone } from "@/lib/time-zone";
+import { TaskStatus } from "@/features/tasks/types";
 
 // Per-user settings, stored in users.preferences (jsonb); shared by the server and the client
 
@@ -20,6 +21,31 @@ export const DATE_FORMATS = {
     mdy: "MM/dd/yyyy",
     iso: "yyyy-MM-dd",
 } as const;
+
+// The My Tasks filter (Home follows it) and the Routines filter, saved per workspace.
+// people: member ids, or "me"; none = everyone. Within a row, choices mean "any of"; starred and
+// overdue (and the routine tags) narrow further.
+const memberRef = z.string().min(1).max(64);
+export const taskFilterSchema = z.object({
+    people: z.array(memberRef).max(50),
+    statuses: z.array(z.nativeEnum(TaskStatus)).max(5),
+    starred: z.boolean(),
+    overdue: z.boolean(),
+});
+export type TaskFilter = z.infer<typeof taskFilterSchema>;
+export const EMPTY_TASK_FILTER: TaskFilter = { people: [], statuses: [], starred: false, overdue: false };
+
+export const ROUTINE_TAGS = ["active", "paused", "starred", "personal"] as const;
+export const routineFilterSchema = z.object({
+    people: z.array(memberRef).max(50),
+    tags: z.array(z.enum(ROUTINE_TAGS)).max(ROUTINE_TAGS.length),
+});
+export type RoutineFilter = z.infer<typeof routineFilterSchema>;
+export const EMPTY_ROUTINE_FILTER: RoutineFilter = { people: [], tags: [] };
+
+// One saved filter per workspace (at most 50 workspaces kept)
+const perWorkspace = <T extends z.ZodTypeAny>(schema: T) =>
+    z.record(memberRef, schema).refine((value) => Object.keys(value).length <= 50, "Too many workspaces");
 
 // My Tasks table's starting sort; "newest" is the server's own order
 export const TASK_SORTS = ["newest", "dueDate", "name", "storyPoints"] as const;
@@ -66,6 +92,8 @@ export const preferencesSchema = z.object({
     // Kanban: cards with the name only; empty columns narrowed to a strip (still drop targets)
     kanbanCompact: z.boolean(),
     kanbanShrinkEmpty: z.boolean(),
+    taskFilters: perWorkspace(taskFilterSchema),
+    routineFilters: perWorkspace(routineFilterSchema),
     // Secret in this person's calendar subscribe link (export feed); "" = no link yet. Set by the server only
     calendarFeedKey: z.string().max(64),
 });
@@ -99,6 +127,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
     showDoneInTable: true,
     kanbanCompact: false,
     kanbanShrinkEmpty: false,
+    taskFilters: {},
+    routineFilters: {},
 };
 
 // Stored values may be partial or from an older shape; anything invalid falls back to the default

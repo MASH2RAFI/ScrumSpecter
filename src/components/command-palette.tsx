@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDebounce } from "@/hooks/use-debounce";
-import { BarChart3Icon, CheckCircleIcon, CompassIcon, HomeIcon, KeyboardIcon, PanelLeftIcon, PlusIcon, RepeatIcon, SearchIcon, SettingsIcon, StarIcon, UsersIcon, type LucideIcon } from "lucide-react";
+import { BarChart3Icon, CheckCircleIcon, CompassIcon, HomeIcon, KeyboardIcon, PanelLeftIcon, PlusIcon, RepeatIcon, SearchIcon, SettingsIcon, UsersIcon, type LucideIcon } from "lucide-react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -125,7 +125,6 @@ export const CommandPalette = () => {
             { id: "shortcuts", group: "Actions", label: "Keyboard shortcuts", hint: "?", icon: KeyboardIcon, run: () => setShortcutsOpen(true) },
             { id: "tour", group: "Actions", label: "Take the tour", icon: CompassIcon, run: startTour },
             { id: "home", group: "Pages", label: "Home", icon: HomeIcon, run: go("") },
-            { id: "starred", group: "Pages", label: "Starred", icon: StarIcon, run: go("/starred") },
             { id: "tasks", group: "Pages", label: "My Tasks", icon: CheckCircleIcon, run: go("/tasks") },
             { id: "routines", group: "Pages", label: "Routines", icon: RepeatIcon, run: go("/routines") },
             { id: "members", group: "Pages", label: "Members", icon: UsersIcon, run: () => openPanel("members") },
@@ -136,7 +135,10 @@ export const CommandPalette = () => {
                 run: go(`/projects/${project.$id}`),
             })),
             ...(tasks?.documents ?? []).map((task) => ({
-                id: `task-${task.$id}`, group: "Tasks" as const, label: task.name, project: task.project?.name,
+                id: `task-${task.$id}`, group: "Tasks" as const, label: task.name,
+                // With the due date, so a routine's tasks (same name, different days) can be told apart
+                project: [task.project?.name, task.dueDate && new Date(task.dueDate).toLocaleDateString(undefined, { day: "numeric", month: "short" })]
+                    .filter(Boolean).join(" · ") || undefined,
                 run: () => openTask(task.$id),
             })),
         ];

@@ -13,7 +13,7 @@ import { MemberRole } from "@/features/members/types";
 import { requireMember, requireRole } from "@/features/members/utils";
 import { Project } from "@/features/projects/types";
 import { bulkEditSchema, createTaskSchema, restoreTasksSchema } from "../schemas";
-import { baseFilters, countTasks, toTaskDoc, hiddenRoutineCount, listQuerySchema, orderFor, routineRule, selectTasks, taskSummary } from "./task-list";
+import { baseFilters, countTasks, savedFilters, taskFacets, toTaskDoc, hiddenRoutineCount, listQuerySchema, orderFor, routineRule, selectTasks, taskSummary } from "./task-list";
 import { PopulatedAssignee, TaskStatus } from "../types";
 import { idString } from "@/lib/limits";
 import { assertRoom } from "@/lib/volume-caps";
@@ -172,7 +172,7 @@ const app = new Hono()
             }
             // assigneeId=me (resolved in baseFilters) lets a page ask for "my tasks" without first
             // waiting for the members list
-            const filters = baseFilters(q, member.$id);
+            const filters = baseFilters(q, member.$id, c.get("user").$id);
             const rule = routineRule(q);
             const where = and(...filters, rule);
 
@@ -209,6 +209,21 @@ const app = new Hono()
         }
     )
 
+    // The counts on My Tasks' filter chips, for the same query the table makes
+    .get(
+        "/facets",
+        sessionMiddleware,
+        zValidator("query", listQuerySchema),
+        async (c) => {
+            const q = c.req.valid("query");
+            const member = await requireMember(c, q.workspaceId, { error: MEMBER_NOT_FOUND });
+            if (member instanceof Response) {
+                return member;
+            }
+            return c.json({ data: await taskFacets(q, member.$id, c.get("user").$id) });
+        }
+    )
+
     // Home's numbers for this week, counted in the database
     .get(
         "/summary",
@@ -217,14 +232,19 @@ const app = new Hono()
             workspaceId: idString,
             weekFrom: z.string().datetime({ offset: true }),
             weekTo: z.string().datetime({ offset: true }),
+            excludeProjects: listQuerySchema.shape.excludeProjects,
+            assignees: listQuerySchema.shape.assignees,
+            statuses: listQuerySchema.shape.statuses,
+            starred: listQuerySchema.shape.starred,
+            overdue: listQuerySchema.shape.overdue,
         })),
         async (c) => {
-            const { workspaceId, weekFrom, weekTo } = c.req.valid("query");
+            const { workspaceId, weekFrom, weekTo, ...saved } = c.req.valid("query");
             const member = await requireMember(c, workspaceId, { error: MEMBER_NOT_FOUND });
             if (member instanceof Response) {
                 return member;
             }
-            return c.json({ data: await taskSummary(workspaceId, weekFrom, weekTo) });
+            return c.json({ data: await taskSummary(workspaceId, weekFrom, weekTo, savedFilters(saved, member.$id, c.get("user").$id)) });
         }
     )
 

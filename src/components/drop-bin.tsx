@@ -14,7 +14,7 @@ type DropBinProps = HTMLAttributes<HTMLDivElement> & {
     label: string;
 };
 
-// The bin that appears at the bottom of the page while an item is dragged; dropping on it deletes
+// The bin that appears at the right edge of the page while an item is dragged; dropping on it deletes
 // (or withdraws) the item. Faded in rather than mounted, so it's in place when the drag starts.
 // The menus and buttons stay as the non-drag way to do the same.
 export const DropBin = ({ ref, visible, over, label, className, ...props }: DropBinProps) => (
@@ -24,13 +24,13 @@ export const DropBin = ({ ref, visible, over, label, className, ...props }: Drop
         data-testid="drop-bin"
         aria-hidden={!visible}
         className={cn(
-            "fixed inset-x-0 bottom-6 z-50 mx-auto flex h-20 w-[min(22rem,calc(100%-2rem))] items-center justify-center gap-2 rounded-card border-2 border-dashed text-sm font-medium shadow-lift backdrop-blur transition-[opacity,background-color,border-color,color] duration-200",
+            "fixed right-3 top-1/2 z-50 flex h-[min(18rem,55vh)] w-24 -translate-y-1/2 flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed px-2 text-center text-xs font-medium shadow-lift backdrop-blur transition-[opacity,background-color,border-color,color] duration-200 sm:right-6",
             visible ? "opacity-100" : "pointer-events-none opacity-0",
             over ? "border-destructive bg-destructive/15 text-destructive" : "border-border bg-card/95 text-muted-foreground",
             className,
         )}
     >
-        <Trash2Icon className="size-5" aria-hidden />
+        <Trash2Icon className="size-6" aria-hidden />
         {label}
     </div>
 );
@@ -39,14 +39,15 @@ const ITEM_TYPE = "application/x-scrumspecter-item";
 
 // The browser's own drag and drop, for lists that don't use the Kanban's drag library:
 // `source(id)` goes on each draggable item, `bin` on the <DropBin>
-export const useDropBin = (onDrop: (id: string) => void) => {
+// type: the dataTransfer type the items carry (the calendar's cards have their own)
+export const useDropBin = (onDrop: (id: string) => void, type = ITEM_TYPE) => {
     const [dragging, setDragging] = useState(false);
     const [over, setOver] = useState(false);
 
     const source = (id: string) => ({
         draggable: true,
         onDragStart: (event: DragEvent) => {
-            event.dataTransfer.setData(ITEM_TYPE, id);
+            event.dataTransfer.setData(type, id);
             event.dataTransfer.effectAllowed = "move";
             setDragging(true);
         },
@@ -60,7 +61,7 @@ export const useDropBin = (onDrop: (id: string) => void) => {
         visible: dragging,
         over,
         onDragOver: (event: DragEvent) => {
-            if (!event.dataTransfer.types.includes(ITEM_TYPE)) return;
+            if (!event.dataTransfer.types.includes(type)) return;
             event.preventDefault();
             event.dataTransfer.dropEffect = "move";
             setOver(true);
@@ -68,7 +69,7 @@ export const useDropBin = (onDrop: (id: string) => void) => {
         onDragLeave: () => setOver(false),
         onDrop: (event: DragEvent) => {
             event.preventDefault();
-            const id = event.dataTransfer.getData(ITEM_TYPE);
+            const id = event.dataTransfer.getData(type);
             setDragging(false);
             setOver(false);
             if (id) onDrop(id);

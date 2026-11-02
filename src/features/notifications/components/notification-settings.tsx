@@ -12,6 +12,7 @@ import type { UserPreferences } from "@/features/auth/preferences";
 
 import { useGetPushDevices, useSendTestNotification } from "../api/use-notifications";
 import { usePush } from "../hooks/use-push";
+import { clockLabel } from "@/features/tasks/task-time";
 
 const DEVICE_HELP: Record<string, string> = {
     "ios-needs-install": "On iPhone and iPad, notifications only work from the home screen app: tap Share, then Add to Home Screen, open ScrumSpecter from there and turn notifications on.",
@@ -26,12 +27,7 @@ export const NotificationSettings = ({ preferences }: { preferences: UserPrefere
     const sendTest = useSendTestNotification();
     const { mutate: updatePreferences, isPending } = useUpdatePreferences();
 
-    // "18:00" → "6 PM" (or "18:00" for 24-hour people)
-    const clock = (time: string) => {
-        if (preferences.timeFormat === "24h") return time;
-        const [hour, minute] = time.split(":").map(Number);
-        return `${hour % 12 || 12}${minute ? `:${String(minute).padStart(2, "0")}` : ""} ${hour < 12 ? "AM" : "PM"}`;
-    };
+    const clock = (time: string) => clockLabel(time, preferences.timeFormat);
 
     const toggle = (key: "remindDayBefore" | "remindBeforeEnd", label: string, description: string) => (
         <div className="flex items-start gap-3">

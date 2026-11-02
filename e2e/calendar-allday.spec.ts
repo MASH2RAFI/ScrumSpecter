@@ -2,8 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { createProject, createTask, createWorkspace, getMembers, html5Drag, registerUser, signInBrowser, watchConsole, type TestUser } from "./helpers";
 
-// Browser: the Week view's all-day row makes all-day tasks (no start time or duration),
-// and its headers say why a day is off
+// Browser: the Week view's all-day row makes all-day tasks (no start time or duration), which are
+// drawn across the working day in the timeline; its headers say why a day is off
 test.describe.configure({ mode: "serial" });
 
 let page: Page;
@@ -54,7 +54,30 @@ test("an unscheduled task dropped on the all-day row stays all day", async () =>
     const task = await taskNamed("Drop me all day");
     expect(task.startAt).toBeNull();
     expect(task.durationMinutes).toBeNull();
-    await expect(page.locator(".rbc-allday-cell .rbc-event:not(.rbc-addons-dnd-drag-preview)", { hasText: "Drop me all day" })).toBeVisible();
+    // Drawn in the timeline across the working day (09:00 to 18:00: 9 hours of 44px rows at 30 min)
+    const block = page.locator(".rbc-time-content .rbc-event:not(.rbc-addons-dnd-drag-preview)", { hasText: "Drop me all day" });
+    await expect(block).toBeVisible();
+    await expect(block).toContainText("All day");
+    expect(Math.round((await block.boundingBox())!.height / 88)).toBe(9);
+    await expect(page.locator(".rbc-allday-cell .rbc-event:not(.rbc-addons-dnd-drag-preview)", { hasText: "Drop me all day" })).toHaveCount(0);
+});
+
+test("an all-day block moved to another day stays all day", async () => {
+    const block = page.locator(".rbc-time-content .rbc-event:not(.rbc-addons-dnd-drag-preview)", { hasText: "Drop me all day" });
+    const before = (await taskNamed("Drop me all day")).dueDate!;
+    const box = (await block.boundingBox())!;
+    // Column 3 is kept free for the whole-day selection below
+    const next = (await page.locator(".rbc-time-content .rbc-day-slot").nth(4).boundingBox())!;
+    const y = box.y + 20;
+    await page.mouse.move(box.x + box.width / 2, y);
+    await page.mouse.down();
+    await page.mouse.move(next.x + next.width / 2, y, { steps: 10 });
+    await page.mouse.up();
+
+    await expect.poll(async () => (await taskNamed("Drop me all day")).dueDate).not.toBe(before);
+    const task = await taskNamed("Drop me all day");
+    expect(task.startAt).toBeNull();
+    expect(task.durationMinutes).toBeNull();
 });
 
 test("dragging across the all-day row creates an all-day task", async () => {
@@ -85,6 +108,38 @@ test("dragging across the all-day row creates an all-day task", async () => {
     const task = await taskNamed("Dragged all day");
     expect(task.startAt).toBeNull();
     expect(task.durationMinutes).toBeNull();
+});
+
+test("selecting a whole day in the time slots keeps the task in the time slots", async () => {
+    // Visible 20:00 to midnight, so one column is the whole visible day
+    expect((await user.api.patch("/api/account/preferences", { data: { calendarStartHour: 20, calendarEndHour: 24 } })).status()).toBe(200);
+    await page.goto(`/workspaces/${workspaceId}/tasks?task-view=calendar&cal=week`, { timeout: 90_000 });
+    const column = page.locator(".rbc-time-content .rbc-day-slot").nth(3);
+    await expect(column).toBeVisible();
+    const box = (await column.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + 4);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height - 4, { steps: 10 });
+    await page.mouse.up();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByPlaceholder("Enter task name")).toBeVisible();
+    await expect(dialog.getByLabel("All day")).not.toBeChecked();
+    await dialog.getByPlaceholder("Enter task name").fill("Evening block");
+    await dialog.getByRole("button", { name: "Assignees" }).click();
+    await page.getByRole("listbox", { name: "Assignees" }).getByRole("option").first().click();
+    await page.keyboard.press("Escape");
+    await dialog.getByRole("combobox").filter({ hasText: "Select project" }).click();
+    await page.getByRole("option", { name: /Website/ }).click();
+    await dialog.getByRole("button", { name: "Create Task" }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect.poll(async () => (await taskNamed("Evening block"))?.startAt ?? null).not.toBeNull();
+    expect((await taskNamed("Evening block")).durationMinutes).toBe(240);
+    // Ends at midnight, yet shows in the time slots, not the all-day row
+    await expect(page.locator(".rbc-time-content .rbc-event", { hasText: "Evening block" })).toBeVisible();
+    await expect(page.locator(".rbc-allday-cell .rbc-event", { hasText: "Evening block" })).toHaveCount(0);
+    expect((await user.api.patch("/api/account/preferences", { data: { calendarStartHour: null, calendarEndHour: null } })).status()).toBe(200);
 });
 
 test("week headers label weekend days", async () => {

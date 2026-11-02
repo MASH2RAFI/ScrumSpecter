@@ -51,6 +51,33 @@ test("a Kanban card dropped on the bin is deleted, and Undo brings it back", asy
     await expect(card).toBeVisible();
 });
 
+test("a card dropped at the bottom of a shorter column moves into it", async ({ page, baseURL }) => {
+    // A tall To Do column, an empty In Review one: its lower part (around "Add task") must take drops
+    for (const name of ["Tall 1", "Tall 2", "Tall 3", "Tall 4"]) {
+        await createTask(admin.api, { workspaceId, projectId, assigneeId: adminMemberId, name, status: "TODO" });
+    }
+    await createTask(admin.api, { workspaceId, projectId, assigneeId: adminMemberId, name: "Low drop", status: "BACKLOG" });
+    // Tall enough that the page doesn't scroll: near the edge, the drag library would auto-scroll it
+    await page.setViewportSize({ width: 1440, height: 1400 });
+    await signInBrowser(page, admin, baseURL!);
+    await page.goto(`/workspaces/${workspaceId}/tasks?task-view=kanban`, { timeout: 90_000 });
+
+    const card = page.locator("[data-rfd-draggable-id]").filter({ hasText: "Low drop" });
+    const column = (await page.locator('[data-rfd-droppable-id="IN_REVIEW"]').boundingBox())!;
+    const from = (await card.boundingBox())!;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2 + 20, { steps: 5 });
+    await page.mouse.move(column.x + column.width / 2, column.y + column.height - 15, { steps: 15 });
+    await page.waitForTimeout(300);
+    await page.mouse.up();
+
+    await expect.poll(async () => {
+        const tasks = (await (await admin.api.get(`/api/tasks?workspaceId=${workspaceId}`)).json()).data.documents;
+        return tasks.find((task: { name: string }) => task.name === "Low drop").status;
+    }).toBe("IN_REVIEW");
+});
+
 test("a viewer gets no bin", async ({ page, baseURL }) => {
     await signInBrowser(page, viewer, baseURL!);
     await page.goto(`/workspaces/${workspaceId}/tasks?task-view=kanban`, { timeout: 90_000 });
@@ -93,4 +120,38 @@ test("your own pending request dropped on the bin is withdrawn; reviewers can't 
     const mine = page.locator("[draggable=true]").filter({ hasText: "Binned request" });
     await html5Drag(page, mine, page.getByTestId("drop-bin"));
     await expect(page.getByText("No open requests")).toBeVisible();
+});
+
+const taskExists = async (name: string) =>
+    (await (await admin.api.get(`/api/tasks?workspaceId=${workspaceId}&search=${encodeURIComponent(name)}`)).json())
+        .data.documents.some((task: { name: string }) => task.name === name);
+
+test("calendar: a task dragged off the week grid onto the bin is deleted", async ({ page, baseURL }) => {
+    // Today at 10:00 local, an hour long
+    const start = new Date();
+    start.setHours(10, 0, 0, 0);
+    await createTask(admin.api, { workspaceId, projectId, assigneeId: adminMemberId, name: "Grid binned", dueDate: start.toISOString(), startAt: start.toISOString(), durationMinutes: 60 });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await signInBrowser(page, admin, baseURL!);
+    await page.goto(`/workspaces/${workspaceId}/tasks?task-view=calendar&cal=week`, { timeout: 90_000 });
+
+    const event = page.locator(".rbc-time-content .rbc-event", { hasText: "Grid binned" });
+    await expect(event).toBeVisible();
+    const bin = page.getByTestId("drop-bin");
+    await expect(bin).toHaveAttribute("aria-hidden", "true");
+    await mouseDrag(page, event, bin);
+    await expect(page.getByText("Task deleted")).toBeVisible();
+    await expect.poll(() => taskExists("Grid binned")).toBe(false);
+});
+
+test("calendar: an Unscheduled card dropped on the bin is deleted", async ({ page, baseURL }) => {
+    await createTask(admin.api, { workspaceId, projectId, assigneeId: adminMemberId, name: "Panel binned", dueDate: undefined });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await signInBrowser(page, admin, baseURL!);
+    await page.goto(`/workspaces/${workspaceId}/tasks?task-view=calendar&cal=week`, { timeout: 90_000 });
+
+    const card = page.getByRole("complementary", { name: "Unscheduled tasks" }).locator(".issue-card", { hasText: "Panel binned" });
+    await expect(card).toBeVisible();
+    await html5Drag(page, card, page.getByTestId("drop-bin"));
+    await expect.poll(() => taskExists("Panel binned")).toBe(false);
 });

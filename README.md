@@ -70,6 +70,14 @@
 </p>
 <p align="center"><sub>Routines: each one picks whether its tasks show in the table, kanban and calendar</sub></p>
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark/desktop/calendar.png" />
+    <img src="docs/screenshots/light/desktop/calendar.png" alt="Calendar week: timed tasks as blocks, all-day tasks across the working day, weekends named above the hours" width="700" />
+  </picture>
+</p>
+<p align="center"><sub>Calendar week: time blocks, all-day tasks across the working day, and days off named above the hours</sub></p>
+
 ### 📱 On a phone
 
 <p align="center">
@@ -122,13 +130,15 @@
   - three views: a table, a kanban board and a calendar, all with drag and drop;
   - in the table, clicking a row opens the task in a side panel; Shift-click selects a range of rows and Ctrl/⌘-click adds or removes one, for bulk edit;
   - Undo after deleting or moving a task;
-  - drag a Kanban card, a routine or your own pending request to the bin at the bottom of the page to delete (or withdraw) it; the menus do the same from the keyboard.
-- **Starred:** star tasks and routines, then find them on one Starred page across all your workspaces.
+  - in the calendar's Week and Day views, tasks with a due date but no time fill the working day in the timeline, and the strip above the hours names holidays and weekends; on a phone the week scrolls sideways;
+  - drag a Kanban card, a calendar task, a routine or your own pending request to the bin on the right edge of the page to delete (or withdraw) it; the menus do the same from the keyboard.
+- **Filters:** My Tasks has a compact filter block, saved on your account: whose tasks (any people in the workspace), which statuses, Starred and Overdue, each chip with a live count, plus a search box that reads plain words (`tom in review overdue`, `mine today`, `no project`; quotes search names only) and shows what it understood; Enter turns those words into chips. The older forms (`status:todo`, `@tom`, `project:web`, `is:starred`, `due:today`) still work. Home follows it; Routines have their own.
+- **Starred:** star tasks and routines, then filter to them (the calendar too).
 - **Export:** tasks as CSV or a calendar file (`.ics`), a private calendar-subscribe link for Google or Apple Calendar, the whole workspace as a bulk-input script or a JSON backup (Admins), analytics charts as PNG or CSV, and your own data.
 - **Home ("My work"):** your overdue tasks and those due today and tomorrow, with a countdown to each one's end time.
 - **My Tasks:** an eye beside each project hides or shows its tasks there. The choice is saved to your account; picking a project in the filter still shows it.
 - **Routines:** tasks that repeat weekly. They're created for each of their weekdays through the end of the sprint, and they skip days off. A routine (or task) can also be personal, with no project: its tasks keep the next 14 days filled. Each routine chooses which task views (table, kanban, calendar) list its tasks, with toggles right on its card on the Routines page; Home and My work always do.
-- **Days off and working hours:** public holidays come from a country feed, and you can add your own days off. Working hours frame the routines week and decide when unfinished To Do tasks move to Backlog.
+- **Days off and working hours:** public holidays come from a country feed, and you can add your own days off. Working hours frame the routines week and the calendar's all-day tasks, and decide when unfinished To Do tasks move to Backlog.
 
 </details>
 

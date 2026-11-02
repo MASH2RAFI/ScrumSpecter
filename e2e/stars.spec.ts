@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { createProject, createTask, createWorkspace, getMembers, registerUser, signInBrowser, type TestUser } from "./helpers";
 
-// Personal stars on tasks and routines, and the Starred page across workspaces
+// Personal stars on tasks and routines, and the Starred filter on My Tasks and Routines
 test.describe.configure({ mode: "serial" });
 
 let owner: TestUser;
@@ -18,11 +18,9 @@ let routineId: string;
 const json = async (res: { json: () => Promise<unknown> }) => (await res.json() as { data: never }).data;
 const ids = async (user: TestUser, workspaceId: string) =>
     json(await user.api.get(`/api/stars/ids?workspaceId=${workspaceId}`)) as Promise<{ taskIds: string[]; routineIds: string[] }>;
-const starred = async (user: TestUser, includeDone = false) =>
-    json(await user.api.get(`/api/stars?includeDone=${includeDone}`)) as Promise<{
-        tasks: { id: string; workspaceName: string }[];
-        routines: { id: string; workspaceName: string }[];
-    }>;
+// My Tasks with the Starred filter on (routine tasks included: no week scope)
+const starred = async (user: TestUser, workspaceId: string) =>
+    (await json(await user.api.get(`/api/tasks?workspaceId=${workspaceId}&starred=true`)) as { documents: { $id: string; name: string; routineId: string | null }[] }).documents;
 
 test.beforeAll(async ({ baseURL }) => {
     owner = await registerUser(baseURL!, "Stella Stars");
@@ -80,25 +78,24 @@ test("a viewer can star; someone outside the workspace can't", async () => {
     expect((await stranger.api.get(`/api/stars/ids?workspaceId=${first.$id}`)).status()).toBe(401);
 });
 
-test("the list covers every workspace; done tasks only on request; deleted tasks drop out", async () => {
+test("the Starred filter: starred tasks and the tasks of starred routines, in this workspace only", async () => {
     expect((await owner.api.post("/api/stars", { data: { taskId: otherTaskId } })).status()).toBe(200);
-    expect((await owner.api.post("/api/stars", { data: { taskId: doneTaskId } })).status()).toBe(200);
+    const list = await starred(owner, first.$id);
+    const names = new Set(list.map((task) => task.name));
+    // The starred task, the routine's tasks; not the unstarred done task, nor the other workspace's star
+    expect(list.some((task) => task.$id === taskId)).toBe(true);
+    expect(list.some((task) => task.routineId === routineId)).toBe(true);
+    expect(names.has("Finished alpha task")).toBe(false);
+    expect(list.some((task) => task.$id === otherTaskId)).toBe(false);
+    expect((await starred(owner, second.$id)).map((task) => task.$id)).toEqual([otherTaskId]);
 
-    const list = await starred(owner);
-    expect(list.tasks.map((task) => [task.id, task.workspaceName]).sort()).toEqual([
-        [otherTaskId, "Beta stars"],
-        [taskId, "Alpha stars"],
-    ].sort());
-    expect(list.routines).toMatchObject([{ id: routineId, workspaceName: "Alpha stars" }]);
-    expect((await starred(owner, true)).tasks.map((task) => task.id)).toContain(doneTaskId);
-
-    expect((await owner.api.delete(`/api/tasks/${doneTaskId}`)).status()).toBe(200);
-    expect((await starred(owner, true)).tasks.map((task) => task.id)).not.toContain(doneTaskId);
+    // Someone else's stars don't count; outsiders get nothing
+    expect((await stranger.api.get(`/api/tasks?workspaceId=${first.$id}&starred=true`)).status()).toBe(401);
+    expect((await starred(viewer, first.$id)).map((task) => task.$id)).toEqual([taskId]);
 });
 
 test("leaving a workspace clears its stars", async () => {
     expect((await viewer.api.post("/api/members/leave-workspace", { data: { workspaceId: first.$id } })).status()).toBe(200);
-    expect((await starred(viewer)).tasks).toEqual([]);
 
     // Coming back starts with no stars
     const full = await json(await owner.api.get(`/api/workspaces/${first.$id}`)) as { viewerInviteCode: string };
@@ -108,7 +105,7 @@ test("leaving a workspace clears its stars", async () => {
 
 const open = async (page: Page, url: string) => page.goto(url, { timeout: 90_000 });
 
-test("star from the table and kanban; the Starred page groups by workspace", async ({ page, baseURL }) => {
+test("star from the table and kanban; the Starred filter on My Tasks (calendar too) and Routines", async ({ page, baseURL }) => {
     await owner.api.delete("/api/stars", { data: { taskId } });
     await signInBrowser(page, owner, baseURL!);
 
@@ -125,28 +122,31 @@ test("star from the table and kanban; the Starred page groups by workspace", asy
     await page.getByRole("button", { name: "Star Starred alpha task", exact: true }).click();
     await expect(page.getByRole("button", { name: "Unstar Starred alpha task", exact: true })).toBeVisible();
 
-    await open(page, `/workspaces/${first.$id}/starred`);
-    // One section per workspace, each headed by the workspace name
-    const sections = page.locator("section").filter({ has: page.getByRole("heading", { level: 2 }) });
-    await expect(sections.nth(0).getByRole("heading")).toHaveText("Alpha stars");
-    await expect(sections.nth(1).getByRole("heading")).toHaveText("Beta stars");
-    await expect(sections.nth(0).getByTestId("starred-routine")).toContainText("Morning sync");
+    // The filter: a saved chip (still on after a reload), and the same list in the calendar
+    await open(page, `/workspaces/${first.$id}/tasks?task-view=table`);
+    const taskStarred = page.getByTestId("task-filters").getByRole("button", { name: /^Starred/ });
+    await taskStarred.click();
+    await expect(taskStarred).toHaveAttribute("aria-pressed", "true");
+    const rows = page.locator("tbody tr");
+    await expect(rows.filter({ hasText: "Starred alpha task" })).toHaveCount(1);
+    await expect(rows.filter({ hasText: "Finished alpha task" })).toHaveCount(0);
+    await expect.poll(async () => (await (await owner.api.get("/api/account")).json()).data.preferences.taskFilters[first.$id]?.starred).toBe(true);
+    await page.reload();
+    await expect(page.getByTestId("task-filters").getByRole("button", { name: /^Starred/ })).toHaveAttribute("aria-pressed", "true");
+    // Unstarring takes it off the filtered list straight away
+    await page.getByRole("button", { name: "Unstar Starred alpha task", exact: true }).click();
+    await expect(rows.filter({ hasText: "Starred alpha task" })).toHaveCount(0);
+    await page.getByRole("tab", { name: "Calendar" }).click();
+    await expect(page.locator(".rbc-month-view")).toBeVisible();
 
-    // This workspace's task opens in the side panel; another workspace's opens its full page
-    await sections.nth(0).getByText("Starred alpha task").click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await sections.nth(1).getByText("Starred beta task").click();
-    await expect(page).toHaveURL(new RegExp(`/workspaces/${second.$id}/tasks/${otherTaskId}$`));
-
-    // Unstarring removes it from the page
-    await open(page, `/workspaces/${first.$id}/starred`);
-    await page.getByRole("button", { name: "Unstar Starred beta task" }).click();
-    await expect(page.getByText("Starred beta task")).toHaveCount(0);
-});
-
-test("the empty state", async ({ page, baseURL }) => {
-    await signInBrowser(page, viewer, baseURL!);
-    await open(page, `/workspaces/${first.$id}/starred`);
-    await expect(page.getByText("Star tasks and routines to keep them here")).toBeVisible();
+    // Routines have their own filter: My Tasks' Starred doesn't carry over
+    await open(page, `/workspaces/${first.$id}/routines`);
+    const routineStarred = page.getByTestId("routine-filters").getByRole("button", { name: /^Starred/ });
+    await expect(routineStarred).toHaveAttribute("aria-pressed", "false");
+    await routineStarred.click();
+    await expect(page.getByRole("button", { name: /Unstar Morning sync/ }).first()).toBeVisible();
+    // Unstarring it with the filter on leaves nothing to show
+    await page.getByRole("button", { name: /Unstar Morning sync/ }).first().click();
+    await expect(page.getByText("No routines match this filter")).toBeVisible();
+    await expect.poll(async () => (await ids(owner, first.$id)).routineIds).toEqual([]);
 });

@@ -50,7 +50,7 @@ test("phone: pick a day in the filters, then clear it", async ({ browser, baseUR
     await page.getByRole("button", { name: "Filters" }).click();
     const picker = page.getByLabel("Due date", { exact: true });
     // The empty field shows its placeholder (iOS shows nothing of its own)
-    await expect(page.locator("#task-filters").getByText("Due date", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("task-filters").getByText("Due date", { exact: true })).toBeVisible();
     await picker.fill(day);
     await expect(page).toHaveURL(/dueDate=/);
     await expect(main.getByText("Midnight task")).toBeVisible();

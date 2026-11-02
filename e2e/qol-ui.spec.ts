@@ -276,7 +276,7 @@ test("table: Shift-click selects a range, Ctrl-click toggles, a plain row click 
         await createTask(admin.api, { workspaceId: workspace.$id, projectId, assigneeId: memberId, name: `Range ${n}` });
     }
     await page.goto(`/workspaces/${workspace.$id}/tasks?task-view=table`, { timeout: 90_000 });
-    await page.getByPlaceholder("Search tasks...").fill("Range");
+    await page.getByLabel("Search tasks").fill("Range");
     const rows = page.getByRole("row").filter({ hasText: /Range \d/ });
     await expect(rows).toHaveCount(5);
     // A plain cell in each row (the due date), away from its buttons

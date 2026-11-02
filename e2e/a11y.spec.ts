@@ -66,7 +66,6 @@ for (const scheme of ["light", "dark"] as const) {
             ["kanban", `${base}/tasks?task-view=kanban`, "Write copy"],
             ["calendar", `${base}/tasks?task-view=calendar`, "Unscheduled"],
             ["routines", `${base}/routines`, "Routines"],
-            ["starred", `${base}/starred`, "Starred"],
             ["analytics", `${base}/analytics`, "Analytics"],
             ["account", "/account", "Account settings"],
         ];

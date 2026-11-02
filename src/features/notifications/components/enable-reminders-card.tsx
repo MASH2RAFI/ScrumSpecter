@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useNotificationSettings } from "../hooks/use-notification-settings";
 
 import { usePush } from "../hooks/use-push";
+import { usePreferences } from "@/features/auth/hooks/use-preferences";
+import { clockLabel } from "@/features/tasks/task-time";
 
 const DISMISSED_KEY = "scrumspecter-reminders-prompt-dismissed";
 
@@ -15,6 +17,7 @@ const DISMISSED_KEY = "scrumspecter-reminders-prompt-dismissed";
 export const EnableRemindersCard = () => {
     const { state, busy, enable } = usePush();
     const { open: openSettings } = useNotificationSettings();
+    const { summaryTime, beforeEndMinutes, timeFormat } = usePreferences();
     // Hidden until hydrated, so the server and the first client render agree
     const [dismissed, setDismissed] = useStoredFlag(DISMISSED_KEY, true);
 
@@ -33,7 +36,7 @@ export const EnableRemindersCard = () => {
                     <p className="text-xs text-muted-foreground">
                         {state === "ios-needs-install"
                             ? "Add ScrumSpecter to your home screen (Share → Add to Home Screen), then turn notifications on there."
-                            : "At 6 PM about tomorrow's tasks, and 30 minutes before a task ends, even with ScrumSpecter closed."}
+                            : `At ${clockLabel(summaryTime, timeFormat)} about tomorrow's tasks, and ${beforeEndMinutes} minutes before a task ends, even with ScrumSpecter closed.`}
                     </p>
                 </div>
                 {state === "off" ? (

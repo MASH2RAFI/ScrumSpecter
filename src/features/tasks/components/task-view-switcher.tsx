@@ -1,6 +1,5 @@
 "use client";
 
-import { DottedSeparator } from "@/components/dotted-separator";
 import { Button } from "@/components/ui/button";
 import { 
     Tabs,
@@ -26,10 +25,13 @@ import { usePreferences } from "@/features/auth/hooks/use-preferences";
 import type { UserPreferences } from "@/features/auth/preferences";
 import { useBulkUpdateTasks } from "../api/use-bulk-update-tasks";
 import { LazyCalendar, LazyKanban } from "@/components/lazy-parts";
-import { ProjectVisibility } from "./project-visibility";
 import { useTaskPanel } from "../hooks/use-task-panel";
 import { useProjectId } from "@/features/projects/hooks/use-project-id";
 import { TaskStatus } from "../types";
+import { useTaskFilter } from "../hooks/use-saved-filters";
+import { parseSearch } from "../search-tokens";
+import { useGetMembers } from "@/features/members/api/use-get-members";
+import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { Loading, TableSkeleton } from "@/components/page-skeletons";
 import { TaskExportMenu } from "@/features/export/components/task-export-menu";
 import { useGetStarIds } from "@/features/stars/api/use-stars";
@@ -43,7 +45,7 @@ const VIEW_TABS = [
 // Kanban's Done column only ever grows; it shows the most recently finished
 const DONE_LIMIT = 100;
 
-type BaseQuery = Pick<UseGetTasksProps, "workspaceId" | "status" | "assigneeId" | "projectId" | "from" | "to" | "search" | "excludeProjects">;
+type BaseQuery = Pick<UseGetTasksProps, "workspaceId" | "status" | "assigneeId" | "projectId" | "from" | "to" | "search" | "excludeProjects" | "starred" | "assignees" | "statuses" | "overdue">;
 
 const SORTABLE = ["name", "project", "assignee", "dueDate", "storyPoints", "status"] as const;
 
@@ -87,7 +89,7 @@ const TableView = ({ base, canReview, canEditWork }: { base: BaseQuery; canRevie
         offset: pageIndex * pageSize,
         ...(sort ? { sortBy, sortDir: sort.desc ? "desc" : "asc" } : DEFAULT_SORTS[taskSort]),
         // Done tasks left out when the account says so, unless the status filter asks for them
-        openOnly: !showDoneInTable && !base.status ? true : undefined,
+        openOnly: !showDoneInTable && !base.statuses?.length ? true : undefined,
     });
 
     if (isLoading || !data) return <Loading><TableSkeleton /></Loading>;
@@ -175,6 +177,15 @@ interface TaskViewSwitcherProps {
 export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) => {
     const [{ status, assigneeId, projectId, dueDate, search }] = useTaskFilters();
     const workspaceId = useWorkspaceId();
+    // The saved filter (Home follows it), then what this visit's link and search add
+    const { filter } = useTaskFilter(workspaceId);
+    const { data: members } = useGetMembers({ workspaceId });
+    const { data: projects } = useGetProjects({ workspaceId });
+    const tokens = parseSearch(
+        search,
+        (members?.documents ?? []).map((member) => ({ id: member.$id, name: member.name })),
+        (projects?.documents ?? []).map((project) => ({ id: project.$id, name: project.name })),
+    );
     // Starts the star buttons' shared query with the page's other requests, not after the rows render
     useGetStarIds(workspaceId);
     const { canEditWork, canReview, canRequestChanges } = usePermissions({ workspaceId });
@@ -189,18 +200,25 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
     const week = useCurrentWeek();
     const [calendarRange, setCalendarRange] = useState<CalendarRange | null>(null);
 
-    const filterProject = paramProjectId || projectId;
+    const filterProject = paramProjectId || tokens.projectId || projectId;
     // The due filter is a local midnight; match that whole local day, not the exact instant
     // (a hand-edited, unparseable value is ignored)
     const picked = dueDate ? new Date(dueDate) : null;
     const day = picked && !isNaN(picked.getTime()) ? picked : null;
     // My Tasks leaves out the projects hidden with their eye; picking a project explicitly
     // (or a project's own page) still shows it
+    const dueFrom = tokens.due?.from ?? day;
+    const dueTo = tokens.due?.to ?? (day ? new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1) : undefined);
     const base: BaseQuery = {
-        workspaceId, status, assigneeId, projectId: filterProject, search,
-        from: day?.toISOString(),
-        to: day ? new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).toISOString() : undefined,
+        workspaceId, assigneeId, projectId: filterProject, search: tokens.text || undefined,
+        from: dueFrom?.toISOString(),
+        to: dueTo?.toISOString(),
         excludeProjects: filterProject ? undefined : hiddenProjects,
+        // Search shortcuts take over their row; a link's status beats the saved statuses
+        assignees: tokens.people ?? filter.people,
+        statuses: tokens.statuses ?? (status ? [status] : filter.statuses),
+        starred: tokens.starred || filter.starred || undefined,
+        overdue: tokens.overdue || filter.overdue || undefined,
     };
 
     return (
@@ -217,9 +235,10 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
                             <TabsTrigger
                                 key={value}
                                 value={value}
-                                className="h-8 gap-1.5 rounded-[5px] px-3 text-sm min-h-0 data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                                className="h-8 min-w-0 gap-1.5 rounded-[5px] px-1.5 text-[13px] min-h-0 sm:px-3 sm:text-sm data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
                             >
-                                <Icon className="size-4 shrink-0" />
+                                {/* Phones: a third of the row is too narrow for "Calendar" and an icon */}
+                                <Icon className="hidden size-4 shrink-0 sm:block" />
                                 {label}
                             </TabsTrigger>
                         ))}
@@ -236,19 +255,14 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
                     </div>
                 </div>
 
-                {/* My Tasks only: show or hide each project's tasks */}
-                {!hideProjectFilter && (
-                    <div className="mt-4">
-                        <ProjectVisibility workspaceId={workspaceId} />
-                    </div>
-                )}
-                <DottedSeparator className="my-4" />
-                    <DataFilters 
-                        hideProjectFilter={hideProjectFilter} 
-                        hideStatusFilter={view === "kanban"}
+                <div className="my-3">
+                    <DataFilters
+                        base={{ ...base, scope: "table", ...week }}
+                        understood={tokens.understood}
+                        hideProjectFilter={hideProjectFilter}
                         hideDateFilter={view === "calendar"}
                     />
-                <DottedSeparator className="my-4" />
+                </div>
                 {/* Only the open tab is mounted, so only its tasks load */}
                 <TabsContent value="table" className="mt-0">
                     <TableView base={base} canReview={canReview} canEditWork={canEditWork} />

@@ -5,7 +5,7 @@ import { LayoutGroup } from "motion/react";
 
 import { m } from "@/components/motion";
 import { cn } from "@/lib/utils";
-import { BarChart3Icon, CircleCheckIcon, GitPullRequestArrowIcon, HomeIcon, RepeatIcon, SettingsIcon, StarIcon, UsersIcon } from "lucide-react";
+import { BarChart3Icon, CircleCheckIcon, GitPullRequestArrowIcon, HomeIcon, RepeatIcon, SettingsIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { usePathname } from "next/navigation";
@@ -18,7 +18,6 @@ import { useGetChangeRequests } from "@/features/change-requests/api/use-change-
 // Members and Settings open as popups over the current page (workspace-panel-modal.tsx)
 const routes: { label: string; href: string; panel?: WorkspacePanel; icon: React.ElementType }[] = [
     { label: "Home", href: "", icon: HomeIcon },
-    { label: "Starred", href: "/starred", icon: StarIcon },
     { label: "My Tasks", href: "/tasks", icon: CircleCheckIcon },
     { label: "Routines", href: "/routines", icon: RepeatIcon },
     { label: "Requests", href: "/requests", icon: GitPullRequestArrowIcon },

@@ -67,15 +67,15 @@ const roleCard = (role: MemberRole) => ({ label: ROLE_LABELS[role], description:
 const FEATURES = [
     { icon: TargetIcon, title: "Sprint Management", description: "Give each project a sprint, then follow its countdown, story points and progress from the dashboard.", badge: "Core Feature" },
     { icon: CheckCircleIcon, title: "Task Management", description: "Story points, due dates, time blocks and several assignees, moving through Backlog, To Do, In Progress, In Review and Done.", badge: "Core Feature" },
-    { icon: CalendarIcon, title: "Multiple Views", description: "Switch between a table, a kanban board and a calendar, with drag and drop in each. Drop a card on the bin to delete it; Undo is one click away.", badge: "Flexible" },
+    { icon: CalendarIcon, title: "Multiple Views", description: "Switch between a table, a kanban board and a calendar, with drag and drop in each. Drag a card or calendar task to the bin on the right to delete it; Undo is one click away.", badge: "Flexible" },
     { icon: RepeatIcon, title: "Weekly Routines", description: "Set up standups and other repeating work once. Tasks are created on their days through the sprint, skipping days off, and each routine picks the views its tasks show in. Personal routines need no project.", badge: "New!" },
     { icon: ShieldCheckIcon, title: "Roles & Review", description: "Admin, Supervisor, Reviewer, Assignee and Viewer. Assignees take work to In Review; a reviewer approves it to Done.", badge: "New!" },
     { icon: GitPullRequestArrowIcon, title: "Change Requests", description: "Assignees and reviewers propose new tasks, edits or deletions, and an admin or supervisor approves or declines them.", badge: "New!" },
     { icon: BellIcon, title: "Reminders", description: "In-app and push notifications: tomorrow's tasks the evening before, a heads-up before a task ends (you pick both times), and decisions on your requests.", badge: "Essential" },
     { icon: ListPlusIcon, title: "Bulk Input", description: "Add, change or remove many projects, tasks, routines and days off at once, checked line by line, or let your AI assistant write them. Reviewers and assignees can add tasks too; tasks for others go for approval. You can even set up a whole new workspace this way.", badge: "New!" },
-    { icon: StarIcon, title: "Starred", description: "Star the tasks and routines you keep coming back to, and find them all on one page across your workspaces.", badge: "New!" },
+    { icon: StarIcon, title: "Starred", description: "Star the tasks and routines you keep coming back to, then filter My Tasks or Routines to just those, calendar included.", badge: "New!" },
     { icon: DownloadIcon, title: "Export", description: "Tasks as CSV or a calendar file, a live calendar link for Google or Apple Calendar, charts as images, and a full backup of the workspace.", badge: "New!" },
-    { icon: SlidersHorizontalIcon, title: "Your Way", description: "Date and time format, week start, starting views, table sorting, compact Kanban cards, theme and reduced motion, saved to your account.", badge: "New!" },
+    { icon: SlidersHorizontalIcon, title: "Your Way", description: "Filters that remember themselves (people, statuses, starred, overdue) and Home follows, plus date and time format, week start, starting views, compact Kanban cards and theme, all saved to your account.", badge: "New!" },
     { icon: BarChart3Icon, title: "Analytics Dashboard", description: "Capacity calculator, burndown chart, velocity tracker and sprint reports.", badge: "Advanced" },
     { icon: UsersIcon, title: "Team Collaboration", description: "Invite links with optional expiry and use limits, a separate view-only link, and placeholders for people who haven't joined yet.", badge: "Essential" },
     { icon: KeyboardIcon, title: "Keyboard Friendly", description: "Jump anywhere with Ctrl/⌘ K, create a task with C, search with /, and press ? for every shortcut. Boards, the calendar and every dialog work without a mouse.", badge: "Fast" },
@@ -169,7 +169,7 @@ const STEPS: { title: string; items: StepItem[] }[] = [
             { icon: HomeIcon, bg: "bg-slate-100 dark:bg-slate-900/30", color: "text-slate-600 dark:text-slate-400", label: "Home:", text: "What's overdue, due today and due tomorrow, with countdowns" },
             { icon: ListTodoIcon, bg: "bg-sky-100 dark:bg-sky-900/30", color: "text-sky-600 dark:text-sky-400", label: "Table View:", text: "Sort, filter and search; click a row to open it, or Shift-click a range to edit many at once" },
             { icon: KanbanIcon, bg: "bg-cyan-100 dark:bg-cyan-900/30", color: "text-cyan-600 dark:text-cyan-400", label: "Kanban View:", text: "Drag tasks between Backlog, To Do, In Progress, In Review and Done" },
-            { icon: CalendarDaysIcon, bg: "bg-emerald-100 dark:bg-emerald-900/30", color: "text-emerald-600 dark:text-emerald-400", label: "Calendar View:", text: "Drag tasks onto days and times, or stretch them to change their length" },
+            { icon: CalendarDaysIcon, bg: "bg-emerald-100 dark:bg-emerald-900/30", color: "text-emerald-600 dark:text-emerald-400", label: "Calendar View:", text: "Drag tasks onto days and times, or stretch them to change their length; all-day tasks fill the working day" },
         ],
     },
     {
@@ -230,7 +230,7 @@ const TIPS = [
             "Use clear, descriptive task names",
             "Set realistic due dates; give timed work a time block",
             "Move tasks to In Review when they're ready, not straight to Done",
-            "Use filters and / search to focus on what matters now",
+            "Use filters and / search (plain words like \"tom overdue\") to focus on what matters now",
         ],
     },
 ];
@@ -296,7 +296,7 @@ export const AboutContent = () => {
                     <div className="flex justify-center mb-4">
                         <Badge variant="secondary" className="px-4 py-2 text-sm font-medium bg-primary/10 text-primary border-primary/20">
                             <SparklesIcon className="h-4 w-4 mr-2" />
-                            New: roles, change requests and bulk input
+                            New: filters that remember, plain-word search, all-day tasks in the timeline
                         </Badge>
                     </div>
                     {/* The page's one h1 (CardTitle is a div) */}
