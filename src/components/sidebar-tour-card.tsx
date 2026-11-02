@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useStoredFlag } from "@/hooks/use-stored-flag";
 import { CompassIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -14,26 +14,13 @@ const DISMISSED_KEY = "scrumspecter-tour-card-dismissed";
 // The bottom of the sidebar: a way back into the welcome tour, until it's closed
 export const SidebarTourCard = () => {
     const { collapsed } = useSidebar();
-    const [dismissed, setDismissed] = useState(true);
-
-    // Read after mount so the server and the first client render agree
-    useEffect(() => {
-        try {
-            setDismissed(localStorage.getItem(DISMISSED_KEY) === "1");
-        } catch {
-            setDismissed(false);
-        }
-    }, []);
+    // Hidden until hydrated, so the server and the first client render agree
+    const [dismissed, setDismissed] = useStoredFlag(DISMISSED_KEY, true);
 
     if (dismissed) return null;
 
     const dismiss = () => {
         setDismissed(true);
-        try {
-            localStorage.setItem(DISMISSED_KEY, "1");
-        } catch {
-            // Hidden for this visit only
-        }
     };
 
     return (

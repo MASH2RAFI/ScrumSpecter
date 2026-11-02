@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { TaskStatus } from "../types";
 import { useState } from "react";
-import { useDebounce } from "react-use";
+import { useDebounce } from "@/hooks/use-debounce";
 import { Input } from "@/components/ui/input";
 import { useTaskFilters } from "../hooks/use-task-filters";
 import { SimpleDatePicker } from "@/components/simple-date-picker";
@@ -123,7 +123,7 @@ export const DataFilters = ({ hideProjectFilter, hideStatusFilter, hideDateFilte
                 defaultValue={assigneeId ?? undefined} 
                 onValueChange={(value) => {onAssigneeChange(value)}} 
             >
-                <SelectTrigger className="w-full lg:w-auto h-9 lg:h-8 min-h-0"> 
+                <SelectTrigger className="w-full lg:w-auto h-9 lg:h-8 min-h-0" aria-label="Filter by assignee"> 
                     <div className="flex items-center pr-2"> 
                         <UserIcon className="size-4 mr-2 text-emerald-600" /> 
                         <SelectValue placeholder="All assignees" /> 
@@ -145,7 +145,7 @@ export const DataFilters = ({ hideProjectFilter, hideStatusFilter, hideDateFilte
                     defaultValue={projectId ?? undefined} 
                     onValueChange={(value) => {onProjectChange(value)}} 
                 >
-                <SelectTrigger className="w-full lg:w-auto h-9 lg:h-8 min-h-0"> 
+                <SelectTrigger className="w-full lg:w-auto h-9 lg:h-8 min-h-0" aria-label="Filter by project"> 
                     <div className="flex items-center pr-2"> 
                         <FolderIcon className="size-4 mr-2 text-purple-600" /> 
                         <SelectValue placeholder="All projects" /> 
@@ -153,6 +153,8 @@ export const DataFilters = ({ hideProjectFilter, hideStatusFilter, hideDateFilte
                 </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All projects</SelectItem>
+                        {/* Personal tasks; the API reads projectId=none as "no project" */}
+                        <SelectItem value="none">No project</SelectItem>
                         <SelectSeparator />
                         {projectOptions?.map( (project) => (
                         <SelectItem key={project.value} value={project.value}>
@@ -181,7 +183,7 @@ export const DataFilters = ({ hideProjectFilter, hideStatusFilter, hideDateFilte
                     defaultValue={status ?? undefined} 
                     onValueChange={(value) => {onStatusChange(value)}} 
                 >
-                    <SelectTrigger className="w-full lg:w-auto h-9 lg:h-8 min-h-0"> 
+                    <SelectTrigger className="w-full lg:w-auto h-9 lg:h-8 min-h-0" aria-label="Filter by status"> 
                         <div className="flex items-center pr-2"> 
                             <ListChecksIcon className="size-4 mr-2 text-blue-600" /> 
                             <SelectValue placeholder="All statuses" /> 

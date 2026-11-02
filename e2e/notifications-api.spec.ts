@@ -141,6 +141,31 @@ test("reminders can be switched off", async () => {
     expect((await reminders(other)).documents.map((n) => n.body).join()).not.toContain("Quiet task");
 });
 
+test("reminder times follow the person's settings", async () => {
+    expect((await user.api.patch("/api/account/preferences", { data: { summaryTime: "08:00", beforeEndMinutes: 60 } })).status()).toBe(200);
+    // Bad values are refused
+    expect((await user.api.patch("/api/account/preferences", { data: { summaryTime: "8am" } })).status()).toBe(400);
+    expect((await user.api.patch("/api/account/preferences", { data: { beforeEndMinutes: 45 } })).status()).toBe(400);
+
+    const day = dhakaDay(4);
+    await createTask(user.api, { workspaceId, projectId, assigneeId: memberId, name: "Early bird", dueDate: dhaka(day, "00:00"), startAt: dhaka(day, "10:00"), durationMinutes: 60 });
+    const earlyBird = async () => (await reminders(user)).documents.filter((n) => n.body.includes("Early bird") || n.title.includes("Early bird"));
+
+    // Summary at 08:00 the day before, not 18:00
+    await runAt(dhaka(dhakaDay(3), "07:59"));
+    expect(await earlyBird()).toHaveLength(0);
+    await runAt(dhaka(dhakaDay(3), "08:00"));
+    expect((await earlyBird()).map((n) => n.kind)).toEqual(["day_before"]);
+
+    // 60 minutes before the 11:00 end: at 10:00, with the matching title
+    await runAt(dhaka(day, "09:59"));
+    expect((await earlyBird()).filter((n) => n.kind === "before_end")).toHaveLength(0);
+    await runAt(dhaka(day, "10:00"));
+    expect((await earlyBird()).find((n) => n.kind === "before_end")).toMatchObject({ title: "Ends in 60 min: Early bird" });
+
+    await user.api.patch("/api/account/preferences", { data: { summaryTime: "18:00", beforeEndMinutes: 30 } });
+});
+
 test("the bell: unread count, marking read, and privacy", async () => {
     const before = await reminders(user);
     expect(before.unread).toBeGreaterThan(0);

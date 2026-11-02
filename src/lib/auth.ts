@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes } from "crypto";
 import { hash, verify } from "@node-rs/argon2";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { sessions, users } from "@/lib/db/schema";
@@ -125,6 +125,16 @@ export const getUserFromToken = async (token: string): Promise<{ user: SessionUs
 export const sessionIdFromToken = hashToken;
 
 // After a profile change or a sign-out elsewhere, drop this instance's cached copies
+// Merged inside Postgres in one statement: two saves at once (two quick eye toggles, the time-zone
+// sync, a new calendar-feed key) can't overwrite each other. Returns the stored preferences.
+export const mergePreferences = async (userId: string, changes: Record<string, unknown>) => {
+    const [row] = await db.update(users)
+        .set({ preferences: sql`coalesce(${users.preferences}, '{}'::jsonb) || ${JSON.stringify(changes)}::jsonb` })
+        .where(eq(users.id, userId))
+        .returning({ preferences: users.preferences });
+    return resolvePreferences(row.preferences);
+};
+
 export const forgetCachedSessions = (userId: string, keepSessionId?: string) => {
     for (const [id, entry] of Array.from(sessionCache.entries())) {
         if (entry.user.$id === userId && id !== keepSessionId) sessionCache.delete(id);

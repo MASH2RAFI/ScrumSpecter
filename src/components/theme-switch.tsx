@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { useTheme } from "next-themes";
 import { Monitor, Moon, Sun } from "lucide-react";
 
@@ -16,8 +16,7 @@ const OPTIONS = [
 export const ThemeSwitch = () => {
     const { theme, setTheme } = useTheme();
     // The stored theme is only known in the browser
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => setMounted(true), []);
+    const mounted = useHydrated();
 
     const index = Math.max(0, OPTIONS.findIndex((option) => option.value === (mounted ? theme : "system")));
 

@@ -8,6 +8,7 @@ import { PageSkeleton } from "@/components/page-skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DropBin, useDropBin } from "@/components/drop-bin";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useGetMembers } from "@/features/members/api/use-get-members";
 import { usePermissions } from "@/features/members/hooks/use-permissions";
@@ -18,10 +19,12 @@ import { useUpdateRoutine } from "@/features/routines/api/use-update-routine";
 import { useRoutineModal } from "@/features/routines/hooks/use-routine-modal";
 import { WEEKDAYS, ROUTINE_VIEWS } from "@/features/routines/types";
 import { RoutineWeek } from "@/features/routines/components/routine-week";
+import { ProjectVisibility } from "@/features/tasks/components/project-visibility";
 import { usePreferences } from "@/features/auth/hooks/use-preferences";
 import { isoWeekdayOrder } from "@/lib/week";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { cn } from "@/lib/utils";
+import { StarButton } from "@/features/stars/components/star-button";
 
 export const RoutinesClient = () => {
     const workspaceId = useWorkspaceId();
@@ -32,13 +35,16 @@ export const RoutinesClient = () => {
     const { data: members } = useGetMembers({ workspaceId });
     const { mutate: updateRoutine, isPending: isUpdating } = useUpdateRoutine();
     const { mutate: deleteRoutine, isPending: isDeleting } = useDeleteRoutine();
-    const { weekStart } = usePreferences();
+    const { weekStart, hiddenRoutineProjects } = usePreferences();
     const orderedWeekdays = isoWeekdayOrder(weekStart).map((day) => WEEKDAYS.find((weekday) => weekday.value === day)!);
     const [DeleteDialog, confirmDelete] = useConfirm(
         "Delete routine",
         "No new tasks will be created. Tasks it already created are kept.",
         "destructive",
     );
+    const { source: dragSource, bin } = useDropBin(async (routineId) => {
+        if (await confirmDelete()) deleteRoutine({ param: { routineId } });
+    });
 
     if (isLoading) {
         return <PageSkeleton />;
@@ -48,13 +54,17 @@ export const RoutinesClient = () => {
         return <PageError message="Failed to load routines" />;
     }
 
-    const projectName = (id: string) => projects?.documents.find((p) => p.$id === id)?.name ?? "Unknown project";
+    const hidden = new Set(hiddenRoutineProjects);
+    // Personal routines (no project) have no eye to hide them
+    const visibleRoutines = routines.documents.filter((routine) => !(routine.projectId && hidden.has(routine.projectId)));
+    const projectName = (id: string | null) => id ? projects?.documents.find((p) => p.$id === id)?.name ?? "Unknown project" : "Personal";
     const memberName = (ids: string[]) =>
         ids.map((id) => members?.documents.find((m) => m.$id === id)?.name).filter(Boolean).join(", ") || "Unassigned";
 
     return (
         <div className="space-y-6">
             <DeleteDialog />
+            {canEditWork && <DropBin {...bin} label="Drop to delete" />}
             {/* The navbar carries the page title; this row only holds the action */}
             <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <p className="text-sm text-muted-foreground">
@@ -80,20 +90,26 @@ export const RoutinesClient = () => {
                 </Card>
             ) : (
                 <>
+                <ProjectVisibility workspaceId={workspaceId} setting="hiddenRoutineProjects" page="Routines" />
                 <RoutineWeek
-                    routines={routines.documents}
+                    routines={visibleRoutines}
                     projectName={projectName}
                     memberName={memberName}
                     onSelect={canEditWork ? openEdit : undefined}
                 />
                 <div className="grid gap-3">
-                    {routines.documents.map((routine) => (
-                        <Card key={routine.$id} className={cn(!routine.active && "opacity-60")}>
+                    {visibleRoutines.map((routine) => (
+                        <Card
+                            key={routine.$id}
+                            {...(canEditWork && dragSource(routine.$id))}
+                            className={cn(!routine.active && "opacity-60", canEditWork && "cursor-grab active:cursor-grabbing")}
+                        >
                             <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="space-y-2 min-w-0">
                                     <div className="flex items-center gap-2">
                                         <RepeatIcon className="size-4 shrink-0 text-primary" />
                                         <p className="font-semibold truncate">{routine.name}</p>
+                                        <StarButton workspaceId={workspaceId} item={{ routineId: routine.$id }} name={routine.name} />
                                         {!routine.active && <Badge variant="secondary">Paused</Badge>}
                                     </div>
                                     <div className="flex flex-wrap gap-1" aria-label="Repeats on">

@@ -5,9 +5,8 @@ import { LayoutGroup } from "motion/react";
 
 import { m } from "@/components/motion";
 import { cn } from "@/lib/utils";
-import { BarChart3Icon, GitPullRequestArrowIcon, RepeatIcon, SettingsIcon, UsersIcon } from "lucide-react";
+import { BarChart3Icon, CircleCheckIcon, GitPullRequestArrowIcon, HomeIcon, RepeatIcon, SettingsIcon, StarIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
-import { GoHome, GoHomeFill, GoCheckCircle, GoCheckCircleFill } from "react-icons/go";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "./sidebar-context";
@@ -17,73 +16,15 @@ import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { useGetChangeRequests } from "@/features/change-requests/api/use-change-requests";
 
 // Members and Settings open as popups over the current page (workspace-panel-modal.tsx)
-const routes: {
-    label: string;
-    href: string;
-    panel?: WorkspacePanel;
-    icon: React.ElementType;
-    activeIcon: React.ElementType;
-    color: string;
-    activeColor: string;
-}[] = [
-    {
-        label: "Home",
-        href: "",
-        icon: GoHome,
-        activeIcon: GoHomeFill,
-        color: "text-muted-foreground",
-        activeColor: "text-primary",
-    },
-    {
-        label: "My Tasks",
-        href: "/tasks",
-        icon: GoCheckCircle,
-        activeIcon: GoCheckCircleFill,
-        color: "text-muted-foreground",
-        activeColor: "text-primary",
-    },
-    {
-        label: "Routines",
-        href: "/routines",
-        icon: RepeatIcon,
-        activeIcon: RepeatIcon,
-        color: "text-muted-foreground",
-        activeColor: "text-primary",
-    },
-    {
-        label: "Requests",
-        href: "/requests",
-        icon: GitPullRequestArrowIcon,
-        activeIcon: GitPullRequestArrowIcon,
-        color: "text-muted-foreground",
-        activeColor: "text-primary",
-    },
-    {
-        label: "Members",
-        href: "/members",
-        panel: "members",
-        icon: UsersIcon,
-        activeIcon: UsersIcon,
-        color: "text-muted-foreground",
-        activeColor: "text-primary",
-    },
-    {
-        label: "Analytics",
-        href: "/analytics",
-        icon: BarChart3Icon,
-        activeIcon: BarChart3Icon,
-        color: "text-muted-foreground",
-        activeColor: "text-primary",
-    },
-    {
-        label: "Settings",
-        href: "/settings",
-        panel: "settings",
-        icon: SettingsIcon,
-        activeIcon: SettingsIcon,
-        color: "text-muted-foreground",
-        activeColor: "text-primary",
-    },
+const routes: { label: string; href: string; panel?: WorkspacePanel; icon: React.ElementType }[] = [
+    { label: "Home", href: "", icon: HomeIcon },
+    { label: "Starred", href: "/starred", icon: StarIcon },
+    { label: "My Tasks", href: "/tasks", icon: CircleCheckIcon },
+    { label: "Routines", href: "/routines", icon: RepeatIcon },
+    { label: "Requests", href: "/requests", icon: GitPullRequestArrowIcon },
+    { label: "Members", href: "/members", panel: "members", icon: UsersIcon },
+    { label: "Analytics", href: "/analytics", icon: BarChart3Icon },
+    { label: "Settings", href: "/settings", panel: "settings", icon: SettingsIcon },
 ];
 
 export const Navigation = () => {
@@ -105,8 +46,8 @@ export const Navigation = () => {
         const fullHref = `/workspaces/${workspaceId}${item.href}`;
         const isActive = item.panel ? panel === item.panel : pathname === fullHref;
 
-        const Icon = isActive ? item.activeIcon : item.icon;
-        const iconColor = isActive ? item.activeColor : item.color;
+        const Icon = item.icon;
+        const iconColor = isActive ? "text-primary" : "text-muted-foreground";
         const content = (
             // data-tour: what the welcome tour points at (features/onboarding)
             <div data-tour={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`} className={cn(

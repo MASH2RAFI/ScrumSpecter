@@ -10,6 +10,9 @@ import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { calculateAverageVelocity, calculateVelocity } from "@/lib/sprint-utils";
 
+import { ChartDownloads } from "@/features/export/components/chart-downloads";
+import { downloadChartPng, downloadCsv } from "@/features/export/download";
+
 import { StatCard } from "./analytics-shared";
 
 const TREND_STYLES = {
@@ -131,11 +134,28 @@ export const VelocityTracker = () => {
                     </div>
 
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
                             <CardTitle>Velocity Chart</CardTitle>
+                            <ChartDownloads
+                                disabled={sprints.length === 0}
+                                onPng={() => downloadChartPng({
+                                    title: "Velocity per project",
+                                    kind: "bar",
+                                    labels: sprints.map((sprint) => sprint.name),
+                                    series: [{ name: "Velocity", values: sprints.map((sprint) => sprint.velocity), color: "#2563eb" }],
+                                    unit: "%",
+                                    filename: "velocity.png",
+                                })}
+                                onCsv={() => downloadCsv([
+                                    ["Project", "Story points", "Completed points", "Velocity (%)"],
+                                    ...sprints.map((sprint) => [sprint.name, sprint.storyPoints, sprint.completedPoints, sprint.velocity]),
+                                ], "velocity.csv")}
+                            />
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
+                                {/* Drawn for the eye; screen readers get the table below */}
+                                <div aria-hidden className="space-y-4">
                                 <div className="flex justify-between text-sm text-muted-foreground">
                                     <span>Velocity (%)</span>
                                     <span>Sprints</span>
@@ -194,6 +214,14 @@ export const VelocityTracker = () => {
                                         <span>Average</span>
                                     </div>
                                 </div>
+                                </div>
+                                <table className="sr-only">
+                                    <caption>Velocity by project, average {averageVelocity}%</caption>
+                                    <thead><tr><th>Project</th><th>Velocity</th><th>Completed points</th><th>Story points</th></tr></thead>
+                                    <tbody>
+                                        {sprints.map((sprint) => <tr key={sprint.id}><td>{sprint.name}</td><td>{sprint.velocity}%</td><td>{sprint.completedPoints}</td><td>{sprint.storyPoints}</td></tr>)}
+                                    </tbody>
+                                </table>
                             </div>
                         </CardContent>
                     </Card>

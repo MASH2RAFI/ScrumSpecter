@@ -5,6 +5,7 @@ import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { CheckIcon, GitPullRequestArrowIcon, Undo2Icon, XIcon } from "lucide-react";
 
+import { DropBin, useDropBin } from "@/components/drop-bin";
 import { PageError } from "@/components/page-error";
 import { PageSkeleton } from "@/components/page-skeletons";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ import { useTaskPanel } from "@/features/tasks/hooks/use-task-panel";
 import { formatDuration, formatTimeRange } from "@/features/tasks/task-time";
 import { Task } from "@/features/tasks/types";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
+import { useFormatDate } from "@/features/auth/hooks/use-preferences";
 
 const KIND_LABELS = { create: "New task", update: "Change", delete: "Delete" } as const;
 const KIND_STYLES = {
@@ -34,13 +36,10 @@ const KIND_STYLES = {
     delete: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300",
 } as const;
 
-const dateLabel = (iso: string | null | undefined) =>
-    iso ? new Date(iso).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "No date";
-
-type Lookup = { project: (id: string) => string; people: (ids: string[]) => string };
+type Lookup = { project: (id: string | null) => string; people: (ids: string[]) => string; date: (iso: string | null | undefined) => string };
 
 // Each proposed field as "Label: before → after" (before only for changes to an existing task)
-const describe = (request: ChangeRequest, current: Task | undefined, { project, people }: Lookup) => {
+const describe = (request: ChangeRequest, current: Task | undefined, { project, people, date: dateLabel }: Lookup) => {
     const { changes } = request;
     const rows: { label: string; before?: string; after: string }[] = [];
     const add = (label: string, after: string, before?: string) =>
@@ -63,8 +62,10 @@ const describe = (request: ChangeRequest, current: Task | undefined, { project, 
     return rows;
 };
 
-const RequestCard = ({ request, current, lookup, canReview, isMine }: {
+const RequestCard = ({ request, current, lookup, canReview, isMine, dragProps }: {
     request: ChangeRequest; current?: Task; lookup: Lookup; canReview: boolean; isMine: boolean;
+    // Present when it can be dragged to the bin (your own, still waiting)
+    dragProps?: ReturnType<ReturnType<typeof useDropBin>["source"]>;
 }) => {
     const [reply, setReply] = useState("");
     const { mutate: review, isPending: isReviewing } = useReviewChangeRequest();
@@ -74,7 +75,7 @@ const RequestCard = ({ request, current, lookup, canReview, isMine }: {
     const pending = request.status === "pending";
 
     return (
-        <Card aria-label={`${KIND_LABELS[request.kind]}: ${request.taskName}`}>
+        <Card aria-label={`${KIND_LABELS[request.kind]}: ${request.taskName}`} {...dragProps} className={cn(dragProps && "cursor-grab active:cursor-grabbing")}>
             <CardContent className="space-y-3 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0 space-y-1">
@@ -171,12 +172,17 @@ export const RequestsClient = () => {
     // Only the tasks the requests are about (their current values, shown next to the proposed ones)
     const taskIds = Array.from(new Set((requests ?? []).flatMap((request) => request.taskId ? [request.taskId] : [])));
     const { data: tasks } = useGetTasks({ workspaceId, ids: taskIds });
+    const formatDate = useFormatDate();
+    const { mutate: withdraw } = useWithdrawChangeRequest();
+    // No confirm: withdrawing is undone by asking again
+    const { source: dragSource, bin } = useDropBin((id) => withdraw({ id, workspaceId }));
 
     if (isLoading) return <PageSkeleton />;
     if (!requests) return <PageError message="Failed to load change requests" />;
 
     const lookup: Lookup = {
-        project: (id) => projects?.documents.find((project) => project.$id === id)?.name ?? "Unknown project",
+        project: (id) => id ? projects?.documents.find((project) => project.$id === id)?.name ?? "Unknown project" : "No project",
+        date: (iso) => iso ? formatDate(iso) : "No date",
         people: (ids) => ids.map((id) => members?.documents.find((member) => member.$id === id)?.name ?? "Someone").join(", ") || "Nobody",
     };
     const taskById = new Map((tasks?.documents ?? []).map((task) => [task.$id, task as Task]));
@@ -194,6 +200,7 @@ export const RequestsClient = () => {
                         lookup={lookup}
                         canReview={canEditWork}
                         isMine={request.requesterId === memberId}
+                        dragProps={request.status === "pending" && request.requesterId === memberId && !canEditWork ? dragSource(request.$id) : undefined}
                     />
                 </StaggerItem>
             ))}
@@ -221,6 +228,8 @@ export const RequestsClient = () => {
                     </Card>
                 ) : list(waiting)}
             </section>
+
+            {!canEditWork && <DropBin {...bin} label="Drop to withdraw" />}
 
             {reviewed.length > 0 && (
                 <section className="space-y-3">

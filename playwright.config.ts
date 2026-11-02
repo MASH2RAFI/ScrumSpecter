@@ -38,6 +38,8 @@ export default defineConfig({
             env: {
                 DATABASE_URL: `postgres://postgres:postgres@127.0.0.1:${DB_PORT}/postgres`,
                 DATABASE_SSL: "false",
+                // PGlite has one session; a single connection keeps queries from interleaving
+                DB_POOL_MAX: "1",
                 NEXT_PUBLIC_APP_URL: baseURL,
                 CRON_SECRET: "e2e-cron-secret",
                 // Known to qol-api.spec.ts, which signs a pending Google link like the server does

@@ -14,7 +14,7 @@ test("an unknown API route returns a JSON 404", async ({ baseURL }) => {
 });
 
 test("an unknown page shows the not-found page", async ({ page, baseURL }) => {
-    // Signed out, the middleware sends unknown pages to sign-in, so sign in first
+    // Signed out, the proxy (src/proxy.ts) sends unknown pages to sign-in, so sign in first
     const user = await registerUser(baseURL!);
     await signInBrowser(page, user, baseURL!);
     const res = await page.goto("/no-such-page");
@@ -54,5 +54,19 @@ test("health check reports the database as up, without auth or caching", async (
     expect(res.status()).toBe(200);
     expect(res.headers()["cache-control"]).toBe("no-store");
     expect(await res.json()).toMatchObject({ ok: true, db: "up" });
+    await anon.dispose();
+});
+
+test("robots.txt and sitemap.xml are public and keep the app out of search", async ({ baseURL }) => {
+    const anon = await request.newContext({ baseURL });
+    const robots = await anon.get("/robots.txt");
+    expect(robots.status()).toBe(200);
+    const text = await robots.text();
+    expect(text).toContain("Disallow: /workspaces/");
+    expect(text).toContain("Disallow: /api/");
+    expect(text).toMatch(/Sitemap: .*\/sitemap\.xml/);
+    const sitemap = await anon.get("/sitemap.xml");
+    expect(sitemap.status()).toBe(200);
+    expect(await sitemap.text()).toContain("/about</loc>");
     await anon.dispose();
 });

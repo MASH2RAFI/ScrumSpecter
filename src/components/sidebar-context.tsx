@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
+import { useStoredFlag } from "@/hooks/use-stored-flag";
+
 const STORAGE_KEY = "scrumspecter-sidebar-pinned";
 
 // Text that fades out while the sidebar is folded to icons (see dashboard-shell.tsx)
@@ -45,18 +47,9 @@ export const OpenSidebarProvider = ({ children }: { children: React.ReactNode })
 export const useSidebar = () => useContext(SidebarContext);
 
 export const SidebarProvider = ({ children }: { children: React.ReactNode }) => {
-    const [pinned, setPinned] = useState(false);
+    const [pinned, setPinned] = useStoredFlag(STORAGE_KEY, false);
     const [revealed, setRevealed] = useState(false);
-    const hideTimer = useRef<ReturnType<typeof setTimeout>>();
-
-    // Read after mount so server and client render the same first frame
-    useEffect(() => {
-        try {
-            setPinned(localStorage.getItem(STORAGE_KEY) === "1");
-        } catch {
-            // Storage can be unavailable (private mode); stay on auto-hide
-        }
-    }, []);
+    const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     useEffect(() => () => clearTimeout(hideTimer.current), []);
 
@@ -104,19 +97,34 @@ export const SidebarProvider = ({ children }: { children: React.ReactNode }) => 
         }
     }, [scheduleHide]);
 
+    // The pointer's position decides, from one page-wide listener: the panel's own mouse events can be
+    // swallowed (Radix turns off pointer events on the page while a dropdown opens or closes, and React
+    // counts a portalled list as "inside"), which left it stuck open or closed
+    useEffect(() => {
+        if (pinned) return;
+        const onMove = (event: PointerEvent) => {
+            const frame = document.querySelector("[data-sidebar-frame]");
+            if (!frame || menuOpen.current) return;
+            const { right, width } = frame.getBoundingClientRect();
+            if (!width) return; // hidden below the lg breakpoint
+            // Over the panel, or over the bare page (Radix turns pointer events off while a menu
+            // animates); not over a dialog or overlay that covers the panel
+            const target = event.target as Element | null;
+            const onPage = target === document.documentElement || target === document.body || frame.contains(target);
+            const inside = event.clientX <= right && onPage;
+            if (inside && !pointerInside.current) reveal();
+            else if (!inside && pointerInside.current) conceal();
+        };
+        window.addEventListener("pointermove", onMove);
+        return () => window.removeEventListener("pointermove", onMove);
+    }, [pinned, reveal, conceal]);
+
     const toggle = useCallback(() => {
-        setPinned((current) => {
-            try {
-                localStorage.setItem(STORAGE_KEY, current ? "0" : "1");
-            } catch {
-                // Not persisted; still toggles for this visit
-            }
-            return !current;
-        });
+        setPinned(!pinned);
         // Unpinning folds it straight away rather than after the hold
         clearTimeout(hideTimer.current);
         setRevealed(false);
-    }, []);
+    }, [pinned, setPinned]);
 
     return (
         <SidebarContext.Provider value={{ collapsed: !pinned && !revealed, pinned, toggle, reveal, conceal, setMenuOpen }}>

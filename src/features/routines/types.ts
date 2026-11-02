@@ -4,7 +4,8 @@ export type Routine = Document & {
     name: string;
     description: string | null;
     workspaceId: string;
-    projectId: string;
+    // null: a personal routine (no project)
+    projectId: string | null;
     // Member ids, like tasks.assigneeIds
     assigneeIds: string[];
     storyPoints: number | null;

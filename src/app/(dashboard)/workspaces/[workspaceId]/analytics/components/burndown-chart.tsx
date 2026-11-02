@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,9 @@ import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { BurndownDay, calculateVelocity, generateBurndownData, getProjectPointStats } from "@/lib/sprint-utils";
+
+import { ChartDownloads } from "@/features/export/components/chart-downloads";
+import { downloadChartPng, downloadCsv } from "@/features/export/download";
 
 import { BurndownGraph, ProjectSelect, StatCard } from "./analytics-shared";
 
@@ -23,17 +26,11 @@ export const BurndownChart = () => {
     // Just the chosen project's tasks
     const { data: tasks } = useGetTasks({ workspaceId, projectId: selectedProject, enabled: Boolean(selectedProject) });
     const [sprintDuration, setSprintDuration] = useState(14);
-    const [totalStoryPoints, setTotalStoryPoints] = useState(0);
-    const [completedStoryPoints, setCompletedStoryPoints] = useState(0);
     const [sprintDays, setSprintDays] = useState<BurndownDay[]>([]);
 
-    useEffect(() => {
-        if (selectedProject && tasks?.documents) {
-            const stats = getProjectPointStats(tasks.documents, selectedProject);
-            setTotalStoryPoints(stats.totalStoryPoints);
-            setCompletedStoryPoints(stats.completedStoryPoints);
-        }
-    }, [selectedProject, tasks]);
+    const { totalStoryPoints, completedStoryPoints } = selectedProject && tasks?.documents
+        ? getProjectPointStats(tasks.documents, selectedProject)
+        : { totalStoryPoints: 0, completedStoryPoints: 0 };
 
     const progressPercentage = calculateVelocity(completedStoryPoints, totalStoryPoints);
 
@@ -135,8 +132,25 @@ export const BurndownChart = () => {
                             </div>
 
                             <Card>
-                                <CardHeader>
+                                <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
                                     <CardTitle>Burndown Chart</CardTitle>
+                                    <ChartDownloads
+                                        onPng={() => downloadChartPng({
+                                            title: "Sprint burndown",
+                                            kind: "line",
+                                            labels: sprintDays.map((day) => `Day ${day.day}`),
+                                            series: [
+                                                { name: "Ideal", values: sprintDays.map((day) => day.idealBurndown), color: "#94a3b8", dashed: true },
+                                                { name: "Actual", values: sprintDays.map((day) => day.remainingWork), color: "#2563eb" },
+                                            ],
+                                            unit: " pts",
+                                            filename: "burndown.png",
+                                        })}
+                                        onCsv={() => downloadCsv([
+                                            ["Day", "Ideal remaining (pts)", "Actual remaining (pts)"],
+                                            ...sprintDays.map((day) => [day.day, Math.round(day.idealBurndown * 100) / 100, day.remainingWork]),
+                                        ], "burndown.csv")}
+                                    />
                                 </CardHeader>
                                 <CardContent>
                                     <BurndownGraph data={sprintDays} totalPoints={totalStoryPoints} />

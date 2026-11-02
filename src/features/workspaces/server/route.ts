@@ -5,7 +5,7 @@ import { z } from "zod";
 import { and, eq, gt, isNull, lt, max, or, sql, TransactionRollbackError } from "drizzle-orm";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { generateInviteCode } from "@/lib/utils";
-import { db } from "@/lib/db";
+import { db, type Tx } from "@/lib/db";
 import { findById } from "@/lib/db/find-by-id";
 import { members, notifications, routines, users, workspaceHolidays, workspaces } from "@/lib/db/schema";
 import { getHolidays, isSupportedCountry, listCountries, weekendDays } from "@/lib/holidays";
@@ -13,17 +13,17 @@ import { generateRoutineTasks, removeRoutineTasksOn } from "@/lib/routines";
 import { toDoc } from "@/lib/db/types";
 import { MemberRole } from "@/features/members/types";
 import { getMember, handOverPlaceholder, requireMember, requireRole } from "@/features/members/utils";
-import { canEditWork, canManageWorkspace } from "@/features/members/permissions";
+import { canEditWork, canRequestChanges } from "@/features/members/permissions";
 import { MAX_SCRIPT_LENGTH, planScript } from "./bulk-input";
-import { applyPlan, countPlan, finishPlan, loadContext, newWorkspaceContext, writePlan } from "./bulk-apply";
-import { isValidTimeZone } from "@/lib/time-zone";
+import { insertTaskRequests, MAX_PENDING_PER_MEMBER, notifyBulkRequests, pendingRequests } from "@/features/change-requests/server/route";
+import { countPlan, finishPlan, loadContext, newWorkspaceContext, ofKind, writePlan } from "./bulk-apply";
 import { createWorkspaceSchema, holidayChangeSchema, holidayRangeSchema, inviteLimitsSchema, updateWorkspaceSchema } from "../schemas";
 import { listUserWorkspaces } from "../queries";
 import { rateLimited } from "@/lib/rate-limit";
 import { assertRoom } from "@/lib/volume-caps";
 
 // A workspace with its creator as admin; `memberId` lets bulk setup refer to that member up front
-const insertWorkspace = async (tx: Parameters<Parameters<typeof db.transaction>[0]>[0], userId: string, name: string, memberId?: string) => {
+const insertWorkspace = async (tx: Tx, userId: string, name: string, memberId?: string) => {
     await assertRoom("workspaces", userId, 1, tx);
     const [created] = await tx
         .insert(workspaces)
@@ -126,7 +126,7 @@ const app = new Hono()
 
             const limited = await rateLimited(c, "bulk", user.$id) ?? (apply ? await rateLimited(c, "bulkApply", user.$id) : null);
             if (limited) return limited;
-            const timeZone = isValidTimeZone(user.preferences.timeZone) ? user.preferences.timeZone : "Asia/Dhaka";
+            const timeZone = user.preferences.timeZone;
 
             const memberId = randomUUID();
             const { results, plan } = planScript(script, newWorkspaceContext(memberId, user, timeZone));
@@ -379,7 +379,10 @@ const app = new Hono()
     )
 
     // Settings → Bulk input: checks a script line by line, and with apply: true makes every
-    // change in one go (admins). Nothing is written unless every line is valid.
+    // change in one go. Nothing is written unless every line is valid.
+    // Admins and supervisors: everything their role allows (holidays and placeholders: admins).
+    // Reviewers and assignees: task lines only; their own are saved, the rest become change
+    // requests, created together with one notification. Viewers: nothing.
     .post(
         "/:workspaceId/bulk",
         sessionMiddleware,
@@ -388,8 +391,7 @@ const app = new Hono()
             const { workspaceId } = c.req.param();
             const { script, apply } = c.req.valid("json");
 
-            // Admins and supervisors; only admins may add holidays and placeholders
-            const member = await requireRole(c, workspaceId, canEditWork, "Only admins and supervisors can use bulk input");
+            const member = await requireRole(c, workspaceId, (role) => canEditWork(role) || canRequestChanges(role), "Viewers can't use bulk input");
             if (member instanceof Response) {
                 return member;
             }
@@ -398,17 +400,55 @@ const app = new Hono()
             const limited = await rateLimited(c, "bulk", user.$id) ?? (apply ? await rateLimited(c, "bulkApply", user.$id) : null);
             if (limited) return limited;
 
-            const timeZone = isValidTimeZone(user.preferences.timeZone) ? user.preferences.timeZone : "Asia/Dhaka";
-            const context = await loadContext(workspaceId, member.$id, timeZone, canManageWorkspace(member.role));
+            const timeZone = user.preferences.timeZone;
+            const context = await loadContext(workspaceId, member.$id, timeZone, member.role, script);
             const { results, plan } = planScript(script, context);
             const valid = results.length > 0 && results.every((result) => result.ok);
+
+            // The pending cap covers the whole run, up front
+            const requested = ofKind(plan, "task").filter((step) => step.requested);
+            if (requested.length) {
+                const pending = await pendingRequests(member.$id);
+                if (pending + requested.length > MAX_PENDING_PER_MEMBER) {
+                    return c.json({ error: `You have ${pending} requests waiting and this would send ${requested.length} more (at most ${MAX_PENDING_PER_MEMBER}); wait for some to be reviewed` }, 429);
+                }
+            }
 
             if (!apply || !valid) {
                 return c.json({ data: { results, applied: false, counts: null } });
             }
 
-            const counts = await applyPlan(workspaceId, plan);
-            return c.json({ data: { results, applied: true, counts } });
+            // A run of requests counts as one request against the cooldown
+            if (requested.length) {
+                const cooling = await rateLimited(c, "changeRequest", member.$id);
+                if (cooling) return cooling;
+            }
+
+            // Saved lines and requests commit together, or not at all
+            const { removed, requestIds } = await db.transaction(async (tx) => ({
+                removed: await writePlan(tx, workspaceId, plan),
+                requestIds: requested.length
+                    ? await insertTaskRequests(tx, workspaceId, member.$id, requested.map((step) => ({
+                        name: step.name,
+                        projectId: step.projectId,
+                        assigneeIds: step.assigneeIds,
+                        status: step.status,
+                        dueDate: step.dueDate?.toISOString() ?? null,
+                        startAt: step.startAt?.toISOString() ?? null,
+                        durationMinutes: step.durationMinutes,
+                        storyPoints: step.storyPoints,
+                        ...(step.description ? { description: step.description } : {}),
+                    })))
+                    : [],
+            }));
+            try {
+                await finishPlan(workspaceId, plan);
+                if (requestIds.length) await notifyBulkRequests(workspaceId, member.$id, requestIds[0].id, requestIds.length);
+            } catch (error) {
+                // The data is saved; the daily routines job fills in any tasks missed here
+                console.error("After bulk input:", error);
+            }
+            return c.json({ data: { results, applied: true, counts: countPlan(plan), removed } });
         }
     )
 

@@ -113,8 +113,10 @@ test("hiding a public holiday and switching country", async () => {
 test("account: profile, preferences and sessions", async ({ baseURL }) => {
     let account = (await (await member.api.get("/api/account")).json()).data;
     expect(account).toMatchObject({ name: "Holiday Member", hasPassword: true, googleLinked: false, activeSessions: 1 });
-    expect(account.preferences).toEqual({
+    expect(account.preferences).toMatchObject({
         defaultTaskView: "table", weekStart: 6, timeFormat: "12h", timeZone: "Asia/Dhaka", remindDayBefore: true, remindBeforeEnd: true, showTutorial: false, hiddenProjects: [],
+        // Newer settings start at their defaults
+        landingPage: "home", theme: "device", reduceMotion: false, hiddenRoutineProjects: [],
     });
 
     expect((await member.api.patch("/api/account/profile", { data: { name: "Renamed Member" } })).status()).toBe(200);

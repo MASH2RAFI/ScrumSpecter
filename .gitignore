@@ -36,10 +36,14 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*
+# The template is meant to be copied (README); it holds placeholders only
+!.env.example
 
 # playwright
 /test-results/
 /.next-e2e/
+# Other build folders (NEXT_DIST_DIR), e.g. a local production build
+/.next-*/
 /playwright-report/
 
 # private working notes

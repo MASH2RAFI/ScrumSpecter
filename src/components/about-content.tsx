@@ -65,11 +65,11 @@ const FEATURES = [
     { icon: TargetIcon, title: "Sprint Management", description: "Give each project a sprint, then follow its countdown, story points and progress from the dashboard.", badge: "Core Feature" },
     { icon: CheckCircleIcon, title: "Task Management", description: "Story points, due dates, time blocks and several assignees, moving through Backlog, To Do, In Progress, In Review and Done.", badge: "Core Feature" },
     { icon: CalendarIcon, title: "Multiple Views", description: "Switch between a table, a kanban board and a calendar, with drag and drop in each. Undo is one click away.", badge: "Flexible" },
-    { icon: RepeatIcon, title: "Weekly Routines", description: "Set up standups and other repeating work once. Tasks are created on their days through the sprint, skipping days off, and each routine picks the views its tasks show in.", badge: "New!" },
+    { icon: RepeatIcon, title: "Weekly Routines", description: "Set up standups and other repeating work once. Tasks are created on their days through the sprint, skipping days off, and each routine picks the views its tasks show in. Personal routines need no project.", badge: "New!" },
     { icon: ShieldCheckIcon, title: "Roles & Review", description: "Admin, Supervisor, Reviewer, Assignee and Viewer. Assignees take work to In Review; a reviewer approves it to Done.", badge: "New!" },
     { icon: GitPullRequestArrowIcon, title: "Change Requests", description: "Assignees and reviewers propose new tasks, edits or deletions, and an admin or supervisor approves or declines them.", badge: "New!" },
     { icon: BellIcon, title: "Reminders", description: "In-app and push notifications: tomorrow's tasks at 6 PM, 30 minutes before a task ends, and decisions on your requests.", badge: "Essential" },
-    { icon: ListPlusIcon, title: "Bulk Input", description: "Add many projects, tasks, routines and days off at once, checked line by line, or let your AI assistant write them. You can even set up a whole new workspace this way.", badge: "New!" },
+    { icon: ListPlusIcon, title: "Bulk Input", description: "Add, change or remove many projects, tasks, routines and days off at once, checked line by line, or let your AI assistant write them. Reviewers and assignees can add tasks too; tasks for others go for approval. You can even set up a whole new workspace this way.", badge: "New!" },
     { icon: BarChart3Icon, title: "Analytics Dashboard", description: "Capacity calculator, burndown chart, velocity tracker and sprint reports.", badge: "Advanced" },
     { icon: UsersIcon, title: "Team Collaboration", description: "Invite links with optional expiry and use limits, a separate view-only link, and placeholders for people who haven't joined yet.", badge: "Essential" },
     { icon: KeyboardIcon, title: "Keyboard Friendly", description: "Jump anywhere with Ctrl/⌘ K, create a task with C, search with /, and press ? for every shortcut.", badge: "Fast" },
@@ -108,7 +108,7 @@ const ROLES = [
 ];
 
 const TECHNOLOGIES = [
-    { name: "Next.js 14", description: "React framework with the App Router" },
+    { name: "Next.js 16", description: "React framework with the App Router" },
     { name: "TypeScript", description: "Type-safe from database to UI" },
     { name: "Tailwind CSS", description: "Utility-first styling with shadcn/ui" },
     { name: "PostgreSQL", description: "Self-hosted, through Drizzle ORM" },
@@ -544,7 +544,7 @@ export const AboutContent = () => {
                     </span>
                 </div>
                 <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
-                    © {new Date().getFullYear()} ScrumSpecter. Built with Next.js 14, TypeScript, Tailwind CSS, and PostgreSQL.
+                    © {new Date().getFullYear()} ScrumSpecter. Built with Next.js 16, TypeScript, Tailwind CSS, and PostgreSQL.
                     Designed for small agile teams.
                 </p>
                 <div className="flex justify-center gap-6 text-xs text-muted-foreground">

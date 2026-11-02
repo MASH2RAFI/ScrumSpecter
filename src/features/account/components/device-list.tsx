@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useGetDevices, useSignOutDevice } from "../api/use-account";
 import { describeDevice, type DeviceKind } from "../device";
 import { RowsSkeleton } from "@/components/page-skeletons";
+import { useFormatDate } from "@/features/auth/hooks/use-preferences";
 
 const KIND_ICON: Record<DeviceKind, typeof MonitorIcon> = {
     phone: SmartphoneIcon,
@@ -16,12 +17,11 @@ const KIND_ICON: Record<DeviceKind, typeof MonitorIcon> = {
     desktop: MonitorIcon,
 };
 
-const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-
 // Account settings → Security: every signed-in device, each with its own Log out
 export const DeviceList = () => {
     const { data: devices, isLoading } = useGetDevices();
     const signOut = useSignOutDevice();
+    const formatDate = useFormatDate();
 
     if (isLoading || !devices) {
         return <RowsSkeleton rows={2} />;
@@ -36,7 +36,7 @@ export const DeviceList = () => {
                     device.current ? "Active now" : `Active ${formatDistanceToNow(new Date(device.lastSeenAt), { addSuffix: true })}`,
                     device.location,
                     device.ipAddress,
-                    `signed in ${shortDate(device.createdAt)}`,
+                    `signed in ${formatDate(device.createdAt)}`,
                 ].filter(Boolean).join(" · ");
 
                 return (

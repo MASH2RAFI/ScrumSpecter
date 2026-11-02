@@ -5,7 +5,8 @@ import { idString, MAX_DESCRIPTION, MAX_ID, MAX_TITLE } from "@/lib/limits";
 export const routineFieldsSchema = z.object({
     name: z.string().trim().min(1, "Required").max(MAX_TITLE, `At most ${MAX_TITLE} characters`),
     description: z.string().max(MAX_DESCRIPTION, `At most ${MAX_DESCRIPTION} characters`).optional(),
-    projectId: z.string().trim().min(1, "Please select a project").max(MAX_ID),
+    // null or left out: a personal routine; its tasks fill the next 14 days
+    projectId: z.string().trim().min(1).max(MAX_ID).nullable().optional(),
     // Every generated task gets all of them
     assigneeIds: z.array(idString).min(1, "Pick at least one assignee").max(20, "At most 20 assignees"),
     weekdays: z.array(z.number().int().min(1).max(7)).min(1, "Pick at least one day"),

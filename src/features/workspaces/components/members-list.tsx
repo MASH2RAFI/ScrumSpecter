@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo } from "react";
+import { Fragment } from "react";
 import { CheckIcon, MoreVerticalIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -37,12 +37,8 @@ export const MembersList = ({ onClose }: { onClose?: () => void }) => {
     const { data } = useGetMembers({ workspaceId });
     const { data: currentUser } = useCurrent();
 
-    const isLastAdmin = useMemo(() => {
-        if (!data?.documents || !currentUser) return false;
-        const adminCount = data.documents.filter((member) => member.role === "ADMIN").length;
-        const currentMember = data.documents.find((member) => member.userId === currentUser.$id);
-        return adminCount === 1 && currentMember?.role === "ADMIN";
-    }, [data?.documents, currentUser]);
+    const admins = data?.documents.filter((member) => member.role === "ADMIN") ?? [];
+    const isLastAdmin = admins.length === 1 && admins[0].userId === currentUser?.$id;
 
     const [ConfirmDialog, confirm] = useConfirm(
         "Remove member",

@@ -26,11 +26,8 @@ const Shell = ({ children }: { children: React.ReactNode }) => {
                     collapsed ? "lg:w-[76px]" : "lg:w-[264px]",
                     !collapsed && !pinned && "shadow-lift",
                 )}
-                onMouseEnter={reveal}
-                // Folded while the pointer stayed on it (another window took focus): no new
-                // mouseenter comes, so the next movement opens it
-                onMouseMove={collapsed ? reveal : undefined}
-                onMouseLeave={conceal}
+                // Pointer hover is tracked page-wide by position (sidebar-context.tsx); this marks the panel
+                data-sidebar-frame
                 // Keyboard focus only: coming back to the window refocuses the link last
                 // clicked, which shouldn't unfold the sidebar again
                 onFocus={(e) => {

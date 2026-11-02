@@ -36,7 +36,8 @@ export type Task = Document & {
     workspaceId: string;
     // Member ids (people or placeholders), in the order they were picked
     assigneeIds: string[];
-    projectId: string;
+    // null: a personal task (no project)
+    projectId: string | null;
     position: number;
     dueDate: string;
     description?: string;

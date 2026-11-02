@@ -8,7 +8,7 @@ import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { RiAddCircleFill } from "react-icons/ri";
+import { CirclePlusIcon } from "lucide-react";
 
 import { useSidebar } from "./sidebar-context";
 import { SIDEBAR_FADE, SIDEBAR_ROW } from "./sidebar-context";
@@ -29,7 +29,7 @@ export const Projects = () => {
             <div className={cn("flex items-center justify-between", SIDEBAR_FADE)}>
                 <p className="text-xs uppercase font-medium text-muted-foreground">Projects</p>
                 {canEditWork && (
-                    <RiAddCircleFill onClick={ open } className="size-5 text-muted-foreground cursor-pointer hover:text-primary transition-colors" />
+                    <CirclePlusIcon onClick={ open } className="size-5 text-muted-foreground cursor-pointer hover:text-primary transition-colors" />
                 )}
             </div>
             {isLoading ? (

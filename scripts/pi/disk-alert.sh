@@ -4,7 +4,7 @@
 # Alerts at most once a day per disk, so a full disk doesn't send a message every hour.
 set -eu
 
-DIR="${BACKUP_DIR:-$HOME/docker/postgres}"
+DIR="${SCRUMSPECTER_PI_DIR:-$HOME/docker/postgres}"
 . "$(dirname "$0")/telegram.sh"
 
 LIMIT="${DISK_ALERT_PERCENT:-80}"

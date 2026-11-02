@@ -5,7 +5,7 @@ import { and, desc, eq, inArray, max, ne } from "drizzle-orm";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { db } from "@/lib/db";
 import { findById } from "@/lib/db/find-by-id";
-import { findForeignReference } from "@/lib/db/workspace-refs";
+import { findForeignReference, sameProjectTasks } from "@/lib/db/workspace-refs";
 import { members, projects, routines, tasks, users } from "@/lib/db/schema";
 import { toDoc } from "@/lib/db/types";
 import { canEditDescription, canEditWork, canReview, canSetStatus } from "@/features/members/permissions";
@@ -13,18 +13,12 @@ import { MemberRole } from "@/features/members/types";
 import { requireMember, requireRole } from "@/features/members/utils";
 import { Project } from "@/features/projects/types";
 import { bulkEditSchema, createTaskSchema, restoreTasksSchema } from "../schemas";
-import { baseFilters, countTasks, hiddenRoutineCount, listQuerySchema, orderFor, routineRule, selectTasks, taskSummary } from "./task-list";
-import { PopulatedAssignee, Task, TaskStatus } from "../types";
+import { baseFilters, countTasks, toTaskDoc, hiddenRoutineCount, listQuerySchema, orderFor, routineRule, selectTasks, taskSummary } from "./task-list";
+import { PopulatedAssignee, TaskStatus } from "../types";
 import { idString } from "@/lib/limits";
 import { assertRoom } from "@/lib/volume-caps";
 
 const MEMBER_NOT_FOUND = "Member not found in the workspace";
-
-const toTaskDoc = (task: typeof tasks.$inferSelect) => ({
-    ...toDoc(task),
-    dueDate: task.dueDate?.toISOString() ?? null,
-    startAt: task.startAt?.toISOString() ?? null,
-}) as Task;
 
 // Names for the assignees of a set of tasks, in one query: people's own, or a placeholder's
 const loadAssignees = async (taskRows: { assigneeIds: string[] }[]) => {
@@ -166,9 +160,6 @@ const app = new Hono()
         zValidator("query", listQuerySchema),
         async (c) => {
             const q = c.req.valid("query");
-            const filters = baseFilters(q);
-            const rule = routineRule(q);
-            const where = and(...filters, rule);
 
             // Kanban (with no status filter): every open task, but only the most recently
             // finished Done ones, as that column only ever grows
@@ -179,6 +170,11 @@ const app = new Hono()
             if (member instanceof Response) {
                 return member;
             }
+            // assigneeId=me (resolved in baseFilters) lets a page ask for "my tasks" without first
+            // waiting for the members list
+            const filters = baseFilters(q, member.$id);
+            const rule = routineRule(q);
+            const where = and(...filters, rule);
 
             const [rows, total, doneRows, doneTotal, hiddenRoutineTasks] = await Promise.all([
                 (() => {
@@ -263,7 +259,7 @@ const app = new Hono()
             const [highestPosition] = await db
                 .select({ position: max(tasks.position) })
                 .from(tasks)
-                .where(and(eq(tasks.status, status), eq(tasks.projectId, projectId)));
+                .where(and(eq(tasks.status, status), sameProjectTasks(workspaceId, projectId)));
 
             const newPosition = (highestPosition?.position ?? 0) + 1000;
 

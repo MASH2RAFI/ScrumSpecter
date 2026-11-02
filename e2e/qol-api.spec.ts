@@ -1,26 +1,14 @@
 import { createHash, createHmac, randomBytes } from "node:crypto";
 
 import { expect, request, test } from "@playwright/test";
-import { Client } from "pg";
 
-import { createProject, createTask, createWorkspace, getMembers, registerUser, type TestUser } from "./helpers";
+import { createProject, createTask, createWorkspace, getMembers, registerUser, type TestUser, sql } from "./helpers";
 
 // API: sign-in cookie and return paths, login lockout, password reset, safe Google linking,
 // invite limits, bulk edit and restore
 test.describe.configure({ mode: "serial" });
 
 const LINK_SECRET = "e2e-link-secret";
-
-// The test database (e2e/db-server.mjs), for set-ups the API can't do on demand
-const sql = async <T = Record<string, unknown>>(text: string, values: unknown[] = []) => {
-    const client = new Client({ connectionString: "postgres://postgres:postgres@127.0.0.1:55433/postgres" });
-    await client.connect();
-    try {
-        return (await client.query(text, values)).rows as T[];
-    } finally {
-        await client.end();
-    }
-};
 
 test("the session cookie is SameSite=Lax; deep links ask to sign in and come back", async ({ baseURL }) => {
     const anon = await request.newContext({ baseURL });
@@ -289,7 +277,10 @@ test("bulk input: checks every line, then applies all or nothing", async ({ base
                 (select count(*) from routines where workspace_id = $1) as routines,
                 (select count(*) from members where workspace_id = $1) as members`, [workspace.$id]))[0];
 
-    expect((await bulk(member, `project add "Nope"`)).status()).toBe(403);
+    // Members (assignees) may use bulk input, but not to add projects
+    const asMember = await bulk(member, `project add "Nope"`);
+    expect(asMember.status()).toBe(200);
+    expect((await asMember.json()).data.results[0].ok).toBe(false);
 
     const script = [
         "# a comment",

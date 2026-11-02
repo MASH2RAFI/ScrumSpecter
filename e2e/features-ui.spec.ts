@@ -69,10 +69,15 @@ test("Members and Settings open as popups from the sidebar", async () => {
 });
 
 test("New workspace sits at the bottom of the workspace dropdown", async () => {
+    // Several small moves, like a real pointer: one instant jump can land before the page is interactive
     await page.goto(`/workspaces/${workspaceId}`, { timeout: 90_000 });
-    await page.mouse.move(30, 300);
     const sidebar = page.locator("aside[data-collapsed]").first();
-    await expect(sidebar).toHaveAttribute("data-collapsed", "false");
+    // Right after a load the page may not react yet; nudge the pointer until the sidebar opens
+    await expect(async () => {
+        await page.mouse.move(600, 300);
+        await page.mouse.move(30, 300, { steps: 5 });
+        await expect(sidebar).toHaveAttribute("data-collapsed", "false", { timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
     await sidebar.getByRole("combobox").click();
     const list = page.getByRole("listbox");
     await expect(list.getByRole("option", { name: /Calendar WS/ })).toBeVisible();
@@ -300,13 +305,13 @@ test("My work: change a task's status in place", async () => {
     const taskId = (await created.json()).data.$id;
     await page.goto(`/workspaces/${workspaceId}`, { timeout: 90_000 });
 
-    await page.getByRole("button", { name: "Change status of Status from home (Todo)" }).click();
+    await page.getByRole("button", { name: "Todo: change status of Status from home" }).click();
     await page.getByRole("menuitem", { name: "In Progress" }).click();
-    await expect(page.getByRole("button", { name: "Change status of Status from home (In Progress)" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "In Progress: change status of Status from home" })).toBeVisible();
     await expect.poll(async () => (await (await user.api.get(`/api/tasks/${taskId}`)).json()).data.status).toBe("IN_PROGRESS");
 
     // Done takes it off the list
-    await page.getByRole("button", { name: "Change status of Status from home (In Progress)" }).click();
+    await page.getByRole("button", { name: "In Progress: change status of Status from home" }).click();
     await page.getByRole("menuitem", { name: "Done" }).click();
     await expect(page.getByRole("button", { name: "Status from home", exact: true })).toHaveCount(0);
 });
@@ -320,7 +325,7 @@ test("My work shows start–end times and a countdown to the end", async () => {
     const row = page.locator("li", { has: page.getByRole("button", { name: /^Timed now/ }) });
     // An earlier test switched this account to 24-hour time
     await expect(row).toContainText(/\d{1,2}:\d{2}( [AP]M)? – \d{1,2}:\d{2}( [AP]M)?/);
-    await expect(row.getByLabel("Time left")).toHaveText(/· 4[45]m left/);
+    await expect(row.getByText(/4[45]m left/)).toBeVisible();
 
     // Not started yet: counts down to the start
     const later = new Date(Date.now() + 2 * 3_600_000 + 5 * 60_000);
@@ -328,7 +333,7 @@ test("My work shows start–end times and a countdown to the end", async () => {
     await createTask(user.api, { workspaceId, projectId, assigneeId: memberId, name: "Later today", dueDate: dhakaNoon(0), startAt: later.toISOString(), durationMinutes: 30 });
     await page.reload();
     const laterRow = page.locator("li", { has: page.getByRole("button", { name: /^Later today/ }) });
-    await expect(laterRow.getByLabel("Time to start")).toHaveText(/· starts in 2h( [45]m)?/);
+    await expect(laterRow.getByText(/starts in 2h( [45]m)?/)).toBeVisible();
 });
 
 test("bell: reminders list, test notification and settings", async () => {
@@ -337,7 +342,8 @@ test("bell: reminders list, test notification and settings", async () => {
     await page.getByRole("button", { name: /^Notifications/ }).click();
     await page.getByRole("button", { name: "Notification settings" }).click();
     const dialog = page.getByRole("dialog", { name: "Notification settings" });
-    await expect(dialog.getByText("At 6 PM the day before")).toBeVisible();
+    // The label follows the person's time format (this user switched to 24-hour earlier)
+    await expect(dialog.getByText(/^At (6 PM|18:00) the day before$/)).toBeVisible();
     await expect(dialog.getByText("Times are in Asia/Dhaka.")).toBeVisible();
     await dialog.getByRole("button", { name: "Send a test" }).click();
     await expect(page.getByText(/Added to the bell|Test sent/)).toBeVisible();

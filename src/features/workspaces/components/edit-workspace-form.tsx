@@ -21,6 +21,7 @@ import { BulkInput } from "./bulk-input";
 import { HolidaySettings } from "./holiday-settings";
 import { InviteByEmail } from "./invite-by-email";
 import { InviteLimits } from "./invite-limits";
+import { WorkspaceExport } from "@/features/export/components/workspace-export";
 
 const Section = ({ title, description, children }: { title: string; description?: string; children: ReactNode }) => (
     <section className="space-y-3 rounded-lg border p-4">
@@ -202,19 +203,25 @@ const DangerZone = ({ workspace }: { workspace: Workspace }) => {
 
 // Settings popup (sidebar → Settings), one tab per area
 export const WorkspaceSettings = ({ workspace }: { workspace: Workspace }) => {
-    const { isAdmin: admin, canEditWork } = usePermissions({ workspaceId: workspace.$id });
+    const { isAdmin: admin, canEditWork, canRequestChanges, isViewer, role } = usePermissions({ workspaceId: workspace.$id });
+    const canBulk = canEditWork || canRequestChanges;
+    const bulkNote = isViewer
+        ? "Only admins and supervisors can use bulk input; reviewers and assignees can add tasks with it. Viewers can't."
+        : canRequestChanges ? "Your task lines are sent for approval; tasks only for you are saved" : undefined;
 
     return (
         <div className="space-y-4 p-6">
             <h2 className="text-xl font-bold">{workspace.name} settings</h2>
             <Tabs defaultValue="general">
-                <TabsList className="grid h-auto w-full grid-cols-3 sm:grid-cols-5">
+                <TabsList className="grid h-auto w-full grid-cols-3 sm:grid-cols-6">
                     <TabsTrigger value="general">General</TabsTrigger>
                     <TabsTrigger value="invites">Invites</TabsTrigger>
                     <TabsTrigger value="holidays">Holidays</TabsTrigger>
-                    <TabsTrigger value="bulk" disabled={!canEditWork}>Bulk input</TabsTrigger>
+                    <TabsTrigger value="bulk" disabled={!canBulk} title={bulkNote}>Bulk input</TabsTrigger>
+                    <TabsTrigger value="export">Export</TabsTrigger>
                     <TabsTrigger value="danger" disabled={!admin}>Danger zone</TabsTrigger>
                 </TabsList>
+                {isViewer && <p className="pt-2 text-xs text-muted-foreground">{bulkNote}</p>}
                 <TabsContent value="general" className="pt-2">
                     <GeneralSettings key={workspace.$updatedAt} workspace={workspace} isAdmin={admin} />
                 </TabsContent>
@@ -224,11 +231,14 @@ export const WorkspaceSettings = ({ workspace }: { workspace: Workspace }) => {
                 <TabsContent value="holidays" className="pt-2">
                     <HolidaySettings workspaceId={workspace.$id} isAdmin={admin} />
                 </TabsContent>
-                {canEditWork && (
+                {canBulk && role && (
                     <TabsContent value="bulk" className="pt-2">
-                        <BulkInput workspace={workspace} canManage={admin} />
+                        <BulkInput workspace={workspace} role={role} />
                     </TabsContent>
                 )}
+                <TabsContent value="export" className="pt-2">
+                    <WorkspaceExport workspaceId={workspace.$id} isAdmin={admin} />
+                </TabsContent>
                 {admin && (
                     <TabsContent value="danger" className="pt-2">
                         <DangerZone workspace={workspace} />

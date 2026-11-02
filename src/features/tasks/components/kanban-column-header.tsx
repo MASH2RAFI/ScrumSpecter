@@ -69,6 +69,7 @@ export const KanbanColumnHeader = ({
                     onClick={() => open(board)} 
                     variant="ghost" 
                     size="icon" 
+                    aria-label={`Add a task to ${snakeCaseToTitleCase(board)}`}
                     className="size-6 sm:size-5 min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] flex-shrink-0"
                 >
                     <PlusIcon className="size-3 sm:size-4 text-muted-foreground" />

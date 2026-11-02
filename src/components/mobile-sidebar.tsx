@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { MenuIcon } from "lucide-react";
 import { Button } from "./ui/button";
@@ -12,9 +12,12 @@ export const MobileSidebar = () => {
     const [isOpen, setIsOpen] = useState(false);
     const pathname = usePathname();
 
-    useEffect(() => {
+    // Closes after moving to another page
+    const [shownPath, setShownPath] = useState(pathname);
+    if (pathname !== shownPath) {
+        setShownPath(pathname);
         setIsOpen(false);
-    }, [pathname]);
+    }
 
     return (
         <Sheet modal={false} open={isOpen} onOpenChange={setIsOpen}>

@@ -1,6 +1,18 @@
 import { expect, request, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import { Client } from "pg";
 
 export const CRON_SECRET = "e2e-cron-secret";
+
+// The test database (e2e/db-server.mjs), for set-ups the API can't do on demand
+export const sql = async <T = Record<string, unknown>>(text: string, values: unknown[] = []) => {
+    const client = new Client({ connectionString: "postgres://postgres:postgres@127.0.0.1:55433/postgres" });
+    await client.connect();
+    try {
+        return (await client.query(text, values)).rows as T[];
+    } finally {
+        await client.end();
+    }
+};
 
 const unique = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 

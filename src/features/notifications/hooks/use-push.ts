@@ -55,7 +55,9 @@ export const usePush = () => {
         setState(subscription && Notification.permission === "granted" ? "on" : "off");
     }, []);
 
+    // Reads the browser's push permission and subscription, an outside system, so an effect is right
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         void refresh();
     }, [refresh]);
 

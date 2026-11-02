@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { createHash, randomBytes } from "crypto";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { createSession, deleteSession, deviceFromHeaders, forgetCachedSessions, getUserFromToken, hashPassword, SESSION_COOKIE_OPTIONS, sessionIdFromToken, verifyPassword } from "@/lib/auth";
@@ -11,7 +11,7 @@ import { attemptKeys, clearFailures, lockedMinutes, recordFailure, resetRequestK
 import { PENDING_GOOGLE_COOKIE, PENDING_GOOGLE_MAX_AGE, readPendingLink, signPendingLink } from "@/lib/pending-google-link";
 import { safeNextPath } from "@/lib/safe-next";
 import { db } from "@/lib/db";
-import { passwordResets, sessions, users } from "@/lib/db/schema";
+import { emailVerifications, passwordResets, sessions, users } from "@/lib/db/schema";
 import {
     createAuthorizationRequest,
     fetchGoogleProfile,
@@ -40,7 +40,30 @@ const pendingGoogleCookieOptions = {
 const GOOGLE_NEXT_COOKIE = "google-oauth-next";
 
 const RESET_TOKEN_MINUTES = 30;
+const VERIFY_TOKEN_HOURS = 48;
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
+const appOrigin = (url: string) => process.env.NEXT_PUBLIC_APP_URL ?? new URL(url).origin;
+
+// Emails a single-use "verify your email" link. Never throws: a mail outage mustn't fail sign-up.
+const sendVerificationEmail = async (userId: string, email: string, origin: string) => {
+    try {
+        const token = randomBytes(32).toString("base64url");
+        await db.insert(emailVerifications).values({
+            id: hashToken(token),
+            userId,
+            expiresAt: new Date(Date.now() + VERIFY_TOKEN_HOURS * 3_600_000),
+        });
+        await sendEmail({
+            to: email,
+            subject: "Verify your ScrumSpecter email",
+            text: `Welcome to ScrumSpecter! Confirm this is your email address here (the link works once, for ${VERIFY_TOKEN_HOURS} hours):\n` +
+                `${origin}/verify-email?token=${token}\n\n` +
+                `If you didn't sign up, ignore this email.`,
+        });
+    } catch (e) {
+        console.error("Verification email failed", e);
+    }
+};
 
 // Lax so they survive Google's cross-site redirect back to the callback
 const oauthCookieOptions = {
@@ -106,7 +129,8 @@ const app = new Hono()
             if (pending && pending.email === user.email && !user.googleId) {
                 const [owner] = await db.select({ id: users.id }).from(users).where(eq(users.googleId, pending.sub)).limit(1);
                 if (!owner) {
-                    await db.update(users).set({ googleId: pending.sub }).where(eq(users.id, user.id));
+                    // Google vouched for this address, so it's verified too
+                    await db.update(users).set({ googleId: pending.sub, emailVerifiedAt: user.emailVerifiedAt ?? new Date() }).where(eq(users.id, user.id));
                 }
             }
             if (pending) {
@@ -151,7 +175,10 @@ const app = new Hono()
                 })
                 .returning({ id: users.id });
 
-            const token = await createSession(user.id, deviceFromHeaders((name) => c.req.header(name)));
+            const [, token] = await Promise.all([
+                sendVerificationEmail(user.id, email.toLowerCase(), appOrigin(c.req.url)),
+                createSession(user.id, deviceFromHeaders((name) => c.req.header(name))),
+            ]);
 
             setCookie(c, AUTH_COOKIE, token, cookieOptions);
 
@@ -252,7 +279,7 @@ const app = new Hono()
             } else {
                 const [created] = await db
                     .insert(users)
-                    .values({ name: profile.name || email.split("@")[0], email, googleId: profile.sub, preferences: { showTutorial: true } })
+                    .values({ name: profile.name || email.split("@")[0], email, googleId: profile.sub, emailVerifiedAt: new Date(), preferences: { showTutorial: true } })
                     .returning({ id: users.id });
                 userId = created.id;
             }
@@ -285,7 +312,7 @@ const app = new Hono()
                 userId: user.id,
                 expiresAt: new Date(Date.now() + RESET_TOKEN_MINUTES * 60_000),
             });
-            const link = `${process.env.NEXT_PUBLIC_APP_URL ?? new URL(c.req.url).origin}/reset-password?token=${token}`;
+            const link = `${appOrigin(c.req.url)}/reset-password?token=${token}`;
             await sendEmail({
                 to: email,
                 subject: "Reset your ScrumSpecter password",
@@ -315,7 +342,8 @@ const app = new Hono()
             }
 
             const [user] = await db.update(users)
-                .set({ passwordHash: await hashPassword(password) })
+                // The emailed link proves the inbox, so it verifies the address too
+                .set({ passwordHash: await hashPassword(password), emailVerifiedAt: sql`coalesce(${users.emailVerifiedAt}, now())` })
                 .where(eq(users.id, reset.userId))
                 .returning({ id: users.id, email: users.email });
 
@@ -330,6 +358,38 @@ const app = new Hono()
             return c.json({ success: true });
         }
     )
+
+    // Whether the signed-in account's email is verified (unverified accounts see a note to resend)
+    .get("/email-verification", sessionMiddleware, async (c) => {
+        const [user] = await db.select({ emailVerifiedAt: users.emailVerifiedAt }).from(users)
+            .where(eq(users.id, c.get("user").$id)).limit(1);
+        return c.json({ data: { verified: Boolean(user?.emailVerifiedAt) } });
+    })
+    .post("/email-verification/resend", sessionMiddleware, async (c) => {
+        const { $id, email } = c.get("user");
+        const limited = await rateLimited(c, "verifyEmail", $id);
+        if (limited) return limited;
+
+        const [user] = await db.select({ emailVerifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, $id)).limit(1);
+        if (!user?.emailVerifiedAt) {
+            await sendVerificationEmail($id, email, appOrigin(c.req.url));
+        }
+        return c.json({ data: { verified: Boolean(user?.emailVerifiedAt) } });
+    })
+    // Opened from the emailed link; no session needed (it may be another device)
+    .post("/verify-email", zValidator("json", z.object({ token: z.string().min(20).max(200) })), async (c) => {
+        const { token } = c.req.valid("json");
+        // Claims the token in the same statement that checks it, so it can only be used once
+        const [claimed] = await db.update(emailVerifications)
+            .set({ usedAt: new Date() })
+            .where(and(eq(emailVerifications.id, hashToken(token)), isNull(emailVerifications.usedAt), gt(emailVerifications.expiresAt, new Date())))
+            .returning({ userId: emailVerifications.userId });
+        if (!claimed) {
+            return c.json({ error: "This link is invalid or has expired. Sign in and ask for a new one." }, 400);
+        }
+        await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, claimed.userId));
+        return c.json({ success: true });
+    })
 
     .post(
         "/logout",

@@ -105,7 +105,7 @@ export const convertDateToDDMMYYYY = (date: Date): string => {
 };
 
 type PointedTask = {
-    projectId: string;
+    projectId: string | null;
     status: string;
     storyPoints?: number | null;
 };

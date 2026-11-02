@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { format } from "date-fns";
 import { XIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useFormatDate } from "@/features/auth/hooks/use-preferences";
 import { MemberAvatarStack } from "@/features/members/components/member-avatar";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 
@@ -41,6 +41,7 @@ export const MultipleTasksPopup = ({ tasks, date, isOpen, onClose, position }: M
     const { open: openTask } = useTaskPanel();
 
     useDismiss(popupRef, isOpen, onClose);
+    const formatDate = useFormatDate();
 
     if (!isOpen) {
         return null;
@@ -71,7 +72,7 @@ export const MultipleTasksPopup = ({ tasks, date, isOpen, onClose, position }: M
         <div
             ref={popupRef}
             role="dialog"
-            aria-label={`Tasks on ${format(date, "MMMM d, yyyy")}`}
+            aria-label={`Tasks on ${formatDate(date)}`}
             className={cn(
                 "fixed z-50 bg-card border border-border rounded-lg shadow-xl backdrop-blur-sm",
                 isMobile ? "mobile-popup" : ""
@@ -89,7 +90,7 @@ export const MultipleTasksPopup = ({ tasks, date, isOpen, onClose, position }: M
                 <div className="flex items-center justify-between">
                     <div>
                         <h3 className="font-semibold text-foreground">
-                            {format(date, "MMMM d, yyyy")}
+                            {formatDate(date)}
                         </h3>
                         <p className="text-sm text-muted-foreground">
                             {pluralize(tasks.length, "task")} across {pluralize(projectCount, "project")}

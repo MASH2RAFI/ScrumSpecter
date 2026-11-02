@@ -16,8 +16,6 @@ const DAY = 24 * 60 * MINUTE;
 // How far back a run looks, so a late or skipped run (the Pi checks every 5 minutes) still
 // sends what fell due; the dedupe key keeps anything from going out twice
 export const LOOKBACK_MINUTES = 15;
-const BEFORE_END_MINUTES = 30;
-const SUMMARY_TIME = "18:00";
 
 // YYYY-MM-DD of an instant in a time zone
 export const localDate = (instant: Date, timeZone: string) =>
@@ -78,14 +76,14 @@ export const runReminders = async (now = new Date()) => {
 
         if (prefs.remindBeforeEnd) {
             const end = taskEnd(task, timeZone, dayEnd)!;
-            const at = new Date(end.getTime() - BEFORE_END_MINUTES * MINUTE);
+            const at = new Date(end.getTime() - prefs.beforeEndMinutes * MINUTE);
             if (due(at)) {
                 reminders.push({
                     userId,
                     workspaceId: task.workspaceId,
                     taskId: task.id,
                     kind: "before_end",
-                    title: `Ends in ${BEFORE_END_MINUTES} min: ${task.name}`,
+                    title: `Ends in ${prefs.beforeEndMinutes} min: ${task.name}`,
                     body: [projectName, task.startAt
                         ? `${formatTime(task.startAt, timeZone, hour12)} – ${formatTime(end, timeZone, hour12)}`
                         : `Due today by ${formatTime(end, timeZone, hour12)}`].filter(Boolean).join(" · "),
@@ -98,7 +96,7 @@ export const runReminders = async (now = new Date()) => {
         }
 
         if (prefs.remindDayBefore) {
-            const at = atLocal(previousDay(dueDate), SUMMARY_TIME, timeZone);
+            const at = atLocal(previousDay(dueDate), prefs.summaryTime, timeZone);
             if (due(at)) {
                 const key = `day_before:${userId}:${task.workspaceId}:${dueDate}`;
                 const summary = summaries.get(key) ?? { userId, workspaceId: task.workspaceId, date: dueDate, at, names: [] };

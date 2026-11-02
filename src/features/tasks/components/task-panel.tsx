@@ -12,6 +12,7 @@ import { useTaskPanel } from "../hooks/use-task-panel";
 import { TaskDescription } from "./task-description";
 import { TaskOverview } from "./task-overview";
 import { Loading, TaskDetailSkeleton } from "@/components/page-skeletons";
+import { StarButton } from "@/features/stars/components/star-button";
 
 // Task details in a slide-over, so opening a task keeps your place in the table/kanban/calendar
 export const TaskPanel = () => {
@@ -42,7 +43,10 @@ export const TaskPanel = () => {
                                     {task.project.name}
                                 </div>
                             )}
-                            <SheetTitle className="text-xl leading-snug">{task.name}</SheetTitle>
+                            <div className="flex items-start gap-2">
+                                <SheetTitle className="text-xl leading-snug">{task.name}</SheetTitle>
+                                <StarButton workspaceId={task.workspaceId} item={{ taskId: task.$id }} name={task.name} className="mt-1" />
+                            </div>
                             <SheetDescription className="sr-only">Task details</SheetDescription>
                         </SheetHeader>
                         <TaskOverview task={task} />

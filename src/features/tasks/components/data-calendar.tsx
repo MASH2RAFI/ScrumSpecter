@@ -1,5 +1,5 @@
 import { cloneElement, isValidElement, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
-import { useAnimate, useReducedMotion } from "motion/react";
+import { useAnimate, useReducedMotionConfig } from "motion/react";
 import {
     addDays,
     addMonths,
@@ -23,19 +23,26 @@ import { toast } from "sonner";
 import { EASE } from "@/components/motion";
 import { cn } from "@/lib/utils";
 import { weekRange } from "@/lib/week";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrent } from "@/features/auth/api/use-current";
 import { usePreferences } from "@/features/auth/hooks/use-preferences";
+import { CALENDAR_VIEWS as VIEW_LIST } from "@/features/auth/preferences";
 import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { holidayNotice, useGetHolidays, type Holiday } from "@/features/workspaces/api/use-holidays";
+import { useGetWorkspace } from "@/features/workspaces/api/use-get-workspace";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 
 import { Task } from "../types";
 import { useUpdateTask } from "../api/use-update-task";
 import { toastWithUndo } from "../api/undo";
-import { useCalendarPrefs } from "../hooks/use-calendar-prefs";
+import { useCalendarPrefs } from "@/features/auth/hooks/use-calendar-prefs";
 import { useCreateTaskModal } from "../hooks/use-create-task-modal";
 import { useTaskPanel } from "../hooks/use-task-panel";
 import { combineDateAndTime, DEFAULT_DURATION_MINUTES, taskTimeRange, toTimeInput } from "../task-time";
-import { CALENDAR_VIEWS, CalendarToolbar, type CalendarView } from "./calendar-toolbar";
+import { CalendarToolbar, type CalendarView } from "./calendar-toolbar";
+
+// Mutable copy: nuqs and react-big-calendar take plain arrays
+const CALENDAR_VIEWS = [...VIEW_LIST];
 import { IssueCard, TASK_DRAG_TYPE } from "./issue-card";
 import { MultipleTasksPopup } from "./multiple-tasks-popup";
 import { UnscheduledPanel } from "./unscheduled-panel";
@@ -101,11 +108,20 @@ const visibleRange = (date: Date, view: CalendarView, weekStart: 0 | 1 | 6) => {
     return { from, to: addDays(from, 1) };
 };
 
-export const DataCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
+// The view and visible hours come from the account and the workspace: drawing before they arrive
+// would redraw the grid (and move what's under the pointer) once they do
+export const DataCalendar = (props: DataCalendarProps) => {
+    const { isLoading: userLoading } = useCurrent();
+    const { isLoading: workspaceLoading } = useGetWorkspace({ workspaceId: useWorkspaceId() });
+    if (userLoading || workspaceLoading) return <Skeleton className="h-[600px] w-full rounded-card" />;
+    return <ReadyCalendar {...props} />;
+};
+
+const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
     const [value, setValue] = useState(new Date());
     // Moving to another month/week slides the grid in from that side
     const [gridScope, animateGrid] = useAnimate<HTMLDivElement>();
-    const reduceMotion = useReducedMotion();
+    const reduceMotion = useReducedMotionConfig();
     const shownAt = useRef(value.getTime());
     useEffect(() => {
         const previous = shownAt.current;
@@ -114,10 +130,10 @@ export const DataCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
         const from = reduceMotion ? 0 : (value.getTime() > previous ? 1 : -1) * 28;
         animateGrid(gridScope.current, { opacity: [0, 1], x: [from, 0] }, { duration: 0.45, ease: EASE });
     }, [value, reduceMotion, animateGrid, gridScope]);
-    // Shareable/refresh-safe view, like the table/kanban/calendar tab
-    const [view, setView] = useQueryState("cal", parseAsStringEnum<CalendarView>(CALENDAR_VIEWS).withDefault("month"));
+    const { weekStart, timeFormat, calendarView } = usePreferences();
+    // Shareable/refresh-safe view, like the table/kanban/calendar tab; without one, the account's default
+    const [view, setView] = useQueryState("cal", parseAsStringEnum<CalendarView>(CALENDAR_VIEWS).withDefault(calendarView));
     const { prefs, update: updatePrefs } = useCalendarPrefs();
-    const { weekStart, timeFormat } = usePreferences();
     useEffect(() => {
         if (!onRangeChange) return;
         const { from, to } = visibleRange(value, view, weekStart);
@@ -342,6 +358,16 @@ export const DataCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
                     ref={gridScope}
                     className="min-w-0 flex-1 overflow-x-auto p-1 sm:p-2"
                     onPointerDownCapture={(e) => { pointer.current = { x: e.clientX, y: e.clientY }; }}
+                    // The calendar's own event box is the focus stop and only opens on a click; Enter opens it too
+                    // (capture: the calendar stops key events on its events)
+                    onKeyDownCapture={(e) => {
+                        const id = e.key === "Enter" && (e.target as Element).closest(".rbc-event")?.querySelector("[data-task-id]")?.getAttribute("data-task-id");
+                        if (!id) return;
+                        // Kept from the calendar, which would otherwise close the panel straight away
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openTask(id);
+                    }}
                     onDragOver={onDragOver}
                     onDragLeave={(e) => {
                         if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropDate(null);

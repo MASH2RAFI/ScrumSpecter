@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 import { SIDEBAR_FADE, useSidebar } from "./sidebar-context";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PlusIcon, UserPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -42,9 +42,11 @@ export const WorkspaceSwitcher = () => {
         setMenuOpen(next);
     };
 
-    const onSelect = ( id:string ) => {
-        router.push(`/workspaces/${id}`)
-    };
+    // Navigating can remount this before Radix reports the list closed, which would leave the sidebar
+    // believing a menu is open (and never folding); say so when unmounting
+    useEffect(() => () => setMenuOpen(false), [setMenuOpen]);
+
+    const onSelect = (id: string) => router.push(`/workspaces/${id}`);
 
     return (
         <div className="flex flex-col gap-y-2">
@@ -69,7 +71,7 @@ export const WorkspaceSwitcher = () => {
                 </div>
             ) : (
                 <Select onValueChange={onSelect} value={workspaceId} open={listOpen} onOpenChange={onListOpenChange}>
-                    <SelectTrigger className="w-full bg-muted border border-border font-medium p-2 hover:bg-accent transition-colors group-data-[collapsed=true]/sidebar:border-transparent group-data-[collapsed=true]/sidebar:bg-transparent group-data-[collapsed=true]/sidebar:px-0.5">
+                    <SelectTrigger aria-label="Workspace" className="w-full bg-muted border border-border font-medium p-2 hover:bg-accent transition-colors group-data-[collapsed=true]/sidebar:border-transparent group-data-[collapsed=true]/sidebar:bg-transparent group-data-[collapsed=true]/sidebar:px-0.5">
                         <SelectValue placeholder="No workspace selected" />
                     </SelectTrigger>
                     <SelectContent className="bg-popover border border-border">

@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDuration } from "../task-time";
-import { type CalendarPrefs, MAX_SLOT, MIN_SLOT, SLOT_STEP } from "../hooks/use-calendar-prefs";
+import type { CalendarPrefs } from "@/features/auth/hooks/use-calendar-prefs";
+import { MAX_SLOT, MIN_SLOT, SLOT_STEP } from "@/features/auth/preferences";
+import { CALENDAR_VIEWS } from "@/features/auth/preferences";
 
-export type CalendarView = "month" | "week" | "day";
-export const CALENDAR_VIEWS: CalendarView[] = ["month", "week", "day"];
+export type CalendarView = (typeof CALENDAR_VIEWS)[number];
 
 interface CalendarToolbarProps {
     title: string;
@@ -130,7 +131,7 @@ export const CalendarToolbar = ({ title, view, onView, onNavigate, prefs, onPref
                         </Select>
                     </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Saved on this device.</p>
+                <p className="text-xs text-muted-foreground">Saved to your account. Defaults are in Account settings.</p>
             </PopoverContent>
         </Popover>
         </div>

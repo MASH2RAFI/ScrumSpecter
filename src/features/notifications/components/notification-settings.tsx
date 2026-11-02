@@ -4,7 +4,9 @@ import { BellIcon, BellOffIcon, SendIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useUpdatePreferences } from "@/features/account/api/use-account";
 import type { UserPreferences } from "@/features/auth/preferences";
 
@@ -23,6 +25,13 @@ export const NotificationSettings = ({ preferences }: { preferences: UserPrefere
     const { data: devices } = useGetPushDevices();
     const sendTest = useSendTestNotification();
     const { mutate: updatePreferences, isPending } = useUpdatePreferences();
+
+    // "18:00" → "6 PM" (or "18:00" for 24-hour people)
+    const clock = (time: string) => {
+        if (preferences.timeFormat === "24h") return time;
+        const [hour, minute] = time.split(":").map(Number);
+        return `${hour % 12 || 12}${minute ? `:${String(minute).padStart(2, "0")}` : ""} ${hour < 12 ? "AM" : "PM"}`;
+    };
 
     const toggle = (key: "remindDayBefore" | "remindBeforeEnd", label: string, description: string) => (
         <div className="flex items-start gap-3">
@@ -76,8 +85,40 @@ export const NotificationSettings = ({ preferences }: { preferences: UserPrefere
 
             <section className="space-y-3 rounded-lg border p-4">
                 <h3 className="font-semibold">Remind me</h3>
-                {toggle("remindDayBefore", "At 6 PM the day before", "A summary of the tasks assigned to you that are due tomorrow.")}
-                {toggle("remindBeforeEnd", "30 minutes before a task ends", "For tasks without a time, 5:30 PM on the day they're due.")}
+                {toggle("remindDayBefore", `At ${clock(preferences.summaryTime)} the day before`, "A summary of the tasks assigned to you that are due tomorrow.")}
+                {toggle("remindBeforeEnd", `${preferences.beforeEndMinutes} minutes before a task ends`, "For tasks without a time, before the end of the working day they're due.")}
+                <div className="flex flex-wrap items-end gap-4 pl-7">
+                    <div className="space-y-1">
+                        <Label htmlFor="pref-summaryTime" className="text-xs">Summary time</Label>
+                        <Input
+                            id="pref-summaryTime"
+                            type="time"
+                            className="h-9 w-32"
+                            defaultValue={preferences.summaryTime}
+                            disabled={isPending || !preferences.remindDayBefore}
+                            // A time input only reports a complete HH:MM (or ""), so saving on change is safe;
+                            // waiting for blur lost the value when the dialog closed first
+                            onChange={(e) => {
+                                if (/^\d{2}:\d{2}$/.test(e.target.value) && e.target.value !== preferences.summaryTime) {
+                                    updatePreferences({ summaryTime: e.target.value });
+                                }
+                            }}
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <Label htmlFor="pref-beforeEnd" className="text-xs">Before a task ends</Label>
+                        <Select
+                            value={String(preferences.beforeEndMinutes)}
+                            disabled={isPending || !preferences.remindBeforeEnd}
+                            onValueChange={(value) => updatePreferences({ beforeEndMinutes: Number(value) as UserPreferences["beforeEndMinutes"] })}
+                        >
+                            <SelectTrigger id="pref-beforeEnd" className="h-9 w-36"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                {[10, 15, 30, 60].map((minutes) => <SelectItem key={minutes} value={String(minutes)}>{minutes} minutes</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
                 <p className="text-xs text-muted-foreground">Times are in {preferences.timeZone}.</p>
             </section>
         </div>

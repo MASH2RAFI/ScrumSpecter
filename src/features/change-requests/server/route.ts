@@ -3,10 +3,10 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { and, count, desc, eq, inArray, isNotNull, max, TransactionRollbackError } from "drizzle-orm";
 
-import { db } from "@/lib/db";
+import { db, type Tx } from "@/lib/db";
 import { changeRequests, members, notifications, tasks, users } from "@/lib/db/schema";
 import { findById } from "@/lib/db/find-by-id";
-import { findForeignReference } from "@/lib/db/workspace-refs";
+import { findForeignReference, sameProjectTasks } from "@/lib/db/workspace-refs";
 import { pushToUser } from "@/lib/push";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { canEditWork, canRequestChanges } from "@/features/members/permissions";
@@ -26,7 +26,7 @@ import { rateLimited } from "@/lib/rate-limit";
 import { assertRoom } from "@/lib/volume-caps";
 
 // Enough to stop a runaway client; nobody needs more waiting at once
-const MAX_PENDING_PER_MEMBER = 50;
+export const MAX_PENDING_PER_MEMBER = 50;
 const LIST_LIMIT = 100;
 const EDITORS_ONLY = "Only admins and supervisors can review change requests";
 
@@ -82,6 +82,60 @@ const notify = async (userIds: string[], message: {
         title: notification.title, body: notification.body, url, tag: notification.dedupeKey,
     }]))).catch((error) => console.error("Change request push failed", error));
 };
+
+// Requests from this member nobody has reviewed yet
+export const pendingRequests = async (memberId: string) => {
+    const [{ value }] = await db.select({ value: count() }).from(changeRequests)
+        .where(and(eq(changeRequests.requesterId, memberId), eq(changeRequests.status, "pending")));
+    return value;
+};
+
+// One notification to everyone who can approve (admins and supervisors); returns the
+// requester's name lookup
+const tellReviewers = async (workspaceId: string, requesterId: string, message: {
+    taskId: string | null; dedupe: string; text: (name: string) => { title: string; body: string };
+}) => {
+    const [reviewers, names] = await Promise.all([
+        db.select({ userId: members.userId }).from(members)
+            .where(and(
+                eq(members.workspaceId, workspaceId),
+                inArray(members.role, [MemberRole.ADMIN, MemberRole.SUPERVISOR]),
+                isNotNull(members.userId),
+            )),
+        memberNames([requesterId]),
+    ]);
+    await notify(reviewers.map((reviewer) => reviewer.userId!), {
+        workspaceId,
+        taskId: message.taskId,
+        kind: "change_request",
+        ...message.text(names.get(requesterId) ?? "Someone"),
+        dedupe: message.dedupe,
+    });
+    return names;
+};
+
+
+// Bulk input: the new-task requests of one run, inside the caller's transaction. The caller
+// checks the pending cap first and calls notifyBulkRequests after the commit.
+export const insertTaskRequests = (tx: Tx, workspaceId: string, requesterId: string, proposed: z.input<typeof proposedTaskSchema>[]) =>
+    tx.insert(changeRequests).values(proposed.map((changes) => ({
+        workspaceId,
+        requesterId,
+        kind: "create" as const,
+        taskId: null,
+        taskName: changes.name,
+        // Dates are stored as ISO strings and parsed again when approved
+        changes: JSON.parse(JSON.stringify(changes)),
+        note: null,
+    }))).returning({ id: changeRequests.id });
+
+// One notification for the whole run ("Tom sent 12 task requests"), not one per task
+export const notifyBulkRequests = (workspaceId: string, requesterId: string, firstId: string, total: number) =>
+    tellReviewers(workspaceId, requesterId, {
+        taskId: null,
+        dedupe: `change_request_bulk:${firstId}`,
+        text: (name) => ({ title: `${name} sent ${total} task request${total === 1 ? "" : "s"}`, body: "Open to approve or decline" }),
+    });
 
 // undefined = leave unchanged, null = clear, string = set
 const toStartAt = (startAt: string | null | undefined) =>
@@ -147,8 +201,7 @@ const app = new Hono()
                 }
             }
 
-            const [{ value: pending }] = await db.select({ value: count() }).from(changeRequests)
-                .where(and(eq(changeRequests.requesterId, member.$id), eq(changeRequests.status, "pending")));
+            const pending = await pendingRequests(member.$id);
             if (pending >= MAX_PENDING_PER_MEMBER) {
                 return c.json({ error: `You have ${pending} requests waiting; wait for some to be reviewed` }, 429);
             }
@@ -169,20 +222,10 @@ const app = new Hono()
             }).returning();
 
             // Tell the people who can approve it
-            const reviewers = await db.select({ userId: members.userId }).from(members)
-                .where(and(
-                    eq(members.workspaceId, workspaceId),
-                    inArray(members.role, [MemberRole.ADMIN, MemberRole.SUPERVISOR]),
-                    isNotNull(members.userId),
-                ));
-            const names = await memberNames([member.$id]);
-            await notify(reviewers.map((reviewer) => reviewer.userId!), {
-                workspaceId,
+            const names = await tellReviewers(workspaceId, member.$id, {
                 taskId: row.taskId,
-                kind: "change_request",
-                title: `${names.get(member.$id)} wants to ${VERBS[row.kind]} "${taskName}"`,
-                body: row.note ?? "Open to approve or decline",
                 dedupe: `change_request:${row.id}`,
+                text: (name) => ({ title: `${name} wants to ${VERBS[row.kind]} "${taskName}"`, body: row.note ?? "Open to approve or decline" }),
             });
 
             return c.json({ data: toChangeRequest(row, names) });
@@ -244,7 +287,7 @@ const app = new Hono()
                     const status = proposed.status ?? TaskStatus.TODO;
                     await assertRoom("tasks", request.workspaceId, 1, tx);
                     const [highest] = await tx.select({ position: max(tasks.position) }).from(tasks)
-                        .where(and(eq(tasks.status, status), eq(tasks.projectId, proposed.projectId)));
+                        .where(and(eq(tasks.status, status), sameProjectTasks(request.workspaceId, proposed.projectId)));
                     const [task] = await tx.insert(tasks).values({
                         ...proposed,
                         status,

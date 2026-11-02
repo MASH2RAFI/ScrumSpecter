@@ -15,7 +15,7 @@ export const useConfirm = (
     title: string,
     message: string,
     variant: ButtonProps["variant"] = "primary"
-): [ () => JSX.Element, () => Promise<unknown> ] => {
+): [ () => React.JSX.Element, () => Promise<unknown> ] => {
     const [promise, setPromise] = useState<{ resolve: (value: boolean) => void } | null>(null);
 
     const confirm = () => {

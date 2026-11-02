@@ -3,7 +3,7 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { DashboardSkeleton } from "@/components/page-skeletons";
 import { PrefetchOnIdle } from "@/components/lazy-parts";
 import { NotificationSettingsModal } from "@/features/notifications/components/notification-settings-modal";
-import { PreferencesSync } from "@/features/auth/components/preferences-sync";
+import { AccountMotion, PreferencesSync } from "@/features/auth/components/preferences-sync";
 import { CreateProjectModal } from "@/features/projects/components/create-project-modal";
 import { EditProjectModal } from "@/features/projects/components/edit-project-modal";
 import { WorkspacePanelModal } from "@/features/workspaces/components/workspace-panel-modal";
@@ -21,6 +21,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     return (
         // Pages still run on the server (auth checks, redirects); only their UI waits for the browser
         <ClientOnly fallback={<DashboardSkeleton />}>
+        <AccountMotion>
         <div className="min-h-screen">
             <CreateWorkspaceWithProjectModal />
             <CreateProjectModal />
@@ -35,6 +36,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <PrefetchOnIdle />
             <DashboardShell>{children}</DashboardShell>
         </div>
+        </AccountMotion>
         </ClientOnly>
     );
 };

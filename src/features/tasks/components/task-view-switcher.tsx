@@ -19,10 +19,11 @@ import { useTaskFilters } from "../hooks/use-task-filters";
 import { DataTable } from "./data-table";
 import { TaskBulkBar } from "./task-bulk-bar";
 import { getColumns } from "./columns";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { SortingState } from "@tanstack/react-table";
 import Link from "next/link";
 import { usePreferences } from "@/features/auth/hooks/use-preferences";
+import type { UserPreferences } from "@/features/auth/preferences";
 import { useBulkUpdateTasks } from "../api/use-bulk-update-tasks";
 import { LazyCalendar, LazyKanban } from "@/components/lazy-parts";
 import { ProjectVisibility } from "./project-visibility";
@@ -30,6 +31,8 @@ import { useTaskPanel } from "../hooks/use-task-panel";
 import { useProjectId } from "@/features/projects/hooks/use-project-id";
 import { TaskStatus } from "../types";
 import { Loading, TableSkeleton } from "@/components/page-skeletons";
+import { TaskExportMenu } from "@/features/export/components/task-export-menu";
+import { useGetStarIds } from "@/features/stars/api/use-stars";
  
 const VIEW_TABS = [
     { value: "table", label: "Table", icon: TableIcon },
@@ -37,13 +40,20 @@ const VIEW_TABS = [
     { value: "calendar", label: "Calendar", icon: CalendarDaysIcon },
 ] as const;
 
-const PAGE_SIZE = 25;
 // Kanban's Done column only ever grows; it shows the most recently finished
 const DONE_LIMIT = 100;
 
 type BaseQuery = Pick<UseGetTasksProps, "workspaceId" | "status" | "assigneeId" | "projectId" | "from" | "to" | "search" | "excludeProjects">;
 
 const SORTABLE = ["name", "project", "assignee", "dueDate", "storyPoints", "status"] as const;
+
+// The account's starting sort (Account settings), used until a column header is clicked
+const DEFAULT_SORTS: Record<UserPreferences["taskSort"], { sortBy: UseGetTasksProps["sortBy"]; sortDir: "asc" | "desc" } | undefined> = {
+    newest: undefined,
+    dueDate: { sortBy: "dueDate", sortDir: "asc" },
+    name: { sortBy: "name", sortDir: "asc" },
+    storyPoints: { sortBy: "storyPoints", sortDir: "desc" },
+};
 
 const RoutineNote = ({ count }: { count: number }) => count > 0 ? (
     <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -58,9 +68,14 @@ const TableView = ({ base, canReview, canEditWork }: { base: BaseQuery; canRevie
     const { open: openTask } = useTaskPanel();
     const [pageIndex, setPageIndex] = useState(0);
     const [sorting, setSorting] = useState<SortingState>([]);
-    // A different filter starts again from the first page
-    const filterKey = JSON.stringify(base);
-    useEffect(() => setPageIndex(0), [filterKey]);
+    const { taskSort, taskPageSize: pageSize, showDoneInTable } = usePreferences();
+    // A different filter (or page size) starts again from the first page
+    const filterKey = JSON.stringify([base, pageSize]);
+    const [shownFilter, setShownFilter] = useState(filterKey);
+    if (filterKey !== shownFilter) {
+        setShownFilter(filterKey);
+        setPageIndex(0);
+    }
 
     const sort = sorting[0];
     const sortBy = sort && (SORTABLE as readonly string[]).includes(sort.id) ? sort.id as (typeof SORTABLE)[number] : undefined;
@@ -68,10 +83,11 @@ const TableView = ({ base, canReview, canEditWork }: { base: BaseQuery; canRevie
         ...base,
         ...week,
         scope: "table",
-        limit: PAGE_SIZE,
-        offset: pageIndex * PAGE_SIZE,
-        sortBy,
-        sortDir: sort ? (sort.desc ? "desc" : "asc") : undefined,
+        limit: pageSize,
+        offset: pageIndex * pageSize,
+        ...(sort ? { sortBy, sortDir: sort.desc ? "desc" : "asc" } : DEFAULT_SORTS[taskSort]),
+        // Done tasks left out when the account says so, unless the status filter asks for them
+        openOnly: !showDoneInTable && !base.status ? true : undefined,
     });
 
     if (isLoading || !data) return <Loading><TableSkeleton /></Loading>;
@@ -84,7 +100,7 @@ const TableView = ({ base, canReview, canEditWork }: { base: BaseQuery; canRevie
                 data={tasks}
                 server={{
                     pageIndex,
-                    pageCount: Math.max(1, Math.ceil(data.total / PAGE_SIZE)),
+                    pageCount: Math.max(1, Math.ceil(data.total / pageSize)),
                     onPageChange: setPageIndex,
                     sorting,
                     onSortingChange: (next) => { setSorting(next); setPageIndex(0); },
@@ -126,10 +142,16 @@ const KanbanView = ({ base }: { base: BaseQuery }) => {
     );
 };
 
+type CalendarRange = { from: string; to: string };
+
 // Only the dates on screen (the calendar reports its range), plus tasks with no date yet.
-// The calendar hides the due filter, so its from/to never apply here
-const CalendarView = ({ base }: { base: BaseQuery }) => {
-    const [range, setRange] = useState<{ from: string; to: string } | null>(null);
+// The calendar hides the due filter, so its from/to never apply here. The range lives in the
+// switcher, so Export can download the dates on screen.
+const CalendarView = ({ base, range, setRange }: {
+    base: BaseQuery;
+    range: CalendarRange | null;
+    setRange: React.Dispatch<React.SetStateAction<CalendarRange | null>>;
+}) => {
     const { data: dated } = useGetTasks({ ...base, scope: "calendar", from: range?.from, to: range?.to, enabled: Boolean(range) });
     const { data: unscheduled } = useGetTasks({ ...base, scope: "calendar", unscheduled: true, from: undefined, to: undefined, limit: 100 });
     const tasks = useMemo(() => [...(dated?.documents ?? []), ...(unscheduled?.documents ?? [])], [dated, unscheduled]);
@@ -137,7 +159,7 @@ const CalendarView = ({ base }: { base: BaseQuery }) => {
         setRange((current) => current?.from === from.toISOString() && current?.to === to.toISOString()
             ? current
             : { from: from.toISOString(), to: to.toISOString() });
-    }, []);
+    }, [setRange]);
 
     return (
         <div className="h-full min-h-[600px]">
@@ -153,6 +175,8 @@ interface TaskViewSwitcherProps {
 export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) => {
     const [{ status, assigneeId, projectId, dueDate, search }] = useTaskFilters();
     const workspaceId = useWorkspaceId();
+    // Starts the star buttons' shared query with the page's other requests, not after the rows render
+    useGetStarIds(workspaceId);
     const { canEditWork, canReview, canRequestChanges } = usePermissions({ workspaceId });
 
     const { defaultTaskView, hiddenProjects } = usePreferences();
@@ -162,6 +186,8 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
 
     const paramProjectId = useProjectId();
     const { open } = useCreateTaskModal();
+    const week = useCurrentWeek();
+    const [calendarRange, setCalendarRange] = useState<CalendarRange | null>(null);
 
     const filterProject = paramProjectId || projectId;
     // The due filter is a local midnight; match that whole local day, not the exact instant
@@ -198,13 +224,16 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
                             </TabsTrigger>
                         ))}
                     </TabsList>
-                    {/* Requesters get the same form; it sends a request instead */}
-                    {(canEditWork || canRequestChanges) && (
-                        <Button onClick={() => open()} size="sm" className="h-9 shrink-0 min-h-0 px-3">
-                            <PlusIcon className="size-4 sm:mr-1.5" />
-                            <span className="sr-only sm:not-sr-only">New</span>
-                        </Button>
-                    )}
+                    <div className="flex shrink-0 items-center gap-2">
+                        <TaskExportMenu filters={base} week={week} calendarRange={view === "calendar" ? calendarRange : null} />
+                        {/* Requesters get the same form; it sends a request instead */}
+                        {(canEditWork || canRequestChanges) && (
+                            <Button onClick={() => open()} size="sm" className="h-9 shrink-0 min-h-0 px-3">
+                                <PlusIcon className="size-4 sm:mr-1.5" />
+                                <span className="sr-only sm:not-sr-only">New</span>
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
                 {/* My Tasks only: show or hide each project's tasks */}
@@ -228,7 +257,7 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
                     <KanbanView base={base} />
                 </TabsContent>
                 <TabsContent value="calendar" className="mt-0 h-full overflow-auto">
-                    <CalendarView base={base} />
+                    <CalendarView base={base} range={calendarRange} setRange={setCalendarRange} />
                 </TabsContent>
             </div>
         </Tabs>

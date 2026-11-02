@@ -39,7 +39,8 @@ Vercel's free cron runs only once a day, so the Pi calls `GET /api/cron/reminder
 ## Backups and restore
 `backup.sh` writes a full `pg_dump` every night at 03:00 to `backups/` and keeps 14. Those copies sit on the same disk as the database, so each night's dump also goes off the Pi, **encrypted**, to a private Telegram channel. The scripts are in this repo under `scripts/pi/`; copy them to `~/docker/postgres/` on the Pi.
 
-One-time setup:
+One-time setup. `scripts/pi/install-backups.sh` does the parts that need no secrets (installs `age`, hooks `backup.sh`, adds the hourly disk check to cron, applies the database limits); run it from the repo with
+`scp scripts/pi/*.sh scripts/pi/app-role-limits.sql <ssh-user>@<pi-tailscale-ip>:docker/postgres/ && ssh <ssh-user>@<pi-tailscale-ip> sh docker/postgres/install-backups.sh`. Then:
 1. **Bot and channel:** create a bot with @BotFather, make a private channel only you are in, and add the bot as an admin that can post. Put the token and the channel id in `~/docker/postgres/telegram.env` (`chmod 600`):
    ```
    TELEGRAM_BOT_TOKEN=<bot token>
@@ -47,7 +48,7 @@ One-time setup:
    ```
    Never commit this file or paste its values anywhere.
 2. **Encryption key:** on your own computer, `age-keygen -o scrumspecter-backup.key`. Keep that file (the private key) in your password manager, not on the Pi. Copy only the public key line (`age1…`) to `~/docker/postgres/backup-age.pub` on the Pi. Install `age` on the Pi (`sudo apt install age`).
-3. **Hook it into the nightly job:** at the end of `backup.sh`, after the dump is written: `sh "$HOME/docker/postgres/backup-offsite.sh" "<path of the dump it just wrote>"`.
+3. **Nightly hook:** added to `backup.sh` by the install script; it runs only once `telegram.env` and `backup-age.pub` exist.
 
 What it does: encrypts the dump with `age`, splits it into 19 MB parts (the Bot API downloads at most 20 MB per file), posts each part with a caption (`scrumspecter · <date> · <size> · sha256 <hash> · part n/N`), and logs date, part, hash and `file_id` to `telegram-backups.log`, because a bot can't list old messages. Any failure sends "❌ backup failed: <step>"; every Sunday it sends a "✅ N backups this week" summary.
 

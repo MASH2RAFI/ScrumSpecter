@@ -6,7 +6,7 @@
 # Run monthly. Nothing touches the live database.
 set -eu
 
-DIR="${BACKUP_DIR:-$HOME/docker/postgres}"
+DIR="${SCRUMSPECTER_PI_DIR:-$HOME/docker/postgres}"
 . "$(dirname "$0")/telegram.sh"
 
 IDENTITY="${1:?usage: restore-test.sh <age identity file> [YYYY-MM-DD]}"

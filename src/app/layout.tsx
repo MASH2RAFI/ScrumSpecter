@@ -4,6 +4,8 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
+
 import { QueryProvider } from "@/components/query-providor";
 import { ThemeProvider } from "@/components/theme-provider";
 import { MotionProvider } from "@/components/motion";
@@ -47,13 +49,15 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  // Set by the middleware; reading it renders every page per request, which a nonce needs
-  const nonce = headers().get("x-nonce") ?? undefined;
+export default async function RootLayout(
+  {
+    children,
+  }: Readonly<{
+    children: React.ReactNode;
+  }>
+) {
+  // Set by src/proxy.ts; reading it renders every page per request, which a nonce needs
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="en" className={jakarta.variable} suppressHydrationWarning>
       <body className={cn("antialiased min-h-screen")}>
@@ -65,12 +69,15 @@ export default function RootLayout({
           disableTransitionOnChange
           storageKey="scrumspecter-theme"
         >
+          {/* nuqs 2: URL state (filters, tabs, views) needs the App Router adapter */}
+          <NuqsAdapter>
           <QueryProvider>
             <MotionProvider>
               <Toaster />
               {children}
             </MotionProvider>
           </QueryProvider>
+          </NuqsAdapter>
         </ThemeProvider>
       </body>
     </html>

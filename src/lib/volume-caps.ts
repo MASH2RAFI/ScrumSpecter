@@ -3,7 +3,7 @@ import "server-only";
 import { count, eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 
-import { db } from "@/lib/db";
+import { db, type Tx } from "@/lib/db";
 import { projects, routines, tasks, workspaces } from "@/lib/db/schema";
 
 // Most a single account or workspace may hold, so one person can't fill the Pi's disk.
@@ -16,7 +16,6 @@ export const VOLUME_CAPS = {
 } as const;
 
 type Kind = keyof typeof VOLUME_CAPS;
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 const COUNTED = {
     workspaces: { table: workspaces, scope: workspaces.userId, where: "your account" },

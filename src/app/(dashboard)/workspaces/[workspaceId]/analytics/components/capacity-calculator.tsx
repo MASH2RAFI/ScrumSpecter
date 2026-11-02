@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,9 @@ import { useGetMembers } from "@/features/members/api/use-get-members";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useGetTasks } from "@/features/tasks/api/use-get-tasks";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
+
+import { ChartDownloads } from "@/features/export/components/chart-downloads";
+import { downloadChartPng, downloadCsv } from "@/features/export/download";
 
 import { ProjectSelect } from "./analytics-shared";
 
@@ -28,30 +31,18 @@ export const CapacityCalculator = () => {
     const [selectedProject, setSelectedProject] = useState<string>("");
     // Just the chosen project's tasks
     const { data: tasks } = useGetTasks({ workspaceId, projectId: selectedProject, enabled: Boolean(selectedProject) });
-    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+    // The person's own numbers per member; the rest default to 8 hours a day, fully available
+    const [edits, setEdits] = useState<Record<string, Partial<TeamMember>>>({});
     const [sprintDuration, setSprintDuration] = useState(14);
     const [totalCapacity, setTotalCapacity] = useState(0);
 
-    useEffect(() => {
-        if (selectedProject && members?.documents && tasks?.documents) {
-            // Get members who are assigned to tasks in the selected project
-            const projectTasks = tasks.documents.filter(task => task.projectId === selectedProject);
-            const assignedMemberIds = new Set(projectTasks.flatMap(task => task.assigneeIds));
+    // The members assigned to the selected project's tasks
+    const assignedMemberIds = new Set(tasks?.documents.filter((task) => task.projectId === selectedProject).flatMap((task) => task.assigneeIds));
+    const teamMembers: TeamMember[] = selectedProject ? (members?.documents ?? [])
+        .filter((member) => assignedMemberIds.has(member.$id))
+        .map((member) => ({ id: member.$id, name: member.name, capacity: 8, availability: 100, ...edits[member.$id] })) : [];
 
-            const projectTeamMembers = members.documents
-                .filter(member => assignedMemberIds.has(member.$id))
-                .map(member => ({
-                    id: member.$id,
-                    name: member.name,
-                    capacity: 8,
-                    availability: 100,
-                }));
-
-            setTeamMembers(projectTeamMembers);
-        } else {
-            setTeamMembers([]);
-        }
-    }, [selectedProject, members, tasks]);
+    const memberHours = (member: TeamMember) => Math.round(member.capacity * member.availability / 100 * sprintDuration);
 
     const calculateCapacity = () => {
         const total = teamMembers.reduce((sum, member) => {
@@ -61,9 +52,7 @@ export const CapacityCalculator = () => {
     };
 
     const updateTeamMember = (id: string, field: keyof TeamMember, value: string | number) => {
-        setTeamMembers(teamMembers.map(member =>
-            member.id === id ? { ...member, [field]: value } : member
-        ));
+        setEdits((current) => ({ ...current, [id]: { ...current[id], [field]: value } }));
     };
 
     return (
@@ -82,7 +71,7 @@ export const CapacityCalculator = () => {
                     <ProjectSelect
                         projects={projects?.documents}
                         value={selectedProject}
-                        onChange={setSelectedProject}
+                        onChange={(id) => { setSelectedProject(id); setEdits({}); }}
                     />
 
                     {selectedProject && (
@@ -153,6 +142,22 @@ export const CapacityCalculator = () => {
                             <Button onClick={calculateCapacity} className="w-full">
                                 Calculate Capacity
                             </Button>
+
+                            <ChartDownloads
+                                disabled={teamMembers.length === 0}
+                                onPng={() => downloadChartPng({
+                                    title: `Sprint capacity (${sprintDuration} days)`,
+                                    kind: "bar",
+                                    labels: teamMembers.map((member) => member.name),
+                                    series: [{ name: "Hours", values: teamMembers.map(memberHours), color: "#2563eb" }],
+                                    unit: " h",
+                                    filename: "capacity.png",
+                                })}
+                                onCsv={() => downloadCsv([
+                                    ["Member", "Daily capacity (h)", "Availability (%)", `Sprint hours (${sprintDuration} days)`],
+                                    ...teamMembers.map((member) => [member.name, member.capacity, member.availability, memberHours(member)]),
+                                ], "capacity.csv")}
+                            />
                         </>
                     )}
 

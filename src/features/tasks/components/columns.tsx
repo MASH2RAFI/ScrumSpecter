@@ -11,6 +11,7 @@ import { TaskDate } from "./task-date";
 import { TaskActions } from "./task-actions";
 import { useTaskPanel } from "../hooks/use-task-panel";
 import { TaskStatusMenu } from "./task-status-menu";
+import { StarButton } from "@/features/stars/components/star-button";
 
 
 // Clicking the name opens the task in the side panel
@@ -30,6 +31,15 @@ const TaskNameCell = ({ task }: { task: Task }) => {
 };
 
 const baseColumns: ColumnDef<Task>[] = [
+    {
+        // Its own column, so the name cell's accessible name is just the task name
+        id: "star",
+        header: () => <span className="sr-only">Starred</span>,
+        enableSorting: false,
+        cell: ({ row }) => (
+            <StarButton workspaceId={row.original.workspaceId} item={{ taskId: row.original.$id }} name={row.original.name} />
+        ),
+    },
     {
         accessorKey: "name",
         header: ({ column }) => {

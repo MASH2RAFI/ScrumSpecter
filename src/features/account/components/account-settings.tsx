@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { format } from "date-fns";
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { parseAsStringEnum, useQueryState } from "nuqs";
-import { FcGoogle } from "react-icons/fc";
+import { GoogleIcon } from "@/features/auth/components/auth-card";
 import { usePathname, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -13,7 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { UserPreferences } from "@/features/auth/preferences";
+import { CALENDAR_VIEWS, DATE_FORMATS, MAX_SLOT, MIN_SLOT, SLOT_STEP, type UserPreferences } from "@/features/auth/preferences";
+import { formatDuration } from "@/features/tasks/task-time";
 
 import {
     type AccountInfo,
@@ -28,6 +30,8 @@ import {
 import { ACCOUNT_TABS, type AccountTab } from "../account-tabs";
 import { DeviceList } from "./device-list";
 import { FormSkeleton } from "@/components/page-skeletons";
+import { EmailVerificationNote } from "@/features/auth/components/email-verification-note";
+import { MyDataExport } from "@/features/export/components/my-data-export";
 
 // The account page (/account): profile, security and display preferences.
 // Notification settings are separate (bell → Settings).
@@ -53,6 +57,7 @@ export const AccountSettings = () => {
                 </Button>
                 <h1 className="text-2xl font-bold">Account settings</h1>
             </div>
+            <EmailVerificationNote />
             <Tabs value={tab} onValueChange={(value) => setTab(value as AccountTab)}>
                 <TabsList className="w-full">
                     {ACCOUNT_TABS.map((value) => (
@@ -82,6 +87,9 @@ const AccountTabs = () => {
         </>
     );
 };
+
+// Shows each date format on one fixed day
+const SAMPLE_DATE = new Date(2026, 9, 28);
 
 const Section = ({ title, description, children }: { title: string; description?: string; children: ReactNode }) => (
     <section className="space-y-3 rounded-lg border p-4">
@@ -204,6 +212,8 @@ const SecurityTab = ({ account }: { account: AccountInfo }) => {
                 )}
             </Section>
 
+            <MyDataExport />
+
             {(account.googleEnabled || account.googleLinked) && (
                 <Section title="Google sign-in" description={account.googleLinked ? "You can sign in with Google." : "Not linked."}>
                     {account.googleLinked ? (
@@ -213,7 +223,7 @@ const SecurityTab = ({ account }: { account: AccountInfo }) => {
                     ) : (
                         <Button variant="outline" asChild>
                             <a href={`/api/auth/google?link=1&returnTo=${encodeURIComponent(pathname)}`}>
-                                <FcGoogle className="mr-2 size-4" />
+                                <GoogleIcon className="mr-2 size-4" />
                                 Link Google account
                             </a>
                         </Button>
@@ -249,6 +259,8 @@ const SecurityTab = ({ account }: { account: AccountInfo }) => {
 
 const PreferencesTab = ({ preferences }: { preferences: UserPreferences }) => {
     const { mutate, isPending } = useUpdatePreferences();
+    const hourLabel = (hour: number) =>
+        hour === 24 ? "Midnight (end)" : format(new Date(2000, 0, 1, hour), preferences.timeFormat === "12h" ? "h a" : "HH:mm");
 
     const row = <K extends keyof UserPreferences>(
         key: K,
@@ -293,6 +305,62 @@ const PreferencesTab = ({ preferences }: { preferences: UserPreferences }) => {
                 {row("timeFormat", "Time format", [
                     { value: "12h", label: "12-hour (2:30 PM)" },
                     { value: "24h", label: "24-hour (14:30)" },
+                ])}
+                {row("dateFormat", "Date format", (Object.keys(DATE_FORMATS) as (keyof typeof DATE_FORMATS)[])
+                    .map((value) => ({ value, label: format(SAMPLE_DATE, DATE_FORMATS[value]) })))}
+                {row("landingPage", "After signing in, open", [
+                    { value: "home", label: "Workspace home" },
+                    { value: "my-tasks", label: "My Tasks" },
+                ])}
+                {row("theme", "Theme", [
+                    { value: "device", label: "Per device" },
+                    { value: "system", label: "System" },
+                    { value: "light", label: "Light" },
+                    { value: "dark", label: "Dark" },
+                ])}
+                {row("reduceMotion", "Motion", [
+                    { value: false, label: "Follow system" },
+                    { value: true, label: "Reduce" },
+                ])}
+            </Section>
+            <Section title="My Tasks" description="How the table starts. Clicking a column header still sorts it your way.">
+                {row("taskSort", "Sort by", [
+                    { value: "newest", label: "Newest first" },
+                    { value: "dueDate", label: "Due date, soonest first" },
+                    { value: "name", label: "Name, A to Z" },
+                    { value: "storyPoints", label: "Story points, most first" },
+                ])}
+                {row("taskPageSize", "Tasks per page", ([25, 50, 100] as const).map((value) => ({ value, label: String(value) })))}
+                {row("showDoneInTable", "Done tasks", [
+                    { value: true, label: "Show" },
+                    { value: false, label: "Hide" },
+                ])}
+            </Section>
+            <Section title="Kanban">
+                {row("kanbanCompact", "Cards", [
+                    { value: false, label: "Full" },
+                    { value: true, label: "Compact (name only)" },
+                ])}
+                {row("kanbanShrinkEmpty", "Empty columns", [
+                    { value: false, label: "Full width" },
+                    { value: true, label: "Narrow" },
+                ])}
+            </Section>
+            <Section title="Calendar" description="How the calendar opens. Its toolbar changes these too.">
+                {row("calendarView", "Starting view", CALENDAR_VIEWS.map((value) => ({ value, label: value[0].toUpperCase() + value.slice(1) })))}
+                {row("calendarSlotMinutes", "Row size", Array.from({ length: (MAX_SLOT - MIN_SLOT) / SLOT_STEP + 1 }, (_, i) => MIN_SLOT + i * SLOT_STEP)
+                    .map((minutes) => ({ value: minutes, label: formatDuration(minutes) })))}
+                {row("calendarStartHour", "Visible from", [
+                    { value: null, label: "Working hours" },
+                    ...Array.from({ length: 24 }, (_, hour) => ({ value: hour, label: hourLabel(hour) })),
+                ])}
+                {row("calendarEndHour", "Visible to", [
+                    { value: null, label: "Working hours" },
+                    ...Array.from({ length: 24 }, (_, i) => ({ value: i + 1, label: hourLabel(i + 1) })),
+                ])}
+                {row("calendarShowUnscheduled", "Unscheduled panel", [
+                    { value: true, label: "Open" },
+                    { value: false, label: "Closed" },
                 ])}
             </Section>
         </div>

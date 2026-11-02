@@ -92,6 +92,34 @@
       "when": 1793168137560,
       "tag": "0012_routine_views",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793524132492,
+      "tag": "0013_stars",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793524133522,
+      "tag": "0014_email_verification",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793528337073,
+      "tag": "0015_personal_routines",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793555275674,
+      "tag": "0016_email_change_drops_tokens",
+      "breakpoints": true
     }
   ]
 }

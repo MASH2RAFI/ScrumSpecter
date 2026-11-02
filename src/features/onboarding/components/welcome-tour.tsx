@@ -89,6 +89,12 @@ export const WelcomeTour = () => {
         [user, role, workspace?.name],
     );
     const showing = open && steps.length > 0;
+    // Each time it opens, from the first step
+    const [wasShowing, setWasShowing] = useState(showing);
+    if (showing !== wasShowing) {
+        setWasShowing(showing);
+        if (showing) setIndex(0);
+    }
     const step = steps[Math.min(index, steps.length - 1)];
     const last = index >= steps.length - 1;
 
@@ -104,7 +110,6 @@ export const WelcomeTour = () => {
 
     useEffect(() => {
         if (!showing) return;
-        setIndex(0);
         returnFocus.current = document.activeElement as HTMLElement | null;
         // Keeps the auto-hiding sidebar unfolded so its labels can be pointed at
         setMenuOpen(true);

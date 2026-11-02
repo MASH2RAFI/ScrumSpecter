@@ -5,12 +5,13 @@ import { redirect } from "next/navigation";
 import { ProjectsClient } from "./client";
 
 interface ProjectsPageProps {
-    params: {
+    params: Promise<{
         workspaceId: string;
-    };
+    }>;
 }
 
-export default async function ProjectsPage({ params }: ProjectsPageProps) {
+export default async function ProjectsPage(props: ProjectsPageProps) {
+    const params = await props.params;
     const user = await getCurrent();
 
     if (!user) redirect("/sign-in");

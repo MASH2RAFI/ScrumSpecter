@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import {
 } from "@/lib/sprint-utils";
 
 import { BurndownGraph, ProjectSelect } from "./analytics-shared";
+import { useFormatDate } from "@/features/auth/hooks/use-preferences";
 
 interface SprintReport {
     sprintName: string;
@@ -99,7 +100,7 @@ const ReportSection = ({ title, gridClassName, valueClassName, tiles }: ReportSe
 );
 
 // Shown only when printing (print rule in globals.css); every value is React text, never HTML
-const PrintableReport = ({ report }: { report: SprintReport }) => (
+const PrintableReport = ({ report, today }: { report: SprintReport; today: string }) => (
     <div id="sprint-report-print" className="hidden print:block bg-white text-black p-10 font-sans [print-color-adjust:exact]">
         <div className="text-center mb-10">
             <h1 className="text-3xl font-bold text-gray-800 mb-2">Sprint Report</h1>
@@ -158,7 +159,7 @@ const PrintableReport = ({ report }: { report: SprintReport }) => (
         </section>
 
         <div className="text-center text-gray-500 text-sm">
-            <p>Report generated on {new Date().toLocaleDateString()}</p>
+            <p>Report generated on {today}</p>
             <p>ScrumSpecter Analytics Dashboard</p>
         </div>
     </div>
@@ -173,55 +174,48 @@ export const SprintReportGenerator = () => {
     // Just the chosen project's tasks; the other projects' velocities come from the summary
     const { data: tasks } = useGetTasks({ workspaceId, projectId: selectedProject, enabled: Boolean(selectedProject) });
     const { data: summary } = useGetTaskSummary({ workspaceId });
-    const [report, setReport] = useState<SprintReport>(EMPTY_REPORT);
+    const formatDate = useFormatDate();
+    // Built from the data on each render, so it follows edits to the project's tasks
+    const report: SprintReport = (() => {
+        if (!(selectedProject && tasks?.documents && summary && projects?.documents && members?.documents)) return EMPTY_REPORT;
+        const project = projects.documents.find(p => p.$id === selectedProject);
+        const { projectTasks, completedTasks, totalStoryPoints, completedStoryPoints } =
+            getProjectPointStats(tasks.documents, selectedProject);
+        const projectMembers = members.documents.filter(member =>
+            projectTasks.some(task => task.assigneeIds.includes(member.$id))
+        );
+        const velocity = calculateVelocity(completedStoryPoints, totalStoryPoints);
 
-    useEffect(() => {
-        if (selectedProject && tasks?.documents && summary && projects?.documents && members?.documents) {
-            const project = projects.documents.find(p => p.$id === selectedProject);
-            const { projectTasks, completedTasks, totalStoryPoints, completedStoryPoints } =
-                getProjectPointStats(tasks.documents, selectedProject);
-            const projectMembers = members.documents.filter(member =>
-                projectTasks.some(task => task.assigneeIds.includes(member.$id))
-            );
-            const velocity = calculateVelocity(completedStoryPoints, totalStoryPoints);
+        const allProjects = projects.documents;
+        const projectVelocities = allProjects.map(p => {
+            const row = summary.projects.find((stats) => stats.projectId === p.$id);
+            return calculateVelocity(row?.donePoints ?? 0, row?.points ?? 0);
+        });
+        const averageVelocity = calculateAverageVelocity(projectVelocities);
 
-            const allProjects = projects.documents;
-            const projectVelocities = allProjects.map(p => {
-                const row = summary.projects.find((stats) => stats.projectId === p.$id);
-                return calculateVelocity(row?.donePoints ?? 0, row?.points ?? 0);
-            });
-            const averageVelocity = calculateAverageVelocity(projectVelocities);
-
-            setReport({
-                sprintName: `Sprint ${project?.sprintNumber || 1}`,
-                startDate: project?.currentSprintStartDate || "",
-                endDate: project?.currentSprintEndDate || "",
-                teamMembers: projectMembers.map(member => member.name),
-                totalStoryPoints,
-                completedStoryPoints,
-                velocity,
-                completedTasks: completedTasks.length,
-                totalTasks: projectTasks.length,
-                averageVelocity,
-                velocityTrend: velocity >= averageVelocity * 1.1 ? "increasing" : velocity <= averageVelocity * 0.9 ? "decreasing" : "stable",
-                totalSprints: allProjects.length,
-                bestVelocity: Math.max(...projectVelocities, 0),
-                sprintDuration: DEFAULT_SPRINT_DURATION,
-                burndownData: generateBurndownData(totalStoryPoints, completedStoryPoints, DEFAULT_SPRINT_DURATION),
-                taskStatusBreakdown: {
-                    todo: projectTasks.filter(task => task.status === TaskStatus.TODO).length,
-                    inProgress: projectTasks.filter(task => task.status === TaskStatus.IN_PROGRESS).length,
-                    done: completedTasks.length,
-                },
-            });
-        }
-    }, [selectedProject, tasks, summary, projects, members]);
-
-    const calculateReportVelocity = () => {
-        if (report.totalStoryPoints > 0) {
-            setReport({ ...report, velocity: calculateVelocity(report.completedStoryPoints, report.totalStoryPoints) });
-        }
-    };
+        return {
+            sprintName: `Sprint ${project?.sprintNumber || 1}`,
+            startDate: project?.currentSprintStartDate || "",
+            endDate: project?.currentSprintEndDate || "",
+            teamMembers: projectMembers.map(member => member.name),
+            totalStoryPoints,
+            completedStoryPoints,
+            velocity,
+            completedTasks: completedTasks.length,
+            totalTasks: projectTasks.length,
+            averageVelocity,
+            velocityTrend: velocity >= averageVelocity * 1.1 ? "increasing" : velocity <= averageVelocity * 0.9 ? "decreasing" : "stable",
+            totalSprints: allProjects.length,
+            bestVelocity: Math.max(...projectVelocities, 0),
+            sprintDuration: DEFAULT_SPRINT_DURATION,
+            burndownData: generateBurndownData(totalStoryPoints, completedStoryPoints, DEFAULT_SPRINT_DURATION),
+            taskStatusBreakdown: {
+                todo: projectTasks.filter(task => task.status === TaskStatus.TODO).length,
+                inProgress: projectTasks.filter(task => task.status === TaskStatus.IN_PROGRESS).length,
+                done: completedTasks.length,
+            },
+        };
+    })();
 
     const generateTextReport = () => {
         const reportText = `
@@ -247,7 +241,7 @@ export const SprintReportGenerator = () => {
 - **Done**: ${report.taskStatusBreakdown.done}
 
 ---
-*Report generated on ${new Date().toLocaleDateString()}*
+*Report generated on ${formatDate(new Date())}*
         `;
 
         const blob = new Blob([reportText], { type: 'text/markdown' });
@@ -311,9 +305,6 @@ export const SprintReportGenerator = () => {
                                     <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
                                         <TargetIcon className="h-4 w-4 text-primary" />
                                         <span className="text-lg font-semibold">{report.velocity}%</span>
-                                        <Button onClick={calculateReportVelocity} size="sm" variant="outline">
-                                            Calculate
-                                        </Button>
                                     </div>
                                 </div>
                             </div>
@@ -343,7 +334,7 @@ export const SprintReportGenerator = () => {
                                 </Button>
                             </div>
                             {/* A direct child of body, so the print rule can hide the rest of the app */}
-                            {createPortal(<PrintableReport report={report} />, document.body)}
+                            {createPortal(<PrintableReport report={report} today={formatDate(new Date())} />, document.body)}
                         </>
                     )}
                 </CardContent>

@@ -1,18 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { animate, domMax, LazyMotion, m, MotionConfig, useReducedMotion, type Variants } from "motion/react";
+import { animate, domMax, LazyMotion, m, MotionConfig, useReducedMotionConfig, type Variants } from "motion/react";
 
 import { cn } from "@/lib/utils";
 
 // The app's motion vocabulary. One curve everywhere: a quick start and a long, gentle settle.
 // People who ask their system for less motion get opacity fades only (MotionConfig drops the
-// movement), and numbers and charts simply appear at their final values.
+// movement), and numbers and charts simply appear at their final values. The account's "Reduce
+// motion" switch does the same whatever the system says.
 
 export const EASE = [0.22, 1, 0.36, 1] as const;
 
 export const MotionProvider = ({ children }: { children: React.ReactNode }) => (
-    // domMax: shared-layout animations (the sliding nav highlight) need it
+    // domMax: shared-layout animations (the sliding nav highlight) need it.
+    // The account's "Reduce motion" switch is applied inside the signed-in app (AccountMotion).
     <LazyMotion features={domMax} strict>
         <MotionConfig reducedMotion="user" transition={{ duration: 0.5, ease: EASE }}>
             {children}
@@ -62,11 +64,11 @@ const formatNumber = (value: number) => Math.round(value).toLocaleString();
 
 // Counts up to a number, and on later changes counts from the old value to the new one
 export const CountUp = ({ value, className, duration = 1.1 }: { value: number; className?: string; duration?: number }) => {
-    const reduce = useReducedMotion();
+    const reduce = useReducedMotionConfig();
     const ref = useRef<HTMLSpanElement>(null);
     const from = useRef(reduce ? value : 0);
     // Rendered once; afterwards the animation owns the digits (a re-render mustn't reset them)
-    const [initial] = useState(() => formatNumber(from.current));
+    const [initial] = useState(() => formatNumber(reduce ? value : 0));
 
     useEffect(() => {
         const node = ref.current;
@@ -87,8 +89,9 @@ export const CountUp = ({ value, className, duration = 1.1 }: { value: number; c
 
     return (
         // The final number for assistive tech; the ticking digits are decoration
-        <span className={cn("tabular-nums", className)} aria-label={formatNumber(value)}>
+        <span className={cn("tabular-nums", className)}>
             <span ref={ref} aria-hidden>{initial}</span>
+            <span className="sr-only">{formatNumber(value)}</span>
         </span>
     );
 };

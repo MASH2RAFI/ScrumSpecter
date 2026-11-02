@@ -123,6 +123,8 @@ test("after editing from the panel", async () => {
     await page.getByRole("button", { name: NAME, exact: true }).first().click();
     await expect(panel()).toBeVisible();
     await panel().getByRole("button", { name: "Edit", exact: true }).first().click();
+    // It opens through the URL, a moment after the click
+    await expect(page.getByRole("dialog", { name: /Edit/ })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name: /Edit/ })).toHaveCount(0);
     await page.keyboard.press("Escape");

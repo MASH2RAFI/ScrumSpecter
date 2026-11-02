@@ -8,7 +8,8 @@ export const createTaskSchema = z.object({
     name: z.string().trim().min(1, "Required").max(MAX_TITLE, `At most ${MAX_TITLE} characters`),
     status: z.nativeEnum(TaskStatus, { error: "Required" }),
     workspaceId: idString,
-    projectId: z.string().trim().min(1, "Required").max(MAX_ID),
+    // null or left out: a personal task (no project); on an update, null removes the project
+    projectId: z.string().trim().min(1).max(MAX_ID).nullable().optional(),
     // null clears it (z.coerce alone would turn null into 1 Jan 1970)
     dueDate: z.coerce.date().nullable().optional(),
     // One or more people (or placeholders)
@@ -40,7 +41,7 @@ export const restoreTasksSchema = z.object({
         name: z.string().trim().min(1).max(MAX_TITLE),
         status: z.nativeEnum(TaskStatus),
         workspaceId: idString,
-        projectId: idString,
+        projectId: idString.nullable().optional(),
         assigneeIds: z.array(idString).max(20).default([]),
         description: z.string().max(MAX_DESCRIPTION).nullable().optional(),
         storyPoints: z.number().int().min(1).max(100).nullable().optional(),

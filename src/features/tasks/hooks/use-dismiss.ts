@@ -1,7 +1,7 @@
 import { RefObject, useEffect } from "react";
 
 // Calls onClose on a mousedown outside `ref` or on Escape while open.
-export const useDismiss = (ref: RefObject<HTMLElement>, isOpen: boolean, onClose: () => void) => {
+export const useDismiss = (ref: RefObject<HTMLElement | null>, isOpen: boolean, onClose: () => void) => {
     useEffect(() => {
         if (!isOpen) return;
 

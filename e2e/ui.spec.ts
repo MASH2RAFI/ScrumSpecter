@@ -184,23 +184,24 @@ test("command palette jumps to a project", async () => {
 });
 
 test("sidebar auto-hides: opens on hover, holds 0.3 seconds, pins with [", async () => {
+    // Several small moves, like a real pointer: one instant jump can land before the page is interactive
     const panel = page.locator("aside[data-collapsed]").first();
     const frame = panel.locator("xpath=../..");
-    await page.mouse.move(900, 400);
+    await page.mouse.move(900, 400, { steps: 5 });
     await expect(panel).toHaveAttribute("data-collapsed", "true", { timeout: 5_000 });
     await expect.poll(async () => (await frame.boundingBox())?.width).toBe(76);
 
-    await page.mouse.move(30, 300);
+    await page.mouse.move(30, 300, { steps: 5 });
     await expect(panel).toHaveAttribute("data-collapsed", "false");
     await expect.poll(async () => (await frame.boundingBox())?.width).toBe(264);
 
     // Held open for 0.3 seconds after the pointer leaves, then folded
-    await page.mouse.move(900, 400);
+    await page.mouse.move(900, 400, { steps: 5 });
     expect(await panel.getAttribute("data-collapsed")).toBe("false");
     await expect(panel).toHaveAttribute("data-collapsed", "true", { timeout: 2_000 });
 
     // Its workspace dropdown renders outside it: the sidebar stays open while the list is open
-    await page.mouse.move(30, 300);
+    await page.mouse.move(30, 300, { steps: 5 });
     await expect(panel).toHaveAttribute("data-collapsed", "false");
     await panel.getByRole("combobox").click();
     const option = page.getByRole("option").first();
@@ -210,27 +211,32 @@ test("sidebar auto-hides: opens on hover, holds 0.3 seconds, pins with [", async
     await expect(panel).toHaveAttribute("data-collapsed", "false");
     await expect(option).toBeVisible();
     await page.keyboard.press("Escape");
-    await page.mouse.move(900, 400);
+    // Escape puts keyboard focus back on the dropdown, and the sidebar stays open while focus is
+    // inside it (a focused control must stay visible); focus moving on lets it fold
+    // Radix hands focus back after its closing animation; wait for that, then move focus on
+    await expect(panel.getByRole("combobox")).toBeFocused();
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.mouse.move(900, 400, { steps: 5 });
     await expect(panel).toHaveAttribute("data-collapsed", "true", { timeout: 2_000 });
 
     // [ pins it open; again goes back to auto-hide
     await page.keyboard.press("[");
     await expect(panel).toHaveAttribute("data-collapsed", "false");
-    await page.mouse.move(900, 450);
+    await page.mouse.move(900, 450, { steps: 5 });
     await page.waitForTimeout(1_000);
     await expect(panel).toHaveAttribute("data-collapsed", "false");
     await page.keyboard.press("[");
     await expect(panel).toHaveAttribute("data-collapsed", "true");
 
     // Switching to another window sends no mouseleave; losing focus folds it instead
-    await page.mouse.move(30, 300);
+    await page.mouse.move(30, 300, { steps: 5 });
     await expect(panel).toHaveAttribute("data-collapsed", "false");
     await page.evaluate(() => window.dispatchEvent(new Event("blur")));
     await expect(panel).toHaveAttribute("data-collapsed", "true");
     // Back in the window, moving the pointer over it opens it again
-    await page.mouse.move(40, 320);
+    await page.mouse.move(40, 320, { steps: 5 });
     await expect(panel).toHaveAttribute("data-collapsed", "false");
-    await page.mouse.move(900, 400);
+    await page.mouse.move(900, 400, { steps: 5 });
     await expect(panel).toHaveAttribute("data-collapsed", "true", { timeout: 2_000 });
 });
 

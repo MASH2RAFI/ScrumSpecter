@@ -37,13 +37,12 @@ export const SprintDonut = ({ stats, projects }: { stats: ProjectPoints[]; proje
     const total = points.done + points.progress + points.todo;
     const percent = total ? Math.round((points.done / total) * 100) : 0;
 
-    let start = 0;
-    const arcs = SEGMENTS.map((segment) => {
-        const fraction = total ? points[segment.key] / total : 0;
-        const arc = { ...segment, start, fraction };
-        start += fraction;
-        return arc;
-    }).filter((arc) => arc.fraction > 0);
+    // Each arc starts where the previous one ended
+    const arcs = SEGMENTS.reduce<(typeof SEGMENTS[number] & { start: number; fraction: number })[]>((list, segment) => {
+        const previous = list.at(-1);
+        const start = previous ? previous.start + previous.fraction : 0;
+        return [...list, { ...segment, start, fraction: total ? points[segment.key] / total : 0 }];
+    }, []).filter((arc) => arc.fraction > 0);
 
     return (
         <Card className="h-full">

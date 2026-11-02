@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+
+import { useHydrated } from "@/hooks/use-hydrated";
 import { useTheme } from "next-themes";
 
 interface Node {
@@ -19,14 +21,10 @@ interface NeuralBackgroundProps {
 
 export const NeuralBackground = ({ className = "" }: NeuralBackgroundProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
   const mouseRef = useRef({ x: 0, y: 0 });
   const { theme } = useTheme();
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const isClient = useHydrated();
 
   useEffect(() => {
     if (!isClient) return;

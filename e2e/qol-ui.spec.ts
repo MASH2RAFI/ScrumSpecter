@@ -230,7 +230,7 @@ test("bulk input tab: check, apply, and copy the AI prompt", async () => {
     const prompt = await page.evaluate(() => navigator.clipboard.readText());
     expect(prompt).toContain("Reply with ONLY the commands");
     expect(prompt).toContain('Existing projects: "Website"');
-    expect(prompt).toContain("task add \"<name>\" project:");
+    expect(prompt).toContain("task add \"<name>\" [project:");
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "From bulk", exact: true }).or(page.getByText("From bulk")).first()).toBeAttached();
 });
@@ -262,12 +262,12 @@ test("bulk edit: tick tasks, change status, undo", async () => {
     await expect(page.getByText("Updated 3 tasks")).toBeVisible();
     await expect(bar).toBeHidden();
     for (const name of ["Bulk A", "Bulk B", "Bulk C"]) {
-        await expect(page.getByRole("button", { name: `Change status of ${name} (Done)` })).toBeVisible();
+        await expect(page.getByRole("button", { name: `Done: change status of ${name}` })).toBeVisible();
     }
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(page.getByText("Changes undone")).toBeVisible();
     for (const name of ["Bulk A", "Bulk B", "Bulk C"]) {
-        await expect(page.getByRole("button", { name: `Change status of ${name} (Todo)` })).toBeVisible();
+        await expect(page.getByRole("button", { name: `Todo: change status of ${name}` })).toBeVisible();
     }
 });
 
@@ -295,7 +295,7 @@ test("table: Shift-click selects a range, Ctrl-click toggles, a plain row click 
 
     // A row's own menu isn't a row click
     const name = (await rows.nth(2).getByRole("button", { name: /^(From a weekly routine )?Range \d$/ }).innerText()).trim();
-    await rows.nth(2).getByRole("button", { name: new RegExp(`^Change status of ${name}`) }).click();
+    await rows.nth(2).getByRole("button", { name: new RegExp(`change status of ${name}$`) }).click();
     await page.keyboard.press("Escape");
     await expect(page).not.toHaveURL(/[?&]task=/);
 

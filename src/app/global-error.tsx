@@ -20,6 +20,7 @@ const GlobalError = ({ reset }: { error: Error & { digest?: string }; reset: () 
                         </Button>
                         <Button variant="secondary" size="sm" asChild>
                             {/* A full page load, since the app's layout is what broke */}
+                            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
                             <a href="/">Back to home</a>
                         </Button>
                     </div>

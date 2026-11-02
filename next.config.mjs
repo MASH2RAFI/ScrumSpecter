@@ -1,4 +1,4 @@
-// The Content-Security-Policy is set per page in src/middleware.ts (it needs a fresh nonce each time)
+// The Content-Security-Policy is set per page in src/proxy.ts (it needs a fresh nonce each time)
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -13,11 +13,13 @@ const nextConfig = {
   
   // Enable compression
   compress: true,
+
+  // Next 16's floating dev-tools button (dev only) has the name "Open Next.js Dev Tools" and clashes with
+  // the app's own "Next" buttons in tests; the error overlay still shows
+  devIndicators: false,
   
-  // Native argon2 binding must be required at runtime, not bundled
-  experimental: {
-    serverComponentsExternalPackages: ["@node-rs/argon2"],
-  },
+  // Native argon2 binding must be required at runtime, not bundled (stable name since Next 15)
+  serverExternalPackages: ["@node-rs/argon2"],
   
   // Optimize headers
   async headers() {

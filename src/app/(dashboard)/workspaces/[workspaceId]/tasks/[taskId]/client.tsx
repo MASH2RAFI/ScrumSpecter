@@ -10,6 +10,7 @@ import { useRedirectOnAccessError } from "@/hooks/use-redirect-on-access-error";
 import { isAccessError } from "@/lib/api-error";
 import { TaskBreadcrumbs } from "@/features/tasks/components/task-breadcrumbs";
 import { DottedSeparator } from "@/components/dotted-separator";
+import { StarButton } from "@/features/stars/components/star-button";
 
 export const TaskIdClient = () => {
     const taskId = useTaskId();
@@ -29,7 +30,10 @@ export const TaskIdClient = () => {
     return (
         <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
             <div className="flex-1 min-w-0 lg:w-2/3 xl:w-3/4">
-                <TaskBreadcrumbs project={data.project} task={data} />
+                <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1"><TaskBreadcrumbs project={data.project} task={data} /></div>
+                    <StarButton workspaceId={data.workspaceId} item={{ taskId: data.$id }} name={data.name} />
+                </div>
                 <DottedSeparator className="my-6" />
                 <TaskOverview task={data} />
             </div>

@@ -11,7 +11,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}
-      className="toaster group"
+      // Modal dialogs turn off clicks outside themselves; toasts (Undo) must stay clickable
+      className="toaster group pointer-events-auto"
       toastOptions={{
         classNames: {
           toast:

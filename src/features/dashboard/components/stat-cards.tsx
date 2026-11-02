@@ -31,7 +31,6 @@ export const StatCards = ({ counts, workspaceId }: { counts: TaskCounts; workspa
                     <Lift className="h-full rounded-card">
                         <Link
                             href={href}
-                            aria-label={`${label}: ${value}. ${hint}`}
                             className="flex h-full flex-col gap-4 rounded-card border border-border/70 bg-card p-5 shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                             <span className="flex items-center justify-between">

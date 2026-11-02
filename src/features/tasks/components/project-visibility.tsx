@@ -1,21 +1,23 @@
 "use client";
 
 import { EyeIcon, EyeOffIcon } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
-import { useUpdatePreferences } from "@/features/account/api/use-account";
-import { usePreferences } from "@/features/auth/hooks/use-preferences";
+import { usePreferences, useSavePreferences } from "@/features/auth/hooks/use-preferences";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 
-// My Tasks: each project with an eye to show or hide its tasks there. Saved on the account
-// (preferences.hiddenProjects), so it follows the person to other devices.
-export const ProjectVisibility = ({ workspaceId }: { workspaceId: string }) => {
-    const queryClient = useQueryClient();
-    const { hiddenProjects } = usePreferences();
+// Each project with an eye to show or hide it on a page: My Tasks (preferences.hiddenProjects)
+// or Routines (preferences.hiddenRoutineProjects). Saved on the account, so it follows the person
+// to other devices.
+export const ProjectVisibility = ({ workspaceId, setting = "hiddenProjects", page = "My Tasks" }: {
+    workspaceId: string;
+    setting?: "hiddenProjects" | "hiddenRoutineProjects";
+    page?: string;
+}) => {
+    const hiddenProjects = usePreferences()[setting];
     const { data: projects } = useGetProjects({ workspaceId });
-    const { mutate: updatePreferences } = useUpdatePreferences({ silent: true });
+    const save = useSavePreferences();
 
     if (!projects?.documents.length) return null;
     const hidden = new Set(hiddenProjects);
@@ -24,14 +26,11 @@ export const ProjectVisibility = ({ workspaceId }: { workspaceId: string }) => {
         const next = hidden.has(projectId)
             ? hiddenProjects.filter((id) => id !== projectId)
             : [...hiddenProjects, projectId];
-        // Into the cached user at once, so the views update before the save comes back
-        queryClient.setQueryData<{ preferences: Record<string, unknown> } | null>(["current"], (current) =>
-            current ? { ...current, preferences: { ...current.preferences, hiddenProjects: next } } : current);
-        updatePreferences({ hiddenProjects: next });
+        save({ [setting]: next });
     };
 
     return (
-        <ul className="flex flex-wrap gap-2" aria-label="Projects shown in My Tasks">
+        <ul className="flex flex-wrap gap-2" aria-label={`Projects shown in ${page}`}>
             {projects.documents.map((project) => {
                 const isHidden = hidden.has(project.$id);
                 return (
@@ -48,8 +47,8 @@ export const ProjectVisibility = ({ workspaceId }: { workspaceId: string }) => {
                             type="button"
                             onClick={() => toggle(project.$id)}
                             aria-pressed={!isHidden}
-                            aria-label={isHidden ? `Show ${project.name} in My Tasks` : `Hide ${project.name} from My Tasks`}
-                            title={isHidden ? "Show in My Tasks" : "Hide from My Tasks"}
+                            aria-label={isHidden ? `Show ${project.name} in ${page}` : `Hide ${project.name} from ${page}`}
+                            title={isHidden ? `Show in ${page}` : `Hide from ${page}`}
                             className="grid size-7 min-h-0 min-w-0 place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
                         >
                             {isHidden ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}

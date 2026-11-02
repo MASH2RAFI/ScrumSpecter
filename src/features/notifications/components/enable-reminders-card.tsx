@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useStoredFlag } from "@/hooks/use-stored-flag";
 import { BellRingIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -15,23 +15,11 @@ const DISMISSED_KEY = "scrumspecter-reminders-prompt-dismissed";
 export const EnableRemindersCard = () => {
     const { state, busy, enable } = usePush();
     const { open: openSettings } = useNotificationSettings();
-    const [dismissed, setDismissed] = useState(true);
-
-    useEffect(() => {
-        try {
-            setDismissed(localStorage.getItem(DISMISSED_KEY) === "1");
-        } catch {
-            setDismissed(false);
-        }
-    }, []);
+    // Hidden until hydrated, so the server and the first client render agree
+    const [dismissed, setDismissed] = useStoredFlag(DISMISSED_KEY, true);
 
     const dismiss = () => {
         setDismissed(true);
-        try {
-            localStorage.setItem(DISMISSED_KEY, "1");
-        } catch {
-            // Shows again next visit
-        }
     };
 
     if (dismissed || (state !== "off" && state !== "ios-needs-install")) return null;

@@ -16,7 +16,8 @@ import { useTaskPanel } from "../hooks/use-task-panel";
 import { useCreateChangeRequest } from "@/features/change-requests/api/use-change-requests";
 interface TaskActionsProps {
     id: string;
-    projectId: string;
+    // null: a personal task, which has no project page
+    projectId: string | null;
     children: React.ReactNode;
 }
 
@@ -72,6 +73,7 @@ export const TaskActions = ({ id, projectId, children}: TaskActionsProps) => {
                         Task Details 
                     </DropdownMenuItem>
 
+                    {projectId && (
                     <DropdownMenuItem 
                         onClick={onOpenProject} 
                         className="font-medium p-[10px]" 
@@ -79,6 +81,7 @@ export const TaskActions = ({ id, projectId, children}: TaskActionsProps) => {
                         <ExternalLinkIcon className="size-4 mr-2 stroke-2" /> 
                         Open Project
                     </DropdownMenuItem>
+                    )}
 
                     <DropdownMenuItem 
                         onClick={() => open(id) } 

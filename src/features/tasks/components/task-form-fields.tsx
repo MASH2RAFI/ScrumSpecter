@@ -153,8 +153,15 @@ export const AssigneePicker = ({ value, onChange, options, disabled, triggerClas
     );
 };
 
+// The project picker's "No project" choice (Select items can't have an empty value)
+export const NO_PROJECT = "none";
+export const toProjectId = (value: string) => (value === NO_PROJECT ? null : value);
+
 export const ProjectSelectItems = ({ options }: { options: TaskFormOption[] }) => (
     <>
+        <SelectItem value={NO_PROJECT}>
+            <span className="text-muted-foreground">No project (personal)</span>
+        </SelectItem>
         {options.map((project) => (
             <SelectItem key={project.id} value={project.id}>
                 <div className="flex items-center gap-x-2">

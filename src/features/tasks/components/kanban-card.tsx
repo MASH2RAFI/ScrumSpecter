@@ -7,9 +7,12 @@ import { TaskDate } from "./task-date";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 import { cn } from "@/lib/utils";
 import { useTaskPanel } from "../hooks/use-task-panel";
+import { StarButton } from "@/features/stars/components/star-button";
 
 interface KanbanCardProps {
     task: Task;
+    // The name, star and menu only (Account settings → Kanban)
+    compact?: boolean;
 }
 
 const statusColorMap: Record<TaskStatus, string> = {
@@ -20,7 +23,7 @@ const statusColorMap: Record<TaskStatus, string> = {
     [TaskStatus.DONE]: "border-l-emerald-600",
 };
 
-export const KanbanCard = ({ task }: KanbanCardProps) => {
+export const KanbanCard = ({ task, compact }: KanbanCardProps) => {
     const { open } = useTaskPanel();
 
     return (
@@ -30,15 +33,20 @@ export const KanbanCard = ({ task }: KanbanCardProps) => {
             "bg-card p-2 sm:p-2.5 mb-1 sm:mb-1.5 rounded-xl shadow-soft space-unified-sm border border-border/70 transition-[box-shadow,transform] duration-300 ease-out hover:shadow-lift hover:-translate-y-0.5 border-l-4 touch-manipulation",
             statusColorMap[task.status]
         )}>
-            <div className="flex items-start justify-between gap-x-1 sm:gap-x-2">
+            {/* Centred: the menu button is taller than a line of text, so top-aligning left the name above the star and dots */}
+            <div className="flex items-center justify-between gap-x-1 sm:gap-x-2">
+                <StarButton workspaceId={task.workspaceId} item={{ taskId: task.$id }} name={task.name} />
                 <p className="text-xs sm:text-sm line-clamp-2 text-foreground flex-1 min-w-0">{task.name}</p>
                 {/* The menu handles its own clicks; don't also open the panel */}
                 <div onClick={(e) => e.stopPropagation()}>
                 <TaskActions id={task.$id} projectId={task.projectId}>
-                    <MoreHorizontal className="size-4 sm:size-[18px] stroke-1 shrink-0 text-muted-foreground hover:text-foreground transition-unified min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] flex items-center justify-center" />
+                    <button type="button" aria-label={`Actions for ${task.name}`} className="shrink-0 text-muted-foreground hover:text-foreground transition-unified min-h-[44px] sm:min-h-[32px] min-w-[44px] sm:min-w-[32px] flex items-center justify-center">
+                        <MoreHorizontal className="size-4 sm:size-[18px] stroke-1" aria-hidden />
+                    </button>
                 </TaskActions>
                 </div>
             </div>
+            {!compact && <>
             <DottedSeparator />
             <div className="flex items-center gap-x-1 sm:gap-x-1.5">
                 {task.assignees?.length ? (
@@ -70,6 +78,7 @@ export const KanbanCard = ({ task }: KanbanCardProps) => {
                     <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">No project</span>
                 )}
             </div>
-        </div>        
+            </>}
+        </div>
     );
 };

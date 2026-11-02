@@ -29,6 +29,8 @@ import { useCreateChangeRequest } from "@/features/change-requests/api/use-chang
 import {
     AssigneePicker,
     ProjectSelectItems,
+    NO_PROJECT,
+    toProjectId,
     StatusSelectItems,
     TaskFormFooter,
     TaskFormOptionsProps,
@@ -79,7 +81,7 @@ export const EditTaskForm = ({ onCancel, projectOptions, memberOptions, initialV
         defaultValues: {
             name: initialValues.name,
             status: initialValues.status,
-            projectId: initialValues.projectId,
+            projectId: initialValues.projectId ?? NO_PROJECT,
             dueDate: initialValues.dueDate ? new Date(initialValues.dueDate) : undefined,
             assigneeIds: initialValues.assigneeIds ?? [],
             description: initialValues.description || "",
@@ -91,7 +93,8 @@ export const EditTaskForm = ({ onCancel, projectOptions, memberOptions, initialV
     });
 
     const onSubmit = (values: FormValues) => {
-        const { startTime, durationMinutes, ...rest } = values;
+        const { startTime, durationMinutes, ...picked } = values;
+        const rest = { ...picked, projectId: toProjectId(picked.projectId) };
         // The time block sits on the due date (or the existing day when no due date is set)
         const day = values.dueDate ?? (initialValues.dueDate ? new Date(initialValues.dueDate) : new Date());
         const timed = Boolean(startTime);

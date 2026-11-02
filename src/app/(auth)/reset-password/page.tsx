@@ -1,11 +1,12 @@
 import { ResetPasswordCard } from "@/features/auth/components/password-reset-cards";
 
 interface ResetPasswordPageProps {
-    searchParams: { token?: string };
+    searchParams: Promise<{ token?: string }>;
 }
 
-const ResetPasswordPage = ({ searchParams }: ResetPasswordPageProps) => (
-    <ResetPasswordCard token={searchParams.token ?? null} />
-);
+const ResetPasswordPage = async (props: ResetPasswordPageProps) => {
+    const searchParams = await props.searchParams;
+    return (<ResetPasswordCard token={searchParams.token ?? null} />);
+};
 
 export default ResetPasswordPage;

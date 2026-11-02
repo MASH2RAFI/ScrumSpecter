@@ -1,6 +1,7 @@
 import {
     bigint,
     boolean,
+    check,
     date,
     index,
     integer,
@@ -40,6 +41,8 @@ export const users = pgTable(
         // Null for accounts that only sign in with Google
         passwordHash: text("password_hash"),
         googleId: text("google_id"),
+        // Null until the emailed link is opened; Google sign-ins and accounts from before 0014 count as verified
+        emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
         // UserPreferences (src/features/auth/preferences.ts); missing keys use the defaults
         preferences: jsonb("preferences").$type<Record<string, unknown>>().notNull().default({}),
         ...timestamps,
@@ -166,8 +169,8 @@ export const tasks = pgTable(
         workspaceId: text("workspace_id")
             .notNull()
             .references(() => workspaces.id, { onDelete: "cascade" }),
+        // null: personal (no project); see routines.ts for how their tasks are generated
         projectId: text("project_id")
-            .notNull()
             .references(() => projects.id, { onDelete: "cascade" }),
         // Member ids (people or placeholders); not foreign keys, and kept in step by member
         // removal and placeholder hand-over
@@ -202,8 +205,8 @@ export const routines = pgTable(
         workspaceId: text("workspace_id")
             .notNull()
             .references(() => workspaces.id, { onDelete: "cascade" }),
+        // null: personal (no project); see routines.ts for how their tasks are generated
         projectId: text("project_id")
-            .notNull()
             .references(() => projects.id, { onDelete: "cascade" }),
         // Member ids, like tasks.assignee_ids; every generated task gets all of them
         assigneeIds: text("assignee_ids").array().notNull().default(sql`'{}'::text[]`),
@@ -297,6 +300,45 @@ export const passwordResets = pgTable(
         createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     },
     (t) => [index("password_resets_user_idx").on(t.userId)]
+);
+
+// Sign-up "verify your email" links: single-use, like password_resets
+export const emailVerifications = pgTable(
+    "email_verifications",
+    {
+        // sha256 of the emailed token, never the token itself
+        id: text("id").primaryKey(),
+        userId: text("user_id")
+            .notNull()
+            .references(() => users.id, { onDelete: "cascade" }),
+        expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+        usedAt: timestamp("used_at", { withTimezone: true }),
+        createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    },
+    (t) => [index("email_verifications_user_idx").on(t.userId)]
+);
+
+// Personal bookmarks on a task or a routine (exactly one is set), for the Starred page
+export const stars = pgTable(
+    "stars",
+    {
+        id: id(),
+        userId: text("user_id")
+            .notNull()
+            .references(() => users.id, { onDelete: "cascade" }),
+        taskId: text("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+        routineId: text("routine_id").references(() => routines.id, { onDelete: "cascade" }),
+        workspaceId: text("workspace_id")
+            .notNull()
+            .references(() => workspaces.id, { onDelete: "cascade" }),
+        createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    },
+    (t) => [
+        uniqueIndex("stars_user_task_idx").on(t.userId, t.taskId),
+        uniqueIndex("stars_user_routine_idx").on(t.userId, t.routineId),
+        index("stars_user_workspace_idx").on(t.userId, t.workspaceId),
+        check("stars_one_item", sql`num_nonnulls(${t.taskId}, ${t.routineId}) = 1`),
+    ]
 );
 
 export const changeRequestKind = pgEnum("change_request_kind", ["create", "update", "delete"]);

@@ -49,8 +49,9 @@ export const IssueCard = ({ task, variant, compact, draggable, onDragStart, onDr
 
     return (
         <div
-            role="button"
-            tabIndex={0}
+            // A control only where it opens the task itself; on the week grid the calendar's own event is
+            role={onOpen ? "button" : undefined}
+            tabIndex={onOpen ? 0 : undefined}
             data-task-id={task.$id}
             draggable={draggable}
             onDragStart={draggable ? (e) => {
@@ -79,6 +80,8 @@ export const IssueCard = ({ task, variant, compact, draggable, onDragStart, onDr
                 variant === "panel" && "shadow-sm",
             )}
         >
+            {/* The colored edge shows the status; this says it */}
+            <span className="sr-only">{snakeCaseToTitleCase(task.status)}: </span>
             {variant === "month" || (variant === "block" && compact) ? (
                 // One line: month cells and short time blocks are too small for more
                 <div className="flex items-center gap-1 px-1.5 py-[3px] text-xs leading-tight">

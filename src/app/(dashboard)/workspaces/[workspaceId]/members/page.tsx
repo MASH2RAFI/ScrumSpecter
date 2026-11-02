@@ -1,11 +1,17 @@
 import { redirect } from "next/navigation";
 
 interface MembersPageProps {
-    params: { workspaceId: string };
+    params: Promise<{ workspaceId: string }>;
 }
 
 // Members is a popup now; keep old links working
-const MembersPage = ({ params: { workspaceId } }: MembersPageProps) => {
+const MembersPage = async (props: MembersPageProps) => {
+    const params = await props.params;
+
+    const {
+        workspaceId
+    } = params;
+
     redirect(`/workspaces/${workspaceId}?workspace-panel=members`);
 };
 

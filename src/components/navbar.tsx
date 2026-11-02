@@ -11,6 +11,10 @@ import { HeadingReveal } from "./motion";
 import { openQuickJump } from "./command-palette";
 
 const pathnameMap =  {
+    "starred": {
+        title: "Starred",
+        description: "Your starred tasks and routines, from every workspace",
+    },
     "tasks": {
         title: "My Tasks",
         description: "View all of your tasks here",

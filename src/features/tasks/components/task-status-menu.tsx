@@ -29,7 +29,8 @@ export const TaskStatusMenu = ({ task, align = "start" }: { task: Task; align?: 
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
-                    aria-label={`Change status of ${task.name} (${snakeCaseToTitleCase(task.status)})`}
+                    // Starts with the visible badge text, so voice control ("click Todo") finds it
+                    aria-label={`${snakeCaseToTitleCase(task.status)}: change status of ${task.name}`}
                     className="shrink-0 cursor-pointer rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-0 min-w-0"
                 >
                     {badge}

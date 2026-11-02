@@ -120,7 +120,10 @@ test("bulk input: supervisors add tasks with several assignees, but not holidays
 
     const holiday = await json(await run(supervisor, `holiday add 2026-12-31 "Closed"`));
     expect(holiday.results[0]).toMatchObject({ ok: false, error: "Only admins can add holidays" });
-    expect((await run(assignee, script)).status()).toBe(403);
+    // Assignees may use bulk input now; a line for someone else becomes a change request (e2e/bulk-roles.spec.ts)
+    const asAssignee = await run(assignee, script);
+    expect(asAssignee.status()).toBe(200);
+    expect((await json(asAssignee)).results[0]).toMatchObject({ ok: true });
 });
 
 test("change requests: ask, review, apply, and tell", async () => {

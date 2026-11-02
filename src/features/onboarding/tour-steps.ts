@@ -43,6 +43,12 @@ export const buildTourSteps = ({ name, role, workspaceName }: { name: string; ro
         },
         { id: "tasks", target: "nav-my-tasks", title: "My Tasks", body: tasksBody },
         {
+            id: "starred",
+            target: "nav-starred",
+            title: "Starred",
+            body: "Star any task or routine to keep it here, across all your workspaces.",
+        },
+        {
             id: "routines",
             target: "nav-routines",
             title: "Routines",

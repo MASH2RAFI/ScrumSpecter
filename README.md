@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Next.js-14-000000?style=flat-square&logo=next.js&logoColor=white" alt="Next.js 14" />
+  <img src="https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=next.js&logoColor=white" alt="Next.js 16" />
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Hono-E36002?style=flat-square&logo=hono&logoColor=white" alt="Hono" />
   <img src="https://img.shields.io/badge/Drizzle-C5F74F?style=flat-square&logo=drizzle&logoColor=black" alt="Drizzle ORM" />
@@ -47,7 +47,7 @@
 |---|---|
 | 🗂️ **Three views, one board** | Table, kanban and calendar, all with drag and drop, undo and bulk edit. |
 | 👥 **Roles that fit real teams** | Admins, Supervisors, Reviewers, Assignees and Viewers. Anyone without edit rights proposes a change request instead. |
-| 🔁 **Routines that plan themselves** | Weekly tasks are generated through the end of the sprint and skip holidays and your days off. |
+| 🔁 **Routines that plan themselves** | Weekly tasks are generated through the end of the sprint and skip holidays and your days off. Personal routines (no project) keep the next two weeks filled. |
 | 🔔 **Reminders that land** | Push and in-app: a 6 PM preview of tomorrow, plus a nudge 30 minutes before a task ends. |
 | 🤖 **Bulk input with an AI prompt** | Set up a whole sprint in one paste. Every line is validated before anything is saved. |
 | 📈 **Analytics built in** | Burndown, velocity, a capacity calculator and a Markdown sprint report. |
@@ -121,10 +121,13 @@
   - five statuses: Backlog, To Do, In Progress, In Review and Done;
   - three views: a table, a kanban board and a calendar, all with drag and drop;
   - in the table, clicking a row opens the task in a side panel; Shift-click selects a range of rows and Ctrl/⌘-click adds or removes one, for bulk edit;
-  - Undo after deleting or moving a task.
+  - Undo after deleting or moving a task;
+  - drag a Kanban card, a routine or your own pending request to the bin at the bottom of the page to delete (or withdraw) it; the menus do the same from the keyboard.
+- **Starred:** star tasks and routines, then find them on one Starred page across all your workspaces.
+- **Export:** tasks as CSV or a calendar file (`.ics`), a private calendar-subscribe link for Google or Apple Calendar, the whole workspace as a bulk-input script or a JSON backup (Admins), analytics charts as PNG or CSV, and your own data.
 - **Home ("My work"):** your overdue tasks and those due today and tomorrow, with a countdown to each one's end time.
 - **My Tasks:** an eye beside each project hides or shows its tasks there. The choice is saved to your account; picking a project in the filter still shows it.
-- **Routines:** tasks that repeat weekly. They're created for each of their weekdays through the end of the sprint, and they skip days off. Each routine chooses which task views (table, kanban, calendar) list its tasks, with toggles right on its card on the Routines page; Home and My work always do.
+- **Routines:** tasks that repeat weekly. They're created for each of their weekdays through the end of the sprint, and they skip days off. A routine (or task) can also be personal, with no project: its tasks keep the next 14 days filled. Each routine chooses which task views (table, kanban, calendar) list its tasks, with toggles right on its card on the Routines page; Home and My work always do.
 - **Days off and working hours:** public holidays come from a country feed, and you can add your own days off. Working hours frame the routines week and decide when unfinished To Do tasks move to Backlog.
 
 </details>
@@ -155,8 +158,8 @@
 <summary><strong>🔔 Notifications</strong></summary>
 
 - **Notifications:** in-app and push.
-  - 6 PM summary of tomorrow's tasks;
-  - a reminder 30 minutes before a task ends;
+  - a summary of tomorrow's tasks the day before (6 PM unless you pick another time);
+  - a reminder before a task ends (10, 15, 30 or 60 minutes; 30 by default);
   - change-request decisions.
 
 </details>
@@ -165,7 +168,7 @@
 <summary><strong>⚡ Getting started and bulk input</strong></summary>
 
 - **Getting started** (`/workspaces/create`): create a workspace, join one by pasting an invite link, or set a new one up from bulk commands. `?start=join` or `?start=bulk` opens a tab directly.
-- **Bulk input** (Settings → Bulk input, or the getting-started page for a new workspace): add many projects, tasks, routines, days off and placeholders at once, one command per line. Every line is checked before anything is saved, and "Copy AI prompt" lets an AI assistant write the commands.
+- **Bulk input** (Settings → Bulk input, or the getting-started page for a new workspace): add, update or remove many projects, tasks, routines, days off and placeholders at once, one command per line. Every line is checked before anything is saved, the whole script applies all or nothing, removals ask first (deleted tasks can be undone), and "Copy AI prompt" lets an AI assistant write the commands. Routines in the check results have Table / Kanban / Calendar toggles. Reviewers and Assignees can use it for tasks: their own are saved, anyone else's are sent as change requests with one notification; Viewers can't use it.
 
 </details>
 
@@ -181,10 +184,10 @@
 
 - **Accounts:**
   - email and password or Google sign-in;
-  - forgot-password emails;
+  - forgot-password emails, and an email-verification link at sign-up;
   - lockout after repeated failed logins;
   - a list of signed-in devices;
-  - preferences: default task view, week start, 12 or 24-hour time, time zone and reminders.
+  - preferences saved to the account: default task view, week start, 12 or 24-hour time, date format, time zone, reminders, landing page, theme, reduce motion, calendar defaults, My Tasks sort / page size / Done tasks, and Kanban card size and empty columns.
 
 </details>
 
@@ -196,13 +199,14 @@
   - Ctrl/⌘ K quick jump;
   - keyboard shortcuts (press `?` to see them);
   - dark mode;
+  - keyboard-only use: dialogs keep focus inside and hand it back, Kanban cards move with Space and the arrow keys, calendar tasks open with Enter; charts have text tables for screen readers;
   - works on phones and can be installed as an app.
 
 </details>
 
 ## 🏗️ Architecture
 
-Next.js 14 (App Router), TypeScript, Tailwind CSS with shadcn/ui, a [Hono](https://hono.dev) API under `/api` with typed client calls (`src/lib/rpc.ts`), TanStack Query (cached in the browser), Motion for animation, and Drizzle ORM with self-hosted PostgreSQL 17. It's hosted on Vercel.
+Next.js 16 (App Router, React 19), TypeScript, Tailwind CSS with shadcn/ui, a [Hono](https://hono.dev) API under `/api` with typed client calls (`src/lib/rpc.ts`), TanStack Query (cached in the browser), Motion for animation, and Drizzle ORM with self-hosted PostgreSQL 17. It's hosted on Vercel.
 
 The kanban and calendar views and the popup forms load on first use (`src/components/lazy-parts.tsx`), and are prefetched in the background once a page is idle (in production builds).
 
@@ -216,7 +220,7 @@ Routine rules (this week only, per-view toggles) are applied on the server too.
 
 ```mermaid
 flowchart LR
-    U["Browser / installed PWA<br/>React · TanStack Query"] -->|typed RPC| A["Next.js 14 on Vercel<br/>Hono API under /api"]
+    U["Browser / installed PWA<br/>React · TanStack Query"] -->|typed RPC| A["Next.js 16 on Vercel<br/>Hono API under /api"]
     A -->|Drizzle ORM| D[("PostgreSQL 17<br/>self-hosted")]
     C1["Vercel Cron<br/>daily"] -->|/api/cron/routines| A
     C2["Server crontab<br/>every 5 min"] -->|/api/cron/reminders| A
@@ -252,9 +256,11 @@ e2e/                 Playwright end-to-end tests
 
 `npm run test:e2e` starts its own in-memory Postgres (PGlite, `e2e/db-server.mjs`) and its own `next dev` (build folder `.next-e2e`), so it never touches a real database. It covers:
 - **the API:** auth, roles, change requests, bulk input and edit, bulk workspace setup, invites, routine views, cron jobs;
-- **the browser:** sign-up and getting started, views, the welcome tour, roles and change requests, the task panel opening and closing from every entry point, loading skeletons, the Home dashboard, every page with and without reduced motion, phone layouts.
+- **the browser:** sign-up and getting started, views, the welcome tour, roles and change requests, the task panel opening and closing from every entry point, loading skeletons, the Home dashboard, every page with and without reduced motion, phone layouts, drag to the bin, preferences;
+- **accessibility:** axe checks (WCAG 2.1 AA) on the main pages in both themes, and a keyboard-only walk through the sidebar, quick jump, dialogs, the task panel, Kanban and the calendar.
 
-Three runs take screenshots instead of checking things:
+Four runs take screenshots instead of checking things:
+- `INSPECT=<folder> npx playwright test e2e/inspect.spec.ts`, then `node scripts/inspect-report.mjs <folder>`, builds a side-by-side desktop and phone page of the screens being worked on;
 - `VISUAL_SHOTS=<folder> npx playwright test e2e/visual-shots.spec.ts` saves every page in light and dark, at desktop and phone size;
 - `SKELETON_SHOTS=<folder> npx playwright test e2e/loading-ui.spec.ts` saves each page's loading skeleton;
 - `README_SHOTS=<folder> npx playwright test e2e/readme-shots.spec.ts`, then `node scripts/readme-screenshots.mjs <folder>`, regenerates this README's screenshots in `docs/screenshots/{light,dark}/{desktop,mobile}/`. The script cuts the long phone capture of Home into framed phone screens. It needs ImageMagick.

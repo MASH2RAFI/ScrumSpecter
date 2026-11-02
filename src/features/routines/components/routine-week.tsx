@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useMedia } from "react-use";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { ClockIcon } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,7 @@ import { Routine, WEEKDAYS } from "../types";
 
 interface RoutineWeekProps {
     routines: Routine[];
-    projectName: (id: string) => string;
+    projectName: (id: string | null) => string;
     memberName: (ids: string[]) => string;
     onSelect?: (routineId: string) => void;
 }
@@ -82,7 +82,7 @@ const useNowMinutes = () => {
 
 // The week at a glance: hours down the side, each day's routines placed at their time
 export const RoutineWeek = (props: RoutineWeekProps) => {
-    const isWide = useMedia("(min-width: 768px)", true);
+    const isWide = useMediaQuery("(min-width: 768px)", true);
 
     return (
         <Card>
@@ -98,7 +98,7 @@ export const RoutineWeek = (props: RoutineWeekProps) => {
 
 const RoutineChip = ({ routine, projectName, memberName, onSelect, compact, style, className }: {
     routine: Routine;
-    projectName: (id: string) => string;
+    projectName: (id: string | null) => string;
     memberName: (ids: string[]) => string;
     onSelect?: (routineId: string) => void;
     compact?: boolean;

@@ -6,9 +6,18 @@ import { and, asc, count, desc, eq, gte, inArray, isNull, lt, ne, notInArray, or
 import { db } from "@/lib/db";
 import { members, projects, routines, tasks, users, workspaces } from "@/lib/db/schema";
 
-import { TaskStatus } from "../types";
+import { toDoc } from "@/lib/db/types";
+
+import { Task, TaskStatus } from "../types";
 import { DEFAULT_DURATION_MINUTES } from "../task-time";
 import { idString } from "@/lib/limits";
+
+// A task row as the API sends it (dates as ISO strings); also the shape /api/tasks/restore takes back
+export const toTaskDoc = (task: typeof tasks.$inferSelect) => ({
+    ...toDoc(task),
+    dueDate: task.dueDate?.toISOString() ?? null,
+    startAt: task.startAt?.toISOString() ?? null,
+}) as Task;
 
 // GET /api/tasks: everything but workspaceId is optional, and with none of the extras it returns
 // every matching task as before. The extras let views load only what they show, so large
@@ -70,19 +79,22 @@ export const routineRule = (q: ListQuery): SQL | undefined => {
 };
 
 // Filters that don't depend on the scope
-export const baseFilters = (q: ListQuery): SQL[] => {
+// memberId: the caller's own member id, which "assigneeId=me" stands for
+export const baseFilters = (q: ListQuery, memberId: string): SQL[] => {
     const filters: SQL[] = [eq(tasks.workspaceId, q.workspaceId)];
-    if (q.projectId) filters.push(eq(tasks.projectId, q.projectId));
+    // "none": personal tasks (no project)
+    if (q.projectId) filters.push(q.projectId === "none" ? isNull(tasks.projectId) : eq(tasks.projectId, q.projectId));
     if (q.status) filters.push(eq(tasks.status, q.status));
     if (q.openOnly) filters.push(ne(tasks.status, TaskStatus.DONE));
-    if (q.assigneeId) filters.push(sql`${q.assigneeId} = any(${tasks.assigneeIds})`);
+    if (q.assigneeId) filters.push(sql`${q.assigneeId === "me" ? memberId : q.assigneeId} = any(${tasks.assigneeIds})`);
     if (q.search) filters.push(sql`${tasks.name} ilike ${`%${q.search.replace(/[\\%_]/g, "\\$&")}%`}`);
     if (q.from) filters.push(gte(tasks.dueDate, new Date(q.from)));
     if (q.to) filters.push(lt(tasks.dueDate, new Date(q.to)));
     if (q.unscheduled) filters.push(isNull(tasks.dueDate));
     if (q.excludeProjects) {
         const hidden = q.excludeProjects.split(",").map((id) => id.trim()).filter(Boolean).slice(0, 200);
-        if (hidden.length) filters.push(notInArray(tasks.projectId, hidden));
+        // NOT IN is never true for NULL, so personal tasks need their own branch to stay visible
+        if (hidden.length) filters.push(or(isNull(tasks.projectId), notInArray(tasks.projectId, hidden))!);
     }
     if (q.ids) {
         const ids = q.ids.split(",").map((id) => id.trim()).filter(Boolean).slice(0, 200);
@@ -170,7 +182,9 @@ export const taskSummary = async (workspaceId: string, weekFrom: string, weekTo:
             donePoints: sql<number>`coalesce(sum(${tasks.storyPoints}) filter (where ${tasks.status} = ${TaskStatus.DONE}), 0)`.mapWith(Number),
             progressPoints: sql<number>`coalesce(sum(${tasks.storyPoints}) filter (where ${tasks.status} in (${TaskStatus.IN_PROGRESS}, ${TaskStatus.IN_REVIEW})), 0)`.mapWith(Number),
             overdue: sql<number>`count(*) filter (where ${open} and ${tasks.dueDate} < ${now})`.mapWith(Number),
-        }).from(tasks).where(eq(tasks.workspaceId, workspaceId)).groupBy(tasks.projectId),
+        }).from(tasks).where(eq(tasks.workspaceId, workspaceId)).groupBy(tasks.projectId)
+            // Per-project numbers leave out personal tasks (the totals above still count them)
+            .then((rows) => rows.flatMap((row) => row.projectId ? [{ ...row, projectId: row.projectId }] : [])),
         // Each assignee of each open task, counted per member
         db.execute<{ member_id: string; open: number }>(sql`
             select a.member_id, count(*)::int as open

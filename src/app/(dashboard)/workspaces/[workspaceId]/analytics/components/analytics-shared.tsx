@@ -67,6 +67,8 @@ interface BurndownGraphProps {
 
 export const BurndownGraph = ({ data, totalPoints }: BurndownGraphProps) => (
     <div className="space-y-4">
+        {/* Drawn for the eye; screen readers get the table below */}
+        <div aria-hidden className="space-y-4">
         <div className="flex justify-between text-sm text-muted-foreground">
             <span>Story Points</span>
             <span>Days</span>
@@ -115,5 +117,13 @@ export const BurndownGraph = ({ data, totalPoints }: BurndownGraphProps) => (
                 <span>Actual Burndown</span>
             </div>
         </div>
+        </div>
+        <table className="sr-only">
+            <caption>Burndown: story points left each day, against the ideal</caption>
+            <thead><tr><th>Day</th><th>Left</th><th>Ideal</th></tr></thead>
+            <tbody>
+                {data.map((day) => <tr key={day.day}><td>Day {day.day}</td><td>{day.remainingWork}</td><td>{day.idealBurndown}</td></tr>)}
+            </tbody>
+        </table>
     </div>
 );

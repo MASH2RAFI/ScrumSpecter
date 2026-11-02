@@ -131,6 +131,8 @@ export const SimpleDatePicker = ({
                         size === "lg" && "h-12",
                         // Room for the calendar button, plus the clear button once a date is set
                         isMobile && (empty ? "pr-10" : "pr-16"),
+                        // Our calendar button replaces the browser's own icon (Chromium shows one at any width)
+                        isMobile && "[&::-webkit-calendar-picker-indicator]:hidden",
                         // iOS shows nothing in an empty date field: the placeholder below stands in
                         isMobile && empty && "text-transparent",
                         className

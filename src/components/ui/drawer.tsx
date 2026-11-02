@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+
+import { keepToastClicks, useLayerFocus } from "@/components/ui/dialog"
 import { Drawer as DrawerPrimitive } from "vaul"
 
 import { cn } from "@/lib/utils"
@@ -37,11 +39,15 @@ DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, onInteractOutside, onOpenAutoFocus, onCloseAutoFocus, onEscapeKeyDown, ...props }, ref) => {
+  const layerFocus = useLayerFocus({ onOpenAutoFocus, onCloseAutoFocus, onEscapeKeyDown })
+  return (
   <DrawerPortal>
     <DrawerOverlay />
     <DrawerPrimitive.Content
       ref={ref}
+      onInteractOutside={keepToastClicks(onInteractOutside)}
+      {...layerFocus}
       className={cn(
         "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-panel border border-border/70 bg-card",
         className
@@ -52,7 +58,7 @@ const DrawerContent = React.forwardRef<
       {children}
     </DrawerPrimitive.Content>
   </DrawerPortal>
-))
+)})
 DrawerContent.displayName = "DrawerContent"
 
 const DrawerHeader = ({

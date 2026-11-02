@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { AUTH_COOKIE, LAST_WORKSPACE_COOKIE } from "@/features/auth/constants";
 
-const PUBLIC_ROUTES = ["/about", "/privacy", "/terms", "/sign-in", "/sign-up", "/forgot-password", "/reset-password"];
+const PUBLIC_ROUTES = ["/about", "/privacy", "/terms", "/sign-in", "/sign-up", "/forgot-password", "/reset-password", "/verify-email"];
 
 // Enforced CSP with a fresh nonce per page: Next adds it to its own scripts (it reads it from the
 // request's CSP header) and the root layout passes it to next-themes' inline script.
@@ -29,7 +29,7 @@ const NOT_WORKSPACE_IDS = ["create", "join"];
 // Sends visitors without a session cookie to /about (or to sign in, for a deeper link) before
 // any page renders.
 // Only checks that the cookie exists (no DB call); pages validate the session themselves.
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
     const isPublicRoute = PUBLIC_ROUTES.includes(request.nextUrl.pathname);
 
     if (!isPublicRoute && !request.cookies.has(AUTH_COOKIE)) {

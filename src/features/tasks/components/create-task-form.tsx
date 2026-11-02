@@ -30,6 +30,7 @@ import { useCreateChangeRequest } from "@/features/change-requests/api/use-chang
 import {
     AssigneePicker,
     ProjectSelectItems,
+    toProjectId,
     StatusSelectItems,
     TaskFormFooter,
     TaskFormOptionsProps,
@@ -44,7 +45,7 @@ import { MAX_DESCRIPTION, MAX_TITLE } from "@/lib/limits";
 const formSchema = z.object({
     name: z.string().trim().min(1, "Task name is required"),
     status: z.nativeEnum(TaskStatus, { message: "Please select a status" }),
-    projectId: z.string().trim().min(1, "Please select a project"),
+    projectId: z.string().trim().min(1, "Pick a project, or No project"),
     dueDate: z.date({ message: "Due date is required" }),
     assigneeIds: z.array(z.string()).min(1, "Please select at least one assignee").max(20),
     description: z.string().optional(),
@@ -132,7 +133,8 @@ export const CreateTaskForm = ({ onCancel, projectOptions, memberOptions, defaul
     const onSubmit = (values: FormValues) => {
         setSubmitAttempted(true);
 
-        const { startTime, durationMinutes, dueDate, ...rest } = values;
+        const { startTime, durationMinutes, dueDate, ...picked } = values;
+        const rest = { ...picked, projectId: toProjectId(picked.projectId) };
         const timed = Boolean(startTime);
 
         const time = {

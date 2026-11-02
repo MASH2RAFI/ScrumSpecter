@@ -10,6 +10,7 @@ import {
     forgetCachedSession,
     forgetCachedSessions,
     hashPassword,
+    mergePreferences,
     sessionIdFromToken,
     updateCachedUser,
     verifyPassword,
@@ -183,10 +184,7 @@ const app = new Hono()
 
     .patch("/preferences", sessionMiddleware, zValidator("json", preferencesUpdateSchema), async (c) => {
         const { $id } = c.get("user");
-        const user = await findUser($id);
-        const preferences = resolvePreferences({ ...resolvePreferences(user.preferences), ...c.req.valid("json") });
-
-        await db.update(users).set({ preferences }).where(eq(users.id, $id));
+        const preferences = await mergePreferences($id, c.req.valid("json"));
         updateCachedUser($id, { preferences });
 
         return c.json({ data: preferences });

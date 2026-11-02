@@ -1,5 +1,5 @@
 import { m } from "@/components/motion";
-import { useMedia } from "react-use";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 import { cn } from "@/lib/utils";
 
@@ -32,7 +32,7 @@ export const ResponsiveModal = ({
     title,
     className,
     }: ResponsiveModalProps) => {
-    const isDesktop = useMedia("(min-width: 1024px)", true);
+    const isDesktop = useMediaQuery("(min-width: 1024px)", true);
     if (isDesktop) {
         return (
             <Dialog open={open} onOpenChange={onOpenChange}>

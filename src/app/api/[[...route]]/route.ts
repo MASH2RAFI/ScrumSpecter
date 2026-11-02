@@ -15,6 +15,8 @@ import tasks from "@/features/tasks/server/route";
 import routines from "@/features/routines/server/route";
 import cron from "@/features/cron/route";
 import changeRequests from "@/features/change-requests/server/route";
+import stars from "@/features/stars/server/route";
+import exportRoutes from "@/features/export/server/route";
 
 const app = new Hono().basePath("/api");
 
@@ -30,14 +32,17 @@ app.notFound((c) => c.json({ error: "Not found" }, 404));
 app.get("/health", async (c) => {
     c.header("Cache-Control", "no-store");
     const started = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
         await Promise.race([
             db.execute(sql`select 1`),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 3_000)),
+            new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("timeout")), 3_000); }),
         ]);
         return c.json({ ok: true, db: "up", latencyMs: Date.now() - started });
     } catch {
         return c.json({ ok: false, db: "down" }, 503);
+    } finally {
+        clearTimeout(timer);
     }
 });
 
@@ -51,8 +56,10 @@ const routes = app
     .route("/tasks", tasks)
     .route("/routines", routines)
     .route("/change-requests", changeRequests)
+    .route("/stars", stars)
     .route("/notifications", notifications)
-    .route("/cron", cron);
+    .route("/cron", cron)
+    .route("/export", exportRoutes);
 
 export const GET = handle(app);
 export const POST = handle(app);

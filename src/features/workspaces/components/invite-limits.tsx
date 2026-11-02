@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 import { useUpdateInviteLimits } from "../api/use-update-invite-limits";
 import { Workspace } from "../types";
+import { useNow } from "@/hooks/use-now";
 
 const EXPIRY = [
     { value: "never", label: "Never", days: null },
@@ -26,7 +27,8 @@ const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, {
 // How long the invite link works and for how many people; shown to everyone, set by admins
 export const InviteLimits = ({ workspace, canEdit }: { workspace: Workspace; canEdit: boolean }) => {
     const { mutate, isPending } = useUpdateInviteLimits();
-    const expired = workspace.inviteExpiresAt !== null && new Date(workspace.inviteExpiresAt).getTime() <= Date.now();
+    const now = useNow();
+    const expired = workspace.inviteExpiresAt !== null && new Date(workspace.inviteExpiresAt).getTime() <= now;
     const usedUp = workspace.inviteMaxUses !== null && workspace.inviteUses >= workspace.inviteMaxUses;
 
     const status = [

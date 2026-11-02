@@ -28,10 +28,11 @@ test("Home's stat cards count the tasks and open the matching list", async ({ br
     await signInBrowser(page, user, baseURL!);
     await page.goto(`/workspaces/${workspaceId}`, { timeout: 90_000 });
 
-    await expect(page.getByRole("link", { name: /^All tasks: 4\./ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /^In progress: 2\. 1 waiting for review/ })).toBeVisible();
+    // The card's name is its visible text: label, count, hint
+    await expect(page.getByRole("link", { name: /^All tasks\s*4\b/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^In progress\s*2\b.*1 waiting for review/ })).toBeVisible();
     // Reduced motion: the number is there at once, not counting up
-    const done = page.getByRole("link", { name: /^Done: 1\./ });
+    const done = page.getByRole("link", { name: /^Done\s*1\b/ });
     await expect(done).toContainText("1");
     await expect(page.getByRole("heading", { name: "Sprint progress" })).toBeVisible();
     await expect(page.getByRole("img", { name: /Website: 25% of 8 story points done/ })).toBeVisible();

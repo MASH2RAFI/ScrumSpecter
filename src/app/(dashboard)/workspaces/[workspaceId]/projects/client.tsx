@@ -6,6 +6,7 @@ import { useCreateProjectModal } from "@/features/projects/hooks/use-create-proj
 import { Project } from "@/features/projects/types";
 import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { PlusIcon } from "lucide-react";
+import { useFormatDate } from "@/features/auth/hooks/use-preferences";
 
 interface ProjectsClientProps {
     projects: {
@@ -16,6 +17,7 @@ interface ProjectsClientProps {
 }
 
 export const ProjectsClient = ({ projects, workspaceId }: ProjectsClientProps) => {
+    const formatDate = useFormatDate();
     const { open } = useCreateProjectModal();
     const { canEditWork } = usePermissions({ workspaceId });
 
@@ -50,8 +52,8 @@ export const ProjectsClient = ({ projects, workspaceId }: ProjectsClientProps) =
                         >
                             {project.currentSprintStartDate && project.currentSprintEndDate && (
                                 <div className="text-sm text-muted-foreground">
-                                    <div>Start: {new Date(project.currentSprintStartDate).toLocaleDateString()}</div>
-                                    <div>End: {new Date(project.currentSprintEndDate).toLocaleDateString()}</div>
+                                    <div>Start: {formatDate(project.currentSprintStartDate)}</div>
+                                    <div>End: {formatDate(project.currentSprintEndDate)}</div>
                                 </div>
                             )}
                         </ProjectCard>

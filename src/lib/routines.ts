@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gte, inArray, isNotNull, lt, max, type SQL } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull, lt, max, or, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { projects, routines, tasks, workspaces } from "@/lib/db/schema";
@@ -18,6 +18,8 @@ export const routineStartAt = ({ startTime, timeZone }: RoutineTime, dueDate: Da
 
 // Used when a project has no sprint end date
 export const ROUTINE_HORIZON_DAYS = 7;
+// Personal routines (no project, so no sprint): always this many days ahead, rolling
+export const PERSONAL_HORIZON_DAYS = 14;
 // Safety cap for very long sprints
 const MAX_HORIZON_DAYS = 366;
 
@@ -52,13 +54,13 @@ export const routineDueDates = (weekdays: number[], from = new Date(), days = RO
 };
 
 // Creates any missing tasks for active routines through the end of each project's current
-// sprint (a week ahead when the project has no sprint end). Safe to run repeatedly:
+// sprint (a week ahead when the project has no sprint end; two weeks, rolling, for personal routines). Safe to run repeatedly:
 // the (routine_id, due_date) unique index turns repeats into no-ops.
 export const generateRoutineTasks = async (filter?: SQL) => {
     const active = await db
         .select({ routine: routines, sprintEnd: projects.currentSprintEndDate, holidayCountry: workspaces.holidayCountry })
         .from(routines)
-        .innerJoin(projects, eq(projects.id, routines.projectId))
+        .leftJoin(projects, eq(projects.id, routines.projectId))
         .innerJoin(workspaces, eq(workspaces.id, routines.workspaceId))
         .where(and(eq(routines.active, true), filter))
         .then((rows) => rows.map(({ routine, sprintEnd, holidayCountry }) => ({ ...routine, sprintEnd, holidayCountry })));
@@ -78,20 +80,30 @@ export const generateRoutineTasks = async (filter?: SQL) => {
         }
     ));
 
-    const projectIds = Array.from(new Set(active.map((routine) => routine.projectId)));
+    // Kanban positions continue per project; personal tasks count per workspace
+    const positionKey = (projectId: string | null, workspaceId: string) => projectId ?? `personal:${workspaceId}`;
+    const projectIds = Array.from(new Set(active.flatMap((routine) => routine.projectId ? [routine.projectId] : [])));
+    const personalWorkspaceIds = Array.from(new Set(active.filter((routine) => !routine.projectId).map((routine) => routine.workspaceId)));
     const positions = await db
-        .select({ projectId: tasks.projectId, position: max(tasks.position) })
+        .select({ projectId: tasks.projectId, workspaceId: tasks.workspaceId, position: max(tasks.position) })
         .from(tasks)
-        .where(and(inArray(tasks.projectId, projectIds), eq(tasks.status, TaskStatus.TODO)))
-        .groupBy(tasks.projectId);
-    const nextPosition = new Map(positions.map((row) => [row.projectId, (row.position ?? 0) + 1000]));
+        .where(and(
+            eq(tasks.status, TaskStatus.TODO),
+            or(
+                projectIds.length ? inArray(tasks.projectId, projectIds) : undefined,
+                personalWorkspaceIds.length ? and(isNull(tasks.projectId), inArray(tasks.workspaceId, personalWorkspaceIds)) : undefined,
+            ),
+        ))
+        .groupBy(tasks.projectId, tasks.workspaceId);
+    const nextPosition = new Map(positions.map((row) => [positionKey(row.projectId, row.workspaceId), (row.position ?? 0) + 1000]));
 
     const rows = active.flatMap((routine) =>
-        routineDueDates(routine.weekdays, now, daysUntilSprintEnd(routine.sprintEnd, now))
+        routineDueDates(routine.weekdays, now, routine.projectId ? daysUntilSprintEnd(routine.sprintEnd, now) : PERSONAL_HORIZON_DAYS)
             .filter((dueDate) => !holidayDates.get(routine.workspaceId)?.has(isoDate(dueDate)))
             .map((dueDate) => {
-            const position = nextPosition.get(routine.projectId) ?? 1000;
-            nextPosition.set(routine.projectId, position + 1000);
+            const key = positionKey(routine.projectId, routine.workspaceId);
+            const position = nextPosition.get(key) ?? 1000;
+            nextPosition.set(key, position + 1000);
             return {
                 name: routine.name,
                 description: routine.description,
@@ -132,14 +144,18 @@ export const retimeUpcomingRoutineTasks = async (routineId: string, time: Routin
         .from(tasks)
         .where(and(eq(tasks.routineId, routineId), eq(tasks.status, TaskStatus.TODO), gte(tasks.dueDate, today)));
 
-    await Promise.all(upcoming.map((task) =>
-        db.update(tasks)
-            .set({
-                startAt: task.dueDate ? routineStartAt(time, task.dueDate) : null,
-                durationMinutes: time.startTime ? time.durationMinutes : null,
-            })
-            .where(eq(tasks.id, task.id))
-    ));
+    if (upcoming.length === 0) {
+        return;
+    }
+
+    // One statement, not one UPDATE per task (a daily routine over a year-long sprint is ~360 rows)
+    const rows = sql.join(upcoming.map((task) =>
+        sql`(${task.id}::text, ${task.dueDate ? routineStartAt(time, task.dueDate) : null}::timestamptz)`
+    ), sql`, `);
+    await db.execute(sql`
+        update ${tasks} set start_at = v.start_at, duration_minutes = ${time.startTime ? time.durationMinutes : null}::integer, updated_at = now()
+        from (values ${rows}) as v(id, start_at)
+        where ${tasks.id} = v.id`);
 };
 
 // A new day off removes the routine tasks already generated for it, unless work has started

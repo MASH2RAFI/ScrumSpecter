@@ -8,10 +8,11 @@ import { isGoogleAuthEnabled } from "@/lib/google-oauth";
 import { safeNextPath } from "@/lib/safe-next";
 
 interface SignUpPageProps {
-    searchParams: { error?: string; next?: string; link?: string; email?: string };
+    searchParams: Promise<{ error?: string; next?: string; link?: string; email?: string }>;
 }
 
-const SignUpPage = async ({ searchParams }: SignUpPageProps) => {
+const SignUpPage = async (props: SignUpPageProps) => {
+    const searchParams = await props.searchParams;
     const user = await getCurrent();
 
     const next = safeNextPath(searchParams.next);

@@ -65,7 +65,7 @@ const SprintProgress = ({ stats }: { stats?: ProjectStats }) => {
             <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>{stats?.doneTasks ?? 0}/{stats?.tasks ?? 0} tasks done</span>
                 {overdue > 0 && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 font-medium text-destructive">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 font-medium text-red-700 dark:text-red-300">
                         <AlertTriangleIcon className="size-3" />
                         {overdue} overdue
                     </span>
@@ -93,11 +93,13 @@ const TaskTiming = ({ task, now, dayEnd }: { task: Task; now: number; dayEnd?: s
             <span
                 className={cn(
                     "shrink-0 font-medium",
-                    countdown.phase === "ended" ? "text-destructive" : soon ? "text-amber-600 dark:text-amber-400" : "text-primary",
+                    // -700 in light mode: these rows sit on a tinted background where -600 dips under 4.5:1
+                    countdown.phase === "ended" ? "text-red-700 dark:text-red-400" : soon ? "text-amber-700 dark:text-amber-400" : "text-primary",
                 )}
-                aria-label={countdown.phase === "upcoming" ? "Time to start" : countdown.phase === "running" ? "Time left" : "Ended"}
             >
-                · {countdown.label}
+                {/* aria-label is ignored on a plain span; this prefix is what screen readers hear */}
+                <span className="sr-only">{countdown.phase === "upcoming" ? "Time to start:" : countdown.phase === "running" ? "Time left:" : "Ended:"} </span>
+                <span aria-hidden>· </span>{countdown.label}
             </span>
         </span>
     );
@@ -197,8 +199,9 @@ export const WorkspaceIdClient = () => {
     dayAfterTomorrow.setHours(0, 0, 0, 0);
     dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
     const { data: myTasks } = useGetTasks({
-        workspaceId, scope: "home", ...week, assigneeId: memberId, openOnly: true,
-        to: dayAfterTomorrow.toISOString(), enabled: Boolean(memberId),
+        // "me" lets it start with the other requests instead of after the members list
+        workspaceId, scope: "home", ...week, assigneeId: "me", openOnly: true,
+        to: dayAfterTomorrow.toISOString(),
     });
 
     useRedirectOnAccessError(summaryError, projectsError, membersError);

@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import {
     AssigneePicker,
     ProjectSelectItems,
+    NO_PROJECT,
+    toProjectId,
     TaskFormFooter,
     TaskFormOptionsProps,
     TaskSelect,
@@ -32,6 +34,8 @@ type RoutineFields = z.infer<typeof routineFieldsSchema>;
 
 // The form uses "" for "all day"; it becomes null (and gets a timezone) on submit
 const formSchema = routineFieldsSchema.extend({
+    // A project, or NO_PROJECT for a personal routine; null on submit
+    projectId: z.string().trim().min(1, "Pick a project, or No project"),
     startTime: z.string().optional(),
     durationMinutes: z.number().optional(),
 });
@@ -51,7 +55,7 @@ export const RoutineForm = ({ initialValues, isPending, onSubmit, onCancel, proj
         defaultValues: {
             name: initialValues?.name ?? "",
             description: initialValues?.description ?? "",
-            projectId: initialValues?.projectId ?? "",
+            projectId: initialValues ? initialValues.projectId ?? NO_PROJECT : "",
             assigneeIds: initialValues?.assigneeIds ?? [],
             weekdays: initialValues?.weekdays ?? [1, 2, 3, 4, 5],
             storyPoints: initialValues?.storyPoints ?? 1,
@@ -69,6 +73,7 @@ export const RoutineForm = ({ initialValues, isPending, onSubmit, onCancel, proj
 
     const submit = ({ startTime, durationMinutes, ...values }: FormValues) => onSubmit({
         ...values,
+        projectId: toProjectId(values.projectId),
         startTime: startTime || null,
         durationMinutes: startTime ? durationMinutes ?? DEFAULT_DURATION_MINUTES : null,
         timeZone,

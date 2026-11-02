@@ -13,6 +13,8 @@ export const LIMITS = {
     join: { max: 10, windowSeconds: 900 }, // per account; guessing invite codes
     bulk: { max: 60, windowSeconds: 3600 }, // per account; checks and runs
     bulkApply: { max: 10, windowSeconds: 3600 }, // per account; each run can add 500 items
+    verifyEmail: { max: 3, windowSeconds: 3600 }, // per account; "Resend email"
+    export: { max: 30, windowSeconds: 3600 }, // per account; workspace script, backup and "My data" (whole-workspace reads)
     changeRequest: { max: 5, windowSeconds: 120 }, // per member; a burst, then a cooldown
 } as const;
 

@@ -8,14 +8,14 @@ import { db } from "@/lib/db";
 import { findById } from "@/lib/db/find-by-id";
 import { members, tasks, users } from "@/lib/db/schema";
 import { toDoc } from "@/lib/db/types";
-import { getMember, handOverPlaceholder, isAdmin, requireMember } from "../utils";
+import { getMember, handOverPlaceholder, isAdmin, lockAdmins, requireMember } from "../utils";
 import { Member, MemberRole } from "../types";
 import { createPlaceholderSchema, replacePlaceholderSchema } from "../schemas";
 import { idString } from "@/lib/limits";
 
-// People only: placeholders never count towards "the only member" or "the only admin"
-const listWorkspaceMembers = (workspaceId: string) =>
-    db.select().from(members).where(and(eq(members.workspaceId, workspaceId), isNotNull(members.userId)));
+// People only: placeholders never count towards "the only member"
+const countPeople = (workspaceId: string) =>
+    db.$count(members, and(eq(members.workspaceId, workspaceId), isNotNull(members.userId)));
 
 type MemberRow = typeof members.$inferSelect;
 
@@ -83,30 +83,28 @@ const app = new Hono()
                 return c.json({ error: "Unauthorized" }, 401);
             }
 
-            const allMembersInWorkspace = await listWorkspaceMembers(memberToDelete.workspaceId);
-
-            if (memberToDelete.userId !== null && allMembersInWorkspace.length === 1) {
+            if (memberToDelete.userId !== null && await countPeople(memberToDelete.workspaceId) === 1) {
                 return c.json({ error: "Cannot delete the only member" }, 400);
             }
 
-            const adminMembers = allMembersInWorkspace.filter(
-                (m) => m.role === MemberRole.ADMIN
-            );
+            const removed = await db.transaction(async (tx) => {
+                const admins = await lockAdmins(tx, memberToDelete.workspaceId);
+                if (admins.length === 1 && admins[0].id === memberToDelete.id) {
+                    return false;
+                }
+                // An admin other than the deleted member takes over their tasks
+                const adminMember = admins.find((m) => m.id !== memberToDelete.id);
+                // Off their tasks and routines; an admin takes over where nobody else is left
+                await removeAssignee(tx, memberToDelete.id, adminMember?.id ?? null);
+                await tx.delete(members).where(eq(members.id, memberId));
+                return true;
+            });
 
-            if (memberToDelete.role === MemberRole.ADMIN && adminMembers.length === 1) {
+            if (!removed) {
                 return c.json({
                     error: "Cannot delete the only admin. Please transfer admin role to another member first."
                 }, 400);
             }
-
-            // An admin other than the deleted member takes over their tasks
-            const adminMember = adminMembers.find((m) => m.id !== memberToDelete.id);
-
-            await db.transaction(async (tx) => {
-                // Off their tasks and routines; an admin takes over where nobody else is left
-                await removeAssignee(tx, memberToDelete.id, adminMember?.id ?? null);
-                await tx.delete(members).where(eq(members.id, memberId));
-            });
 
             return c.json({ data: { $id: memberToDelete.id } });
         }
@@ -135,23 +133,24 @@ const app = new Hono()
                 return c.json({ error: "A placeholder can't be given a role" }, 400);
             }
 
-            const allMembersInWorkspace = await listWorkspaceMembers(memberToUpdate.workspaceId);
-
-            if (allMembersInWorkspace.length === 1) {
+            if (await countPeople(memberToUpdate.workspaceId) === 1) {
                 return c.json({ error: "Cannot Downgrade the only member" }, 400);
             }
 
-            const adminMembers = allMembersInWorkspace.filter(
-                (m) => m.role === MemberRole.ADMIN
-            );
+            const updated = await db.transaction(async (tx) => {
+                const admins = await lockAdmins(tx, memberToUpdate.workspaceId);
+                if (role !== MemberRole.ADMIN && admins.length === 1 && admins[0].id === memberId) {
+                    return false;
+                }
+                await tx.update(members).set({ role }).where(eq(members.id, memberId));
+                return true;
+            });
 
-            if (memberToUpdate.role === MemberRole.ADMIN && role !== MemberRole.ADMIN && adminMembers.length === 1) {
+            if (!updated) {
                 return c.json({
                     error: "Cannot downgrade the only admin. Please promote another member to admin first."
                 }, 400);
             }
-
-            await db.update(members).set({ role }).where(eq(members.id, memberId));
 
             return c.json({ data: { $id: memberToUpdate.id } });
         }
@@ -245,42 +244,41 @@ const app = new Hono()
                 return c.json({ error: "Not a member of this workspace" }, 400);
             }
 
-            const allMembersInWorkspace = await listWorkspaceMembers(workspaceId);
+            const outcome = await db.transaction(async (tx) => {
+                const admins = await lockAdmins(tx, workspaceId);
+                if (admins.length === 1 && admins[0].id === member.$id) {
+                    return "only-admin" as const;
+                }
+                // An admin other than the leaving member takes over their tasks
+                const adminMember = admins.find((m) => m.id !== member.$id);
+                if (!adminMember) {
+                    return "no-admin" as const;
+                }
 
-            const adminMembers = allMembersInWorkspace.filter(
-                (m) => m.role === MemberRole.ADMIN
-            );
-
-            if (member.role === MemberRole.ADMIN && adminMembers.length === 1) {
-                return c.json({
-                    error: "Cannot leave workspace as the only admin. Please transfer admin role to another member first."
-                }, 400);
-            }
-
-            // An admin other than the leaving member takes over their tasks
-            const adminMember = adminMembers.find((m) => m.id !== member.$id);
-
-            if (!adminMember) {
-                return c.json({
-                    error: "No admin found to reassign tasks to"
-                }, 400);
-            }
-
-            const reassignedTasks = await db.transaction(async (tx) => {
                 const assigned = await tx.select({ id: tasks.id }).from(tasks)
                     .where(and(eq(tasks.workspaceId, workspaceId), arrayContains(tasks.assigneeIds, [member.$id])));
                 // Off their tasks and routines; the admin takes over where nobody else is left
                 await removeAssignee(tx, member.$id, adminMember.id);
                 await tx.delete(members).where(eq(members.id, member.$id));
 
-                return assigned.length;
+                return { reassignedTasks: assigned.length, newAssignee: adminMember.userId };
             });
+
+            if (outcome === "only-admin") {
+                return c.json({
+                    error: "Cannot leave workspace as the only admin. Please transfer admin role to another member first."
+                }, 400);
+            }
+            if (outcome === "no-admin") {
+                return c.json({
+                    error: "No admin found to reassign tasks to"
+                }, 400);
+            }
 
             return c.json({
                 data: {
                     message: "Successfully left workspace",
-                    reassignedTasks,
-                    newAssignee: adminMember.userId,
+                    ...outcome,
                 }
             });
         }

@@ -51,7 +51,8 @@
 }
 
 .calendar-container .rbc-off-range {
-    @apply text-muted-foreground/60;
+    /* Full muted color for readable contrast; the shaded background marks the other month */
+    @apply text-muted-foreground;
 }
 
 .calendar-container .rbc-today {

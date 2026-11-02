@@ -1,7 +1,7 @@
 import type { Context } from "hono";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
 
-import { db } from "@/lib/db";
+import { db, type Tx } from "@/lib/db";
 import { members } from "@/lib/db/schema";
 import { replaceAssignee } from "@/lib/db/assignees";
 import { toDoc } from "@/lib/db/types";
@@ -81,3 +81,13 @@ export const handOverPlaceholder = async (placeholderId: string, memberId: strin
         await tx.delete(members).where(and(eq(members.id, placeholderId), isNull(members.userId)));
     });
 };
+
+
+// The workspace's admins (people only), locked until the transaction ends, so two admins
+// demoting or removing each other at once can't leave the workspace with none
+export const lockAdmins = (tx: Tx, workspaceId: string) =>
+    tx.select().from(members)
+        .where(and(eq(members.workspaceId, workspaceId), eq(members.role, MemberRole.ADMIN), isNotNull(members.userId)))
+        // Same lock order in every transaction, so they queue instead of deadlocking
+        .orderBy(asc(members.id))
+        .for("update");

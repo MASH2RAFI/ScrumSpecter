@@ -6,7 +6,7 @@
 # Every failure sends "❌ backup failed: <step>" through the same bot.
 set -eu
 
-DIR="${BACKUP_DIR:-$HOME/docker/postgres}"
+DIR="${SCRUMSPECTER_PI_DIR:-$HOME/docker/postgres}"
 . "$(dirname "$0")/telegram.sh"
 
 DUMP="${1:?usage: backup-offsite.sh <dump file>}"

@@ -2,21 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useDebounce } from "react-use";
-import {
-    BarChart3Icon,
-    CheckCircleIcon,
-    CompassIcon,
-    HomeIcon,
-    KeyboardIcon,
-    PanelLeftIcon,
-    PlusIcon,
-    RepeatIcon,
-    SearchIcon,
-    SettingsIcon,
-    UsersIcon,
-    type LucideIcon,
-} from "lucide-react";
+import { useDebounce } from "@/hooks/use-debounce";
+import { BarChart3Icon, CheckCircleIcon, CompassIcon, HomeIcon, KeyboardIcon, PanelLeftIcon, PlusIcon, RepeatIcon, SearchIcon, SettingsIcon, StarIcon, UsersIcon, type LucideIcon } from "lucide-react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -138,6 +125,7 @@ export const CommandPalette = () => {
             { id: "shortcuts", group: "Actions", label: "Keyboard shortcuts", hint: "?", icon: KeyboardIcon, run: () => setShortcutsOpen(true) },
             { id: "tour", group: "Actions", label: "Take the tour", icon: CompassIcon, run: startTour },
             { id: "home", group: "Pages", label: "Home", icon: HomeIcon, run: go("") },
+            { id: "starred", group: "Pages", label: "Starred", icon: StarIcon, run: go("/starred") },
             { id: "tasks", group: "Pages", label: "My Tasks", icon: CheckCircleIcon, run: go("/tasks") },
             { id: "routines", group: "Pages", label: "Routines", icon: RepeatIcon, run: go("/routines") },
             { id: "members", group: "Pages", label: "Members", icon: UsersIcon, run: () => openPanel("members") },
@@ -158,7 +146,6 @@ export const CommandPalette = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query, projects, tasks, canCreateTask, base]);
 
-    useEffect(() => setActive(0), [query]);
     useEffect(() => {
         listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
     }, [active]);
@@ -171,12 +158,13 @@ export const CommandPalette = () => {
         pending.current = item.run;
         setIsOpen(false);
         setQuery("");
+        setActive(0);
     };
 
     return (
         <>
         <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-        <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setQuery(""); }}>
+        <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) { setQuery(""); setActive(0); } }}>
             <DialogContent
                 aria-describedby={undefined}
                 className="p-0 gap-0 sm:max-w-lg overflow-hidden"
@@ -195,7 +183,7 @@ export const CommandPalette = () => {
                     <input
                         autoFocus
                         value={query}
-                        onChange={(e) => setQuery(e.target.value)}
+                        onChange={(e) => { setQuery(e.target.value); setActive(0); }}
                         onKeyDown={(e) => {
                             if (e.key === "ArrowDown") { e.preventDefault(); setActive((i) => Math.min(i + 1, items.length - 1)); }
                             if (e.key === "ArrowUp") { e.preventDefault(); setActive((i) => Math.max(i - 1, 0)); }
