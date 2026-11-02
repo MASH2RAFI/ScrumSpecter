@@ -62,6 +62,26 @@ It downloads that day's parts, checks the hash, decrypts, restores into a throwa
 
 Limits to know: the channel grows forever (bots can't delete their messages after 48 hours; a few MB a night is fine), and Telegram isn't a storage service, so the 14 local dumps stay the first copy.
 
+## Fresh start (empty the database)
+
+Deletes every user, workspace, task and session; everyone signs up again. The tables, roles and migration history stay, so nothing needs re-migrating.
+1. Back up first: `sh ~/docker/postgres/backup.sh` (a local dump plus the encrypted Telegram copy).
+2. Empty every app table in one transaction, as the superuser inside the container:
+   ```
+   docker exec -i scrumspecter-postgres psql -U scrumspecter -d scrumspecter -v ON_ERROR_STOP=1 <<'SQL'
+   BEGIN;
+   DO $$ DECLARE stmt text; BEGIN
+     SELECT 'TRUNCATE TABLE ' || string_agg(format('%I.%I', schemaname, tablename), ', ') || ' RESTART IDENTITY CASCADE'
+       INTO stmt FROM pg_tables WHERE schemaname = 'public';
+     EXECUTE stmt;
+   END $$;
+   COMMIT;
+   SQL
+   ```
+   Migration history lives in the `drizzle` schema, which this leaves alone.
+3. Apply any pending migrations as usual (Database, step 4).
+4. Optional: delete older dumps in `backups/`. Keep `telegram-backups.log`: restoring a Telegram backup needs it. Sessions cached by a running server end within 30 seconds.
+
 ## Monitoring
 - **Uptime:** `.github/workflows/uptime.yml` calls `/api/health` every 15 minutes from GitHub. The endpoint answers 200 with `{"ok":true,"db":"up"}`, or 503 when the database can't be reached in 3 seconds. A failing run emails the repo owner.
 - **Disk space:** `scripts/pi/disk-alert.sh` posts to the Telegram channel when `/mnt/pgdata` or `/mnt/torrents` is over 80% full (once a day per disk). Crontab: `0 * * * * sh /home/<ssh-user>/docker/postgres/disk-alert.sh`.

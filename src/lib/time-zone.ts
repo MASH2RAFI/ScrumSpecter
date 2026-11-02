@@ -37,3 +37,7 @@ export const zonedTimeToUtc = (year: number, month: number, day: number, time: s
     const first = wallClock - offsetMinutes(timeZone, new Date(wallClock)) * 60_000;
     return new Date(wallClock - offsetMinutes(timeZone, new Date(first)) * 60_000);
 };
+
+// YYYY-MM-DD of an instant in a time zone
+export const localDate = (instant: Date, timeZone: string) =>
+    new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(instant);

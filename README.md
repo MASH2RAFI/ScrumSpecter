@@ -48,7 +48,7 @@
 | 🗂️ **Three views, one board** | Table, kanban and calendar, all with drag and drop, undo and bulk edit. |
 | 👥 **Roles that fit real teams** | Admins, Supervisors, Reviewers, Assignees and Viewers. Anyone without edit rights proposes a change request instead. |
 | 🔁 **Routines that plan themselves** | Weekly tasks are generated through the end of the sprint and skip holidays and your days off. Personal routines (no project) keep the next two weeks filled. |
-| 🔔 **Reminders that land** | Push and in-app: a 6 PM preview of tomorrow, plus a nudge 30 minutes before a task ends. |
+| 🔔 **Reminders that land** | Push and in-app: an evening preview of tomorrow, plus a nudge before a task ends, at times you choose. |
 | 🤖 **Bulk input with an AI prompt** | Set up a whole sprint in one paste. Every line is validated before anything is saved. |
 | 📈 **Analytics built in** | Burndown, velocity, a capacity calculator and a Markdown sprint report. |
 
@@ -288,7 +288,7 @@ Both need `Authorization: Bearer $CRON_SECRET`.
 
 ## 🛠️ Deployment and self-hosting
 
-The live site runs on Vercel with a self-hosted PostgreSQL 17 database. The full setup (database container, TLS, users and permissions, backups and production migrations) is in **[docs/self-hosting.md](docs/self-hosting.md)**.
+The live site runs on Vercel with a self-hosted PostgreSQL 17 database. The full setup (database container, TLS, users and permissions, backups, production migrations and a fresh start) is in **[docs/self-hosting.md](docs/self-hosting.md)**.
 
 ## 🤝 Contributing
 

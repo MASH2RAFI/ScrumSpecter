@@ -5,6 +5,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { QueryProvider } from "@/components/query-providor";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -79,6 +80,10 @@ export default async function RootLayout(
           </QueryProvider>
           </NuqsAdapter>
         </ThemeProvider>
+        {/* Real-user page speed (Vercel Speed Insights). Only on Vercel: elsewhere it would load a
+            debug script from Vercel's CDN. Its script and reports stay on this site (/_vercel/...),
+            which the CSP's 'self' and 'strict-dynamic' already allow */}
+        {process.env.VERCEL === "1" && <SpeedInsights />}
       </body>
     </html>
   );

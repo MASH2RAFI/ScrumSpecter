@@ -29,8 +29,11 @@ const scan = async (page: Page, label: string) => {
 const open = async (page: Page, path: string, ready: () => Promise<void>) => {
     await page.goto(path, { timeout: 90_000 });
     await ready();
-    // Let entrance animations settle so contrast is measured on final colors
-    await page.waitForTimeout(800);
+    // Let entrance animations settle so contrast is measured on final colors (staggered lists
+    // finish later the longer they are, so wait for them rather than a fixed time)
+    await page.waitForTimeout(300);
+    await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"), null, { timeout: 10_000 });
+    await page.waitForTimeout(200);
 };
 
 test.beforeAll(async ({ baseURL }) => {

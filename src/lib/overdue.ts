@@ -4,7 +4,7 @@ import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { members, tasks, users, workspaces } from "@/lib/db/schema";
-import { isValidTimeZone, zonedTimeToUtc } from "@/lib/time-zone";
+import { isValidTimeZone, localDate, zonedTimeToUtc } from "@/lib/time-zone";
 import { resolvePreferences } from "@/features/auth/preferences";
 import { DEFAULT_DURATION_MINUTES } from "@/features/tasks/task-time";
 import { TaskStatus } from "@/features/tasks/types";
@@ -12,9 +12,6 @@ import { TaskStatus } from "@/features/tasks/types";
 const DEFAULT_TIME_ZONE = "Asia/Dhaka";
 // Tasks with only a date end when the workspace's working day ends (as for reminders)
 export const DEFAULT_DAY_END = "18:00";
-
-const localDate = (instant: Date, timeZone: string) =>
-    new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(instant);
 
 // When a task ends: its time block's end, or the end of the working day on its due date, in the
 // assignee's time zone

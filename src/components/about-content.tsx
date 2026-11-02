@@ -38,6 +38,9 @@ import {
     CloudIcon,
     RefreshCwIcon,
     RepeatIcon,
+    StarIcon,
+    DownloadIcon,
+    SlidersHorizontalIcon,
     ShieldCheckIcon,
     GitPullRequestArrowIcon,
     BellIcon,
@@ -64,15 +67,18 @@ const roleCard = (role: MemberRole) => ({ label: ROLE_LABELS[role], description:
 const FEATURES = [
     { icon: TargetIcon, title: "Sprint Management", description: "Give each project a sprint, then follow its countdown, story points and progress from the dashboard.", badge: "Core Feature" },
     { icon: CheckCircleIcon, title: "Task Management", description: "Story points, due dates, time blocks and several assignees, moving through Backlog, To Do, In Progress, In Review and Done.", badge: "Core Feature" },
-    { icon: CalendarIcon, title: "Multiple Views", description: "Switch between a table, a kanban board and a calendar, with drag and drop in each. Undo is one click away.", badge: "Flexible" },
+    { icon: CalendarIcon, title: "Multiple Views", description: "Switch between a table, a kanban board and a calendar, with drag and drop in each. Drop a card on the bin to delete it; Undo is one click away.", badge: "Flexible" },
     { icon: RepeatIcon, title: "Weekly Routines", description: "Set up standups and other repeating work once. Tasks are created on their days through the sprint, skipping days off, and each routine picks the views its tasks show in. Personal routines need no project.", badge: "New!" },
     { icon: ShieldCheckIcon, title: "Roles & Review", description: "Admin, Supervisor, Reviewer, Assignee and Viewer. Assignees take work to In Review; a reviewer approves it to Done.", badge: "New!" },
     { icon: GitPullRequestArrowIcon, title: "Change Requests", description: "Assignees and reviewers propose new tasks, edits or deletions, and an admin or supervisor approves or declines them.", badge: "New!" },
-    { icon: BellIcon, title: "Reminders", description: "In-app and push notifications: tomorrow's tasks at 6 PM, 30 minutes before a task ends, and decisions on your requests.", badge: "Essential" },
+    { icon: BellIcon, title: "Reminders", description: "In-app and push notifications: tomorrow's tasks the evening before, a heads-up before a task ends (you pick both times), and decisions on your requests.", badge: "Essential" },
     { icon: ListPlusIcon, title: "Bulk Input", description: "Add, change or remove many projects, tasks, routines and days off at once, checked line by line, or let your AI assistant write them. Reviewers and assignees can add tasks too; tasks for others go for approval. You can even set up a whole new workspace this way.", badge: "New!" },
+    { icon: StarIcon, title: "Starred", description: "Star the tasks and routines you keep coming back to, and find them all on one page across your workspaces.", badge: "New!" },
+    { icon: DownloadIcon, title: "Export", description: "Tasks as CSV or a calendar file, a live calendar link for Google or Apple Calendar, charts as images, and a full backup of the workspace.", badge: "New!" },
+    { icon: SlidersHorizontalIcon, title: "Your Way", description: "Date and time format, week start, starting views, table sorting, compact Kanban cards, theme and reduced motion, saved to your account.", badge: "New!" },
     { icon: BarChart3Icon, title: "Analytics Dashboard", description: "Capacity calculator, burndown chart, velocity tracker and sprint reports.", badge: "Advanced" },
     { icon: UsersIcon, title: "Team Collaboration", description: "Invite links with optional expiry and use limits, a separate view-only link, and placeholders for people who haven't joined yet.", badge: "Essential" },
-    { icon: KeyboardIcon, title: "Keyboard Friendly", description: "Jump anywhere with Ctrl/⌘ K, create a task with C, search with /, and press ? for every shortcut.", badge: "Fast" },
+    { icon: KeyboardIcon, title: "Keyboard Friendly", description: "Jump anywhere with Ctrl/⌘ K, create a task with C, search with /, and press ? for every shortcut. Boards, the calendar and every dialog work without a mouse.", badge: "Fast" },
     { icon: SmartphoneIcon, title: "Works Everywhere", description: "Responsive on phones, tablets and desktops, installable as an app, with light and dark themes.", badge: "Universal" },
 ];
 
@@ -92,9 +98,9 @@ const ANALYTICS_TOOLS = [
 
 const BENEFITS = [
     { icon: ZapIcon, color: "text-green-600", title: "Fast", description: "Pages open straight from data cached in your browser, then refresh quietly in the background." },
-    { icon: ShieldIcon, color: "text-primary", title: "Secure by Default", description: "Argon2-hashed passwords, lockout after repeated failed logins, single-use reset links and TLS to the database." },
+    { icon: ShieldIcon, color: "text-primary", title: "Secure by Default", description: "Argon2-hashed passwords, email verification, lockout after repeated failed logins, single-use reset links and TLS to the database." },
     { icon: RefreshCwIcon, color: "text-blue-600", title: "Always in Sync", description: "Changes your teammates make show up on their own within a minute, without reloading." },
-    { icon: CloudIcon, color: "text-sky-600", title: "Your Own Data", description: "Stored in a self-hosted PostgreSQL database with nightly backups." },
+    { icon: CloudIcon, color: "text-sky-600", title: "Your Own Data", description: "Stored in a self-hosted PostgreSQL database with encrypted nightly backups, and yours to export any time." },
     { icon: CalendarDaysIcon, color: "text-purple-600", title: "Fits Your Calendar", description: "Public holidays, your own days off, working hours and your time zone shape routines and reminders." },
     { icon: HeartIcon, color: "text-red-600", title: "Made for Small Teams", description: "Built around how small agile teams actually plan, review and ship their sprints." },
 ];

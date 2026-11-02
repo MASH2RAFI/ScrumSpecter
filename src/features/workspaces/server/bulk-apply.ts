@@ -7,7 +7,7 @@ import { removeAssignee } from "@/lib/db/assignees";
 import { members, projects, routines, tasks, users, workspaceHolidays } from "@/lib/db/schema";
 import { toTaskDoc } from "@/features/tasks/server/task-list";
 import { generateRoutineTasks, removeRoutineTasksOn, retimeUpcomingRoutineTasks } from "@/lib/routines";
-import { localDate } from "@/lib/reminders";
+import { localDate } from "@/lib/time-zone";
 import { MemberRole } from "@/features/members/types";
 
 import { AMBIGUOUS, sprintDays, taskReferences, type Context, type Planned } from "./bulk-input";

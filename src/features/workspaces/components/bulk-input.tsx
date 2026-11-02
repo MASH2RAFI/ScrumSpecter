@@ -20,6 +20,7 @@ import { canEditWork, canManageWorkspace } from "@/features/members/permissions"
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { restoreTasks, toastWithUndo } from "@/features/tasks/api/undo";
 import { useConfirm } from "@/hooks/use-confirm";
+import { localDate } from "@/lib/time-zone";
 
 import type { LineResult } from "../server/bulk-input";
 import { Workspace } from "../types";
@@ -201,7 +202,7 @@ const BulkEditor = ({ run, prompt, applyLabel = "Apply", disabled, onApplied, in
             `- Workspace: "${workspaceName}"`,
             `- Existing projects: ${projectNames}`,
             `- Existing members and placeholders: ${memberNames}`,
-            `- Today is ${new Date().toISOString().slice(0, 10)}; times are in ${timeZone}.${workDay ? ` Working hours are ${workDay}.` : ""}`,
+            `- Today is ${localDate(new Date(), timeZone)}; times are in ${timeZone}.${workDay ? ` Working hours are ${workDay}.` : ""}`,
             "",
             "## Don'ts",
             "- Don't invent options, commands or statuses that aren't listed above.",

@@ -10,7 +10,7 @@ import { and, arrayContains, arrayOverlaps, asc, eq, gte, inArray, isNotNull, is
 import { db } from "@/lib/db";
 import { changeRequests, members, projects, routines, tasks, users, workspaceHolidays, workspaces } from "@/lib/db/schema";
 import { rateLimited } from "@/lib/rate-limit";
-import { localDate } from "@/lib/reminders";
+import { localDate } from "@/lib/time-zone";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { VOLUME_CAPS } from "@/lib/volume-caps";
 import { forgetCachedSessions, mergePreferences } from "@/lib/auth";

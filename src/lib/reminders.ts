@@ -5,7 +5,7 @@ import { and, eq, gte, isNotNull, lt, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { members, notifications, projects, tasks, users, workspaces } from "@/lib/db/schema";
 import { pushToUser } from "@/lib/push";
-import { isValidTimeZone, zonedTimeToUtc } from "@/lib/time-zone";
+import { isValidTimeZone, localDate, zonedTimeToUtc } from "@/lib/time-zone";
 import { resolvePreferences } from "@/features/auth/preferences";
 import { TaskStatus } from "@/features/tasks/types";
 import { taskEnd } from "@/lib/overdue";
@@ -17,9 +17,6 @@ const DAY = 24 * 60 * MINUTE;
 // sends what fell due; the dedupe key keeps anything from going out twice
 export const LOOKBACK_MINUTES = 15;
 
-// YYYY-MM-DD of an instant in a time zone
-export const localDate = (instant: Date, timeZone: string) =>
-    new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(instant);
 
 const atLocal = (date: string, time: string, timeZone: string) => {
     const [year, month, day] = date.split("-").map(Number);
