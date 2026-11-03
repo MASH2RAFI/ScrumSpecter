@@ -92,6 +92,8 @@ export const workspaces = pgTable(
         workDayEnd: text("work_day_end").notNull().default("18:00"),
         // Country code for public holidays (date-holidays); null = none
         holidayCountry: text("holiday_country").default("BD"),
+        // The weekend as JS day numbers (0 = Sunday); null = the holiday country's weekend
+        weekendDays: integer("weekend_days").array(),
         // Bumped by database triggers on any change to the workspace's data, so clients
         // can keep their cache until it moves (see drizzle/0004_data_versions_holidays.sql)
         dataVersion: bigint("data_version", { mode: "number" }).notNull().default(0),

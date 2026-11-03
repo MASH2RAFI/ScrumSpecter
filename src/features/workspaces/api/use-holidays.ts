@@ -16,6 +16,8 @@ export type HolidayData = {
     holidays: Holiday[];
     // JS day numbers (0 = Sunday)
     weekend: number[];
+    // Set in Settings rather than taken from the country
+    customWeekend: boolean;
     country: string | null;
 };
 
@@ -91,6 +93,11 @@ export const useRemoveHoliday = () =>
 export const useSetHolidayCountry = () =>
     useHolidayMutation((workspaceId, { holidayCountry }: { holidayCountry: string }) =>
         client.api.workspaces[":workspaceId"].$patch({ param: { workspaceId }, form: { holidayCountry } }), "Holiday country saved");
+
+// days: comma-separated day numbers, "" for none, or "country" for the holiday country's weekend
+export const useSetWeekend = () =>
+    useHolidayMutation((workspaceId, { weekendDays }: { weekendDays: string }) =>
+        client.api.workspaces[":workspaceId"].$patch({ param: { workspaceId }, form: { weekendDays } }), "Weekend saved");
 
 // "16 Dec is Victory Day, a holiday" for a YYYY-MM-DD date, or null
 export const holidayNotice = (holidays: Holiday[] | undefined, date: string) => {

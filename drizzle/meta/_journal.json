@@ -127,6 +127,13 @@
       "when": 1793685014086,
       "tag": "0017_stars_data_version",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793738431092,
+      "tag": "0018_workspace_weekend",
+      "breakpoints": true
     }
   ]
 }

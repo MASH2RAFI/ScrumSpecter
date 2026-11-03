@@ -16,6 +16,8 @@ export const updateWorkspaceSchema = z.object({
     holidayCountry: z.string().max(8).optional(),
     workDayStart: z.string().regex(HH_MM, "Use HH:MM").optional(),
     workDayEnd: z.string().regex(HH_MM, "Use HH:MM").optional(),
+    // Day numbers, comma-separated (0 = Sunday); "" = no weekend; "country" = the holiday country's
+    weekendDays: z.string().regex(/^(country|[0-6](,[0-6]){0,6})?$/, "Pick days 0 to 6").optional(),
 }).refine(
     ({ workDayStart, workDayEnd }) => !workDayStart || !workDayEnd || workDayStart < workDayEnd,
     { message: "The day has to end after it starts", path: ["workDayEnd"] },

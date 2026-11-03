@@ -202,7 +202,7 @@ const app = new Hono()
         zValidator("form", updateWorkspaceSchema),
         async (c) => {
             const { workspaceId } = c.req.param();
-            const { name, holidayCountry, workDayStart, workDayEnd } = c.req.valid("form");
+            const { name, holidayCountry, workDayStart, workDayEnd, weekendDays: weekend } = c.req.valid("form");
 
             if (holidayCountry && !isSupportedCountry(holidayCountry)) {
                 return c.json({ error: "Unknown holiday country" }, 400);
@@ -223,7 +223,13 @@ const app = new Hono()
             const [workspace] = await db
                 .update(workspaces)
                 // "" switches public holidays off
-                .set({ name, workDayStart, workDayEnd, holidayCountry: holidayCountry === undefined ? undefined : holidayCountry || null })
+                .set({
+                    name, workDayStart, workDayEnd,
+                    holidayCountry: holidayCountry === undefined ? undefined : holidayCountry || null,
+                    weekendDays: weekend === undefined ? undefined
+                        : weekend === "country" ? null
+                        : [...new Set(weekend.split(",").filter(Boolean).map(Number))].sort(),
+                })
                 .where(eq(workspaces.id, workspaceId))
                 .returning();
 
@@ -256,7 +262,13 @@ const app = new Hono()
 
             const holidays = await getHolidays(workspace, from, to, { includeHidden: includeHidden === "true" });
 
-            return c.json({ data: { holidays, weekend: weekendDays(workspace.holidayCountry), country: workspace.holidayCountry } });
+            return c.json({ data: {
+                holidays,
+                weekend: workspace.weekendDays ?? weekendDays(workspace.holidayCountry),
+                // The workspace picked its own weekend rather than the country's
+                customWeekend: workspace.weekendDays !== null,
+                country: workspace.holidayCountry,
+            } });
         }
     )
 

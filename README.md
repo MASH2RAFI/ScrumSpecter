@@ -138,7 +138,7 @@
 - **Home ("My work"):** your overdue tasks and those due today and tomorrow, with a countdown to each one's end time.
 - **My Tasks:** an eye beside each project hides or shows its tasks there. The choice is saved to your account; picking a project in the filter still shows it.
 - **Routines:** tasks that repeat weekly. They're created for each of their weekdays through the end of the sprint, and they skip days off. A routine (or task) can also be personal, with no project: its tasks keep the next 14 days filled. Each routine chooses which task views (table, kanban, calendar) list its tasks, with toggles right on its card on the Routines page; Home and My work always do.
-- **Days off and working hours:** public holidays come from a country feed, and you can add your own days off. Working hours frame the routines week and the calendar's all-day tasks, and decide when unfinished To Do tasks move to Backlog.
+- **Days off and working hours:** public holidays come from a country feed, and you can add your own days off. The weekend follows the country unless you pick its days in Settings → Holidays. Working hours frame the routines week and the calendar's all-day tasks, and decide when unfinished To Do tasks move to Backlog.
 
 </details>
 

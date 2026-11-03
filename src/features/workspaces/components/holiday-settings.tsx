@@ -11,9 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-import { useAddHoliday, useGetHolidayCountries, useGetHolidays, useRemoveHoliday, useSetHolidayCountry } from "../api/use-holidays";
+import { useAddHoliday, useGetHolidayCountries, useGetHolidays, useRemoveHoliday, useSetHolidayCountry, useSetWeekend } from "../api/use-holidays";
 
 const NONE = "none";
+// Indexed by JS day number (0 = Sunday)
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const formatDay = (date: string) => {
     const [year, month, day] = date.split("-").map(Number);
@@ -28,9 +30,15 @@ export const HolidaySettings = ({ workspaceId, isAdmin }: { workspaceId: string;
     const setCountry = useSetHolidayCountry();
     const addHoliday = useAddHoliday();
     const removeHoliday = useRemoveHoliday();
+    const setWeekend = useSetWeekend();
     const [date, setDate] = useState("");
     const [name, setName] = useState("");
-    const busy = setCountry.isPending || addHoliday.isPending || removeHoliday.isPending;
+    const busy = setCountry.isPending || addHoliday.isPending || removeHoliday.isPending || setWeekend.isPending;
+    const weekend = new Set(data?.weekend ?? []);
+    const toggleDay = (day: number) => {
+        const days = weekend.has(day) ? [...weekend].filter((d) => d !== day) : [...weekend, day];
+        setWeekend.mutate({ workspaceId, weekendDays: days.sort().join(",") });
+    };
 
     const addDayOff = (event: FormEvent) => {
         event.preventDefault();
@@ -70,6 +78,31 @@ export const HolidaySettings = ({ workspaceId, isAdmin }: { workspaceId: string;
                         <Button variant="ghost" size="sm" aria-label="Previous year" onClick={() => setYear(year - 1)}>‹</Button>
                         <span className="text-sm font-medium w-12 text-center">{year}</span>
                         <Button variant="ghost" size="sm" aria-label="Next year" onClick={() => setYear(year + 1)}>›</Button>
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <Label id="weekend-label">Weekend</Label>
+                        <span className="text-xs text-muted-foreground">
+                            {data?.customWeekend ? "Set for this workspace." : data?.country ? "The country's usual weekend." : "Saturday and Sunday unless you pick others."}
+                            {" "}Shaded and labelled on the calendar.
+                        </span>
+                        {isAdmin && data?.customWeekend && (
+                            <Button variant="ghost" size="sm" className="h-auto px-1 py-0 text-xs underline-offset-2 hover:underline" disabled={busy}
+                                onClick={() => setWeekend.mutate({ workspaceId, weekendDays: "country" })}>
+                                {data.country ? "Use the country's weekend" : "Back to the default"}
+                            </Button>
+                        )}
+                    </div>
+                    <div role="group" aria-labelledby="weekend-label" className="flex flex-wrap gap-1.5">
+                        {DAY_NAMES.map((day, index) => (
+                            <Button key={day} type="button" size="sm" variant={weekend.has(index) ? "primary" : "outline"}
+                                aria-pressed={weekend.has(index)} aria-label={day} title={day}
+                                disabled={!isAdmin || busy || !data} onClick={() => toggleDay(index)}>
+                                {day.slice(0, 3)}
+                            </Button>
+                        ))}
                     </div>
                 </div>
 

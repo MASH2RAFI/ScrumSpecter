@@ -7,6 +7,8 @@ export type Workspace = Document & {
     viewerInviteCode: string | null;
     userId: string;
     holidayCountry: string | null;
+    // 0 = Sunday; null = the holiday country's weekend
+    weekendDays: number[] | null;
     // "HH:MM"
     workDayStart: string;
     workDayEnd: string;
