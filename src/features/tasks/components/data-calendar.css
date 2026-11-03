@@ -192,11 +192,22 @@
    wrapped onto more lines; its name and time no longer cut short. Mouse only (a tap opens the
    task), and never mid-drag, so drop targets stay put. */
 @media (hover: hover) {
+    /* Grows and shrinks on the site's curve (EASE in motion.tsx); staying on top until it has shrunk
+       back, so it doesn't slide under its neighbours on the way. Reduced motion: see globals.css */
+    .calendar-container .rbc-time-view .rbc-event {
+        min-width: 0;
+        min-height: 0;
+        transition: min-width 250ms cubic-bezier(0.22, 1, 0.36, 1), min-height 250ms cubic-bezier(0.22, 1, 0.36, 1), z-index 0s linear 250ms;
+    }
+    .calendar-container .rbc-event .issue-card {
+        transition: box-shadow 250ms cubic-bezier(0.22, 1, 0.36, 1), translate 250ms cubic-bezier(0.22, 1, 0.36, 1), background-color 200ms ease-out;
+    }
     .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-time-view .rbc-event:not(.rbc-addons-dnd-drag-preview):hover {
         z-index: 20;
         min-width: 12rem;
         min-height: 4.5rem;
         overflow: visible;
+        transition-delay: 0s;
     }
     /* The last two days grow to the left, so the grid's edge doesn't clip them */
     .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-time-view .rbc-day-slot:nth-last-child(-n+2) .rbc-event:not(.rbc-addons-dnd-drag-preview):hover {
@@ -212,6 +223,10 @@
     .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-month-view .rbc-event:hover {
         position: relative;
         z-index: 20;
+    }
+    /* Month chips grow with their text (not animatable), so they lift instead */
+    .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-month-view .rbc-event:hover .issue-card {
+        translate: 0 -1px;
     }
     .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-event:not(.rbc-addons-dnd-drag-preview):hover .issue-card {
         @apply h-auto min-h-full shadow-lg ring-1 ring-primary/30;
