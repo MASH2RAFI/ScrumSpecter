@@ -83,7 +83,10 @@ export const QueryProvider = ({ children }: QueryProviderProps) => {
         maxAge: CACHE_MAX_AGE,
         buster: CACHE_BUSTER,
         dehydrateOptions: {
-          shouldDehydrateQuery: (query) => query.state.status === 'success',
+          // Never "signed out": restored after a sign-in that skips useLogin (Google, a new
+          // session cookie), it would hide the user until the next refetch
+          shouldDehydrateQuery: (query) =>
+            query.state.status === 'success' && !(query.queryKey[0] === 'current' && query.state.data === null),
         },
       }}
     >
