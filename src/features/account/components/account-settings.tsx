@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CALENDAR_VIEWS, DATE_FORMATS, MAX_SLOT, MIN_SLOT, SLOT_STEP, type UserPreferences } from "@/features/auth/preferences";
+import { CALENDAR_VIEW_LABELS, CALENDAR_VIEWS, DATE_FORMATS, MAX_SLOT, MIN_SLOT, SLOT_STEP, type UserPreferences } from "@/features/auth/preferences";
 import { formatDuration } from "@/features/tasks/task-time";
 
 import {
@@ -347,7 +347,7 @@ const PreferencesTab = ({ preferences }: { preferences: UserPreferences }) => {
                 ])}
             </Section>
             <Section title="Calendar" description="How the calendar opens. Its toolbar changes these too.">
-                {row("calendarView", "Starting view", CALENDAR_VIEWS.map((value) => ({ value, label: value[0].toUpperCase() + value.slice(1) })))}
+                {row("calendarView", "Starting view", CALENDAR_VIEWS.map((value) => ({ value, label: CALENDAR_VIEW_LABELS[value] })))}
                 {row("calendarSlotMinutes", "Row size", Array.from({ length: (MAX_SLOT - MIN_SLOT) / SLOT_STEP + 1 }, (_, i) => MIN_SLOT + i * SLOT_STEP)
                     .map((minutes) => ({ value: minutes, label: formatDuration(minutes) })))}
                 {row("calendarStartHour", "Visible from", [

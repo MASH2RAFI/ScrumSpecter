@@ -4,6 +4,9 @@ import { defineConfig } from "@playwright/test";
 // Uses an installed Chromium; set CHROMIUM_PATH if it isn't at /usr/bin/chromium. E2E_BROWSER=firefox
 // or webkit runs it in Playwright's own build of that browser (WebKit: scripts/e2e-webkit.sh).
 const browserName = (process.env.E2E_BROWSER ?? "chromium") as "chromium" | "firefox" | "webkit";
+// E2E_PROD=1: against a production build in .next-build (scripts/test-all.sh builds it), since timing
+// and library behaviour differ there; three development-only tests skip themselves
+const production = Boolean(process.env.E2E_PROD);
 const DB_PORT = 55433;
 const APP_PORT = 3100;
 const baseURL = `http://localhost:${APP_PORT}`;
@@ -33,7 +36,7 @@ export default defineConfig({
             reuseExistingServer: false,
         },
         {
-            command: `npx next dev -p ${APP_PORT}`,
+            command: production ? `npx next start -p ${APP_PORT}` : `npx next dev -p ${APP_PORT}`,
             url: `${baseURL}/sign-in`,
             timeout: 180_000,
             reuseExistingServer: false,
@@ -49,7 +52,7 @@ export default defineConfig({
                 // Bundled holiday data, so tests don't depend on Google's live feed
                 HOLIDAY_FEED: "off",
                 // Its own build folder, so a running `npm run dev` isn't disturbed
-                NEXT_DIST_DIR: ".next-e2e",
+                NEXT_DIST_DIR: production ? ".next-build" : ".next-e2e",
                 // Trust the fake push service in notifications-api.spec.ts (test-only certificate)
                 NODE_EXTRA_CA_CERTS: "e2e/fixtures/push-server.crt",
                 // A test-only VAPID pair (not the live one), so push tests don't depend on .env.local

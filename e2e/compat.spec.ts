@@ -209,4 +209,6 @@ test("pages at every screen size, in every browser", async ({ baseURL }) => {
     writeFileSync(`${out}/report.json`, JSON.stringify({ skipped, results }, null, 2));
     const bad = results.filter((r) => r.problems.length);
     console.log(`checked ${results.length} page views; ${bad.length} with problems; skipped: ${JSON.stringify(skipped)}`);
+    // Details per page are in report.json, next to the screenshots
+    expect(bad.map((r) => `${r.browser} ${r.size} ${r.page}: ${r.problems.map((p) => p.detail).join("; ")}`)).toEqual([]);
 });

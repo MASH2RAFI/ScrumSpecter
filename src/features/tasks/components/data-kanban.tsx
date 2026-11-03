@@ -178,13 +178,13 @@ export const Datakanban = ({
 
     return ( 
         <DragDropContext onDragStart={() => setDragging(true)} onDragEnd={onDragEnd}>
-            {/* Phones: one column under another; wider screens: side by side */}
-            {/* Columns rise in one after another when the board opens */}
-            <Stagger className="flex flex-col gap-3 pb-2 md:flex-row md:gap-0 md:overflow-x-auto">
+            {/* Phones: one column at a time, swiped sideways and snapping into place, the next one
+                peeking in; wider screens: side by side. Columns rise in one after another on opening */}
+            <Stagger className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 md:snap-none md:gap-0">
                 {boards.map( (board) => {
                     return (
                         <StaggerItem key={board} className={cn(
-                            "flex flex-col bg-muted/50 p-2 rounded-card border border-border/60 md:flex-1 md:mx-1.5 md:min-w-[200px] transition-[flex-grow,min-width] duration-300",
+                            "flex w-[85%] shrink-0 snap-center flex-col bg-muted/50 p-2 rounded-card border border-border/60 md:w-auto md:shrink md:flex-1 md:mx-1.5 md:min-w-[200px] transition-[flex-grow,min-width] duration-300",
                             // Narrowed rather than hidden, so a card can still be dropped into it
                             kanbanShrinkEmpty && tasks[board].length === 0 && "md:flex-none md:w-48 md:min-w-0",
                         )}>

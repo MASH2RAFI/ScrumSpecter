@@ -140,10 +140,10 @@ test("kanban shows each status column", async () => {
 test("calendar week view shows the timed task as a block", async () => {
     await page.getByRole("tab", { name: "Calendar" }).click();
     await expect(page.locator(".rbc-month-view")).toBeVisible();
-    await page.getByRole("button", { name: "week", exact: true }).click();
+    await page.getByRole("button", { name: "Week", exact: true }).click();
     await expect(page.locator(".rbc-time-view")).toBeVisible();
     await expect(page.locator(".rbc-time-content .rbc-event", { hasText: "Design homepage" })).toBeVisible();
-    await page.getByRole("button", { name: "day", exact: true }).click();
+    await page.getByRole("button", { name: "Day", exact: true }).click();
     await expect(page.locator(".rbc-time-content .rbc-event", { hasText: "Design homepage" })).toBeVisible();
 });
 

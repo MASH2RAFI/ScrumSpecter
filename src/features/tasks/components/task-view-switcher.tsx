@@ -108,6 +108,7 @@ const TableView = ({ base, canReview, canEditWork }: { base: BaseQuery; canRevie
                     onSortingChange: (next) => { setSorting(next); setPageIndex(0); },
                 }}
                 onRowClick={(task) => openTask(task.$id)}
+                cards
                 // Ticking rows only helps those who may change other people's tasks
                 selection={canReview ? {
                     getRowId: (task) => task.$id,

@@ -31,7 +31,12 @@ test.afterAll(async () => {
 });
 
 const homeLandsOn = async (workspaceId: string) => {
-    await page.goto("/", { timeout: 90_000 });
+    // Leaving a workspace sends the app to / by itself; WebKit then reports our own visit as
+    // interrupted by that one, so try once more
+    await page.goto("/", { timeout: 90_000 }).catch(async (error: Error) => {
+        if (!/interrupted by another navigation/.test(error.message)) throw error;
+        await page.goto("/", { timeout: 90_000 });
+    });
     await expect(page).toHaveURL(new RegExp(`/workspaces/${workspaceId}$`), { timeout: 60_000 });
 };
 

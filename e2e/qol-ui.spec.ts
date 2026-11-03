@@ -213,8 +213,8 @@ test("a browser cache saved before a new field doesn't break the page", async ()
 });
 
 test("bulk input tab: check, apply, and copy the AI prompt", async ({ browserName }) => {
-    // WebKit can't grant tests clipboard access: there, record what the page copies instead
-    const realClipboard = browserName !== "webkit";
+    // Only Chromium can grant tests clipboard access: elsewhere, record what the page copies instead
+    const realClipboard = browserName === "chromium";
     if (realClipboard) await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.goto(`/workspaces/${workspace.$id}?workspace-panel=settings`, { timeout: 90_000 });
     const settings = page.getByRole("dialog", { name: "Workspace settings" });

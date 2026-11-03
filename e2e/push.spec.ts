@@ -9,6 +9,7 @@ import { registerUser } from "./helpers";
 
 // API: a push service that rejects the VAPID key (401/403) drops the device, and "Send a test" says so
 test("push: a rejected subscription is forgotten and the test reports it as failed", async ({ baseURL }) => {
+    test.skip(!!process.env.E2E_PROD, "the local fake push service is allowed only outside production (notifications/schemas.ts)");
     const user = await registerUser(baseURL!, "Push Polash");
     let respondWith = 201;
     const server: Server = createServer({

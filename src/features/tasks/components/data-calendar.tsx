@@ -15,13 +15,15 @@ import {
     subWeeks,
 } from "date-fns";
 import { enUS } from "date-fns/locale";
-import { Calendar, dateFnsLocalizer, type DateHeaderProps } from "react-big-calendar";
+import { Calendar, dateFnsLocalizer, type DateHeaderProps, type DayLayoutFunction } from "react-big-calendar";
+import overlap from "react-big-calendar/lib/utils/layout-algorithms/overlap";
 import withDragAndDrop, { type EventInteractionArgs } from "react-big-calendar/lib/addons/dragAndDrop";
 import { parseAsStringEnum, useQueryState } from "nuqs";
 import { toast } from "sonner";
 
 import { EASE } from "@/components/motion";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { weekRange } from "@/lib/week";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrent } from "@/features/auth/api/use-current";
@@ -66,6 +68,13 @@ interface CalendarEvent {
 
 const DnDCalendar = withDragAndDrop<CalendarEvent>(Calendar);
 
+// Untimed tasks (the whole working day) share a day's column among themselves, behind the timed ones,
+// which keep the full width on top: laid out together, a busy day squeezed every card to a sliver
+const layoutDay: DayLayoutFunction<CalendarEvent> = (args) => [
+    ...overlap({ ...args, events: args.events.filter((event) => event.untimed) }),
+    ...overlap({ ...args, events: args.events.filter((event) => !event.untimed) }),
+];
+
 // Grid row height for one time slot in week/day views
 const SLOT_HEIGHT_PX = 44;
 
@@ -79,8 +88,15 @@ const fromDayKey = (key: string) => parse(key, "yyyy-MM-dd", new Date());
 const isWholeDays = (start: Date, end: Date) => end > start
     && start.getHours() === end.getHours() && start.getMinutes() === end.getMinutes() && start.getSeconds() === end.getSeconds();
 
+// The List view: two weeks from the chosen day
+const AGENDA_DAYS = 14;
+
 const title = (date: Date, view: CalendarView, weekStart: 0 | 1 | 6) => {
     if (view === "month") return format(date, "MMMM yyyy");
+    if (view === "agenda") {
+        const last = addDays(date, AGENDA_DAYS - 1);
+        return `${format(date, "MMM d")} – ${format(last, date.getMonth() === last.getMonth() ? "d, yyyy" : "MMM d, yyyy")}`;
+    }
     if (view === "day") return format(date, "EEEE, MMM d, yyyy");
     const { start, end } = weekRange(date, weekStart);
     const last = subDays(end, 1);
@@ -109,7 +125,7 @@ const visibleRange = (date: Date, view: CalendarView, weekStart: 0 | 1 | 6) => {
         return { from: start, to: end };
     }
     const from = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    return { from, to: addDays(from, 1) };
+    return { from, to: addDays(from, view === "agenda" ? AGENDA_DAYS : 1) };
 };
 
 // The view and visible hours come from the account and the workspace: drawing before they arrive
@@ -136,7 +152,11 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
     }, [value, reduceMotion, animateGrid, gridScope]);
     const { weekStart, timeFormat, calendarView } = usePreferences();
     // Shareable/refresh-safe view, like the table/kanban/calendar tab; without one, the account's default
-    const [view, setView] = useQueryState("cal", parseAsStringEnum<CalendarView>(CALENDAR_VIEWS).withDefault(calendarView));
+    // Phones open the List view unless the link names one: the grids are too cramped there
+    const phone = useMediaQuery("(max-width: 639px)", false);
+    const [view, setView] = useQueryState("cal", parseAsStringEnum<CalendarView>(CALENDAR_VIEWS).withDefault(phone ? "agenda" : calendarView));
+    // Week and day: the time grid, where tasks are dragged and resized
+    const grid = view === "week" || view === "day";
     const { prefs, update: updatePrefs } = useCalendarPrefs();
     useEffect(() => {
         if (!onRangeChange) return;
@@ -242,8 +262,8 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
     };
 
     const handleNavigate = (action: "PREV" | "NEXT" | "TODAY") => {
-        const step = { month: [subMonths, addMonths], week: [subWeeks, addWeeks], day: [subDays, addDays] }[view];
-        setValue(action === "TODAY" ? new Date() : step[action === "PREV" ? 0 : 1](value, 1));
+        const step = { month: [subMonths, addMonths], week: [subWeeks, addWeeks], day: [subDays, addDays], agenda: [subDays, addDays] }[view];
+        setValue(action === "TODAY" ? new Date() : step[action === "PREV" ? 0 : 1](value, view === "agenda" ? AGENDA_DAYS : 1));
     };
 
     const scheduled = useMemo(() => data.filter((task) => task.dueDate), [data]);
@@ -262,7 +282,7 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
             return { id: task.$id, title: task.name, start, end, task, allDay: false };
         }
         const day = fromDayKey(dayKey(new Date(task.dueDate)));
-        if (view === "month") return { id: task.$id, title: task.name, start: day, end: day, task, allDay: true };
+        if (view === "month" || view === "agenda") return { id: task.$id, title: task.name, start: day, end: day, task, allDay: true };
         // Week/day: in the timeline, across the working day (or the visible hours, if it's outside them)
         const at = (hours: number) => new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, Math.round(hours * 60));
         const from = Math.max(prefs.workDay.start, prefs.startHour);
@@ -467,7 +487,9 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
                         doShowMoreDrillDown={false}
                         onShowMore={(_, date) => openDayPopup(date)}
                         className={cn("calendar-container", `calendar-view-${view}`)}
-                        style={{ height: view === "month" ? 920 : gridHeight }}
+                        style={{ height: view === "month" ? 920 : view === "agenda" ? 640 : gridHeight }}
+                        length={AGENDA_DAYS}
+                        messages={{ noEventsInRange: "No tasks in these two weeks." }}
                         step={prefs.slotMinutes}
                         timeslots={1}
                         min={min}
@@ -475,17 +497,19 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
                         scrollToTime={scrollToTime}
                         getNow={() => now}
                         // Week/day: drag blocks to move, drag the bottom edge to resize (admins)
-                        draggableAccessor={() => view !== "month" && canReschedule}
+                        draggableAccessor={() => grid && canReschedule}
                         resizable
-                        resizableAccessor={(event) => view !== "month" && canReschedule && !event.allDay && !event.untimed}
+                        dayLayoutAlgorithm={layoutDay}
+                        eventPropGetter={(event) => ({ className: event.untimed ? "untimed" : undefined })}
+                        resizableAccessor={(event) => grid && canReschedule && !event.allDay && !event.untimed}
                         onEventDrop={moveTask}
                         onDragStart={({ event, action }) => { if (action === "move" && canEditWork) beginGridDrag(event.task); }}
                         onEventResize={moveTask}
                         // Typed as an accessor, but react-big-calendar calls it for the dragged event itself
-                        dragFromOutsideItem={view !== "month" && draggedTask
+                        dragFromOutsideItem={grid && draggedTask
                             ? (() => ({ id: draggedTask.$id, title: draggedTask.name, start: new Date(), end: new Date(), task: draggedTask, allDay: false })) as unknown as () => keyof CalendarEvent
                             : undefined}
-                        onDropFromOutside={view !== "month" ? scheduleFromOutside : undefined}
+                        onDropFromOutside={grid ? scheduleFromOutside : undefined}
                         onSelectEvent={(event) => openTask(event.task.$id)}
                         selectable={canEditWork}
                         onSelectSlot={(slotInfo) => {
@@ -537,12 +561,12 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
                             event: ({ event }) => (
                                 <IssueCard
                                     task={event.task}
-                                    variant={view === "month" ? "month" : event.allDay ? "allday" : "block"}
+                                    variant={view === "month" || view === "agenda" ? "month" : event.allDay ? "allday" : "block"}
                                     // Under about 1.5 grid rows there's only room for one line
                                     compact={!event.allDay && !event.untimed && (event.end.getTime() - event.start.getTime()) / 60_000 < prefs.slotMinutes * 1.5}
                                     // Month cards use native drag (onto another day); the grid uses the calendar's own
                                     draggable={view === "month" && canReschedule}
-                                    onOpen={view === "month" ? openTask : undefined}
+                                    onOpen={view === "month" || view === "agenda" ? openTask : undefined}
                                 />
                             ),
                         }}

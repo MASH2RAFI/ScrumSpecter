@@ -47,6 +47,8 @@ interface DataTableProps<TData, TValue> {
     getRowId: (row: TData) => string
     renderBar: (selected: TData[], clear: () => void) => React.ReactNode
   }
+  // Phones: each row as a card, its cells placed by column id (globals.css, .table-cards)
+  cards?: boolean
 }
 
 type SelectMode = "toggle" | "range"
@@ -86,6 +88,7 @@ export function DataTable<TData, TValue>({
   server,
   onRowClick,
   selection,
+  cards,
 }: DataTableProps<TData, TValue>) {
     const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
     // Set below once the table exists; the checkbox column calls it
@@ -182,7 +185,7 @@ export function DataTable<TData, TValue>({
         {selection && selected.length > 0 && selection.renderBar(selected, () => setRowSelection({}))}
         {/* Scrolls inside its own box so the header can stay pinned */}
         <div className="max-h-[70vh] overflow-auto rounded-md border">
-            <Table>
+            <Table className={cards ? "table-cards" : undefined}>
                 <TableHeader className="sticky top-0 z-10 bg-background shadow-[0_1px_0_hsl(var(--border))]">
                     {table.getHeaderGroups().map((headerGroup) => (
                         <TableRow key={headerGroup.id}>
@@ -213,7 +216,7 @@ export function DataTable<TData, TValue>({
                             className={onRowClick ? "cursor-pointer" : undefined}
                         >
                             {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id} className="whitespace-nowrap">
+                            <TableCell key={cell.id} data-col={cell.column.id} className="whitespace-nowrap">
                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
                             </TableCell>
                             ))}

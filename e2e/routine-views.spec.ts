@@ -61,7 +61,7 @@ test("the views follow the routine's settings", async ({ browser, baseURL }) => 
     await expect(page.getByRole("tab", { name: "Kanban" })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByText("Standup", { exact: true })).toHaveCount(0);
     await page.getByRole("tab", { name: "Calendar" }).click();
-    await page.getByRole("button", { name: "week", exact: true }).click();
+    await page.getByRole("button", { name: "Week", exact: true }).click();
     await expect(page.locator(".rbc-calendar").getByText("Standup").first()).toBeVisible();
 
     // The routine's card shows and changes the setting directly (not in the edit form)

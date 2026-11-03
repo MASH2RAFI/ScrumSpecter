@@ -25,6 +25,7 @@ const dhakaDay = (offset = 0) => new Date(Date.now() + 6 * 3_600_000 + offset * 
 const dhaka = (day: string, time: string) => new Date(`${day}T${time}:00+06:00`).toISOString();
 
 const runAt = async (now?: string) => {
+    test.skip(!!process.env.E2E_PROD && !!now, "the cron ?now= override is development-only (cron/route.ts)");
     const res = await cron.get(`/api/cron/reminders${now ? `?now=${encodeURIComponent(now)}` : ""}`, {
         headers: { authorization: `Bearer ${CRON_SECRET}` },
     });
@@ -167,6 +168,9 @@ test("reminder times follow the person's settings", async () => {
 });
 
 test("the bell: unread count, marking read, and privacy", async () => {
+    // Two of its own (Account settings' test notification), so it doesn't rely on the reminder
+    // tests above, which skip on production builds
+    for (let i = 0; i < 2; i++) expect((await user.api.post("/api/notifications/test")).status()).toBe(200);
     const before = await reminders(user);
     expect(before.unread).toBeGreaterThan(0);
     // Someone else's ids are ignored
@@ -180,6 +184,7 @@ test("the bell: unread count, marking read, and privacy", async () => {
 });
 
 test("push: delivered to a subscribed device; a gone device is forgotten", async () => {
+    test.skip(!!process.env.E2E_PROD, "the local fake push service is allowed only outside production (notifications/schemas.ts)");
     const received: { headers: Record<string, string | string[] | undefined>; bytes: number }[] = [];
     let respondWith = 201;
     const server: Server = createServer({

@@ -158,6 +158,8 @@ test("selecting a whole day in the time slots keeps the task in the time slots",
     await page.mouse.move(box.x + box.width / 2, box.y + 4);
     await page.mouse.down();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height - 4, { steps: 10 });
+    // WebKit ended the selection a slot short without the pause (see the drag tests above)
+    await page.waitForTimeout(300);
     await page.mouse.up();
 
     const dialog = page.getByRole("dialog");

@@ -6,7 +6,9 @@ import { TaskStatus } from "@/features/tasks/types";
 // Per-user settings, stored in users.preferences (jsonb); shared by the server and the client
 
 export const TASK_VIEWS = ["table", "kanban", "calendar"] as const;
-export const CALENDAR_VIEWS = ["month", "week", "day"] as const;
+export const CALENDAR_VIEWS = ["month", "week", "day", "agenda"] as const;
+// "agenda" is the calendar library's dated list (14 days); phones open it by default
+export const CALENDAR_VIEW_LABELS: Record<(typeof CALENDAR_VIEWS)[number], string> = { month: "Month", week: "Week", day: "Day", agenda: "List" };
 
 // Calendar week/day grid row size, in minutes
 export const SLOT_STEP = 30;

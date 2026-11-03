@@ -47,6 +47,19 @@ export const IssueCard = ({ task, variant, compact, draggable, onDragStart, onDr
         </span>
     );
 
+    // Calendar cards: what the card's size leaves out, shown only while it's hovered (data-calendar.css)
+    const oneLine = variant === "month" || (variant === "block" && compact);
+    const details = (variant === "month" || variant === "block") && (
+        <div className="card-details hidden space-y-0.5 border-t border-border/60 px-1.5 py-1 text-[11px] leading-snug text-muted-foreground">
+            <p>
+                <span className="font-medium text-foreground">{snakeCaseToTitleCase(task.status)}</span>
+                {oneLine && ` · ${task.startAt ? formatTimeRange(task.startAt, task.durationMinutes) : "All day"}`}
+            </p>
+            <p>{task.project?.name ?? "No project"}</p>
+            {task.assignees?.length ? <p>{task.assignees.map((a) => a.name).join(", ")}</p> : null}
+        </div>
+    );
+
     return (
         <div
             // A control only where it opens the task itself; on the week grid the calendar's own event is
@@ -117,6 +130,7 @@ export const IssueCard = ({ task, variant, compact, draggable, onDragStart, onDr
                     </div>
                 </div>
             )}
+            {details}
         </div>
     );
 };

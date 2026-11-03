@@ -139,6 +139,12 @@ const RoutineChip = ({ routine, projectName, memberName, onSelect, compact, styl
                     {!routine.active && <span className="text-[10px] uppercase">Paused</span>}
                 </>
             )}
+            {/* What the block's size leaves out, shown only while it's hovered (globals.css) */}
+            <span className="routine-details hidden space-y-0.5 border-t border-border/60 pt-1 mt-1 text-[11px] leading-snug text-muted-foreground">
+                {compact && <span className="block">{time} · {projectName(routine.projectId)}</span>}
+                <span className="block">{memberName(routine.assigneeIds)}</span>
+                {compact && <span className="block">{routine.active ? "Active" : "Paused"}</span>}
+            </span>
         </button>
     );
 };
@@ -192,7 +198,7 @@ const WeekGrid = ({ routines, projectName, memberName, onSelect }: RoutineWeekPr
                 </div>
 
                 {/* One column per day, routines placed by time */}
-                {days.map((day) => {
+                {days.map((day, dayIndex) => {
                     const label = WEEKDAYS.find((weekday) => weekday.value === day)!;
                     const dayRoutines = routines.filter((routine) => routine.weekdays.includes(day));
                     const { lanes, count } = assignLanes(dayRoutines, workDay);
@@ -220,7 +226,8 @@ const WeekGrid = ({ routines, projectName, memberName, onSelect }: RoutineWeekPr
                                         memberName={memberName}
                                         onSelect={onSelect}
                                         compact={blockHeight < 56}
-                                        className="absolute"
+                                        // Grows on hover (globals.css); the last two days grow to the left
+                                        className={cn("routine-block absolute", dayIndex >= days.length - 2 && "routine-block-left")}
                                         style={{
                                             top: top(start) + 1,
                                             height: blockHeight - 2,

@@ -21,6 +21,10 @@ export type TestUser = { name: string; email: string; password: string; api: API
 // Registers through the API and returns a request context that carries the session cookie.
 // The cookie is Secure, which APIRequestContext won't send over http, so it goes in a header.
 // New accounts get the welcome tour, which covers the page; tests opt in with { tutorial: true }
+// A new connection per request: a kept-alive one left idle past the server's 5s keep-alive timeout
+// could be closed just as it was reused (ECONNRESET after a long browser step)
+const apiHeaders = (cookie: string) => ({ cookie, connection: "close" });
+
 export const registerUser = async (baseURL: string, name = "Tester", { tutorial = false } = {}): Promise<TestUser> => {
     const email = `e2e-${unique()}@example.com`;
     const password = "correct-horse-battery";
@@ -31,7 +35,7 @@ export const registerUser = async (baseURL: string, name = "Tester", { tutorial 
     const cookie = setCookie.split(";")[0];
     expect(cookie).toMatch(/^specter-session=/);
     await anon.dispose();
-    const api = await request.newContext({ baseURL, extraHTTPHeaders: { cookie } });
+    const api = await request.newContext({ baseURL, extraHTTPHeaders: apiHeaders(cookie) });
     if (!tutorial) {
         const off = await api.patch("/api/account/preferences", { data: { showTutorial: false } });
         expect(off.status(), await off.text()).toBe(200);
@@ -50,7 +54,7 @@ export const userFromPage = async (page: Page, baseURL: string) => {
     const session = (await page.context().cookies()).find((c) => c.name === "specter-session");
     expect(session).toBeDefined();
     const cookie = `${session!.name}=${session!.value}`;
-    return { cookie, api: await request.newContext({ baseURL, extraHTTPHeaders: { cookie } }) };
+    return { cookie, api: await request.newContext({ baseURL, extraHTTPHeaders: apiHeaders(cookie) }) };
 };
 
 export const createWorkspace = async (api: APIRequestContext, name = "E2E Workspace") => {
@@ -97,8 +101,12 @@ export const createTask = async (
 export const watchConsole = (page: Page) => {
     const errors: string[] = [];
     // WebKit reports a request cut off by a navigation (handled or not) as "… due to access control
-    // checks"; Chromium and Firefox stay quiet about it
-    const cutOff = (text: string) => text.endsWith("due to access control checks.");
+    // checks", and Next.js logs its own fallback when that request was a page prefetch; Chromium and
+    // Firefox stay quiet about both. React's dev-only profiling marks throw in Firefox when a render
+    // straddles a navigation ("end cannot be negative"); production builds don't make them
+    const cutOff = (text: string) => text.endsWith("due to access control checks.")
+        || (text.includes("Failed to fetch RSC payload") && text.includes("Falling back to browser navigation"))
+        || text.startsWith("Performance.measure: Given attribute end cannot be negative");
     page.on("pageerror", (error) => { if (!cutOff(error.message)) errors.push(`pageerror: ${error.message}`); });
     page.on("console", (message) => {
         if (message.type() === "error" && !cutOff(message.text())) {

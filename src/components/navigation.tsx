@@ -16,7 +16,7 @@ import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { useGetChangeRequests } from "@/features/change-requests/api/use-change-requests";
 
 // Members and Settings open as popups over the current page (workspace-panel-modal.tsx)
-const routes: { label: string; href: string; panel?: WorkspacePanel; icon: React.ElementType }[] = [
+export const routes: { label: string; href: string; panel?: WorkspacePanel; icon: React.ElementType }[] = [
     { label: "Home", href: "", icon: HomeIcon },
     { label: "My Tasks", href: "/tasks", icon: CircleCheckIcon },
     { label: "Routines", href: "/routines", icon: RepeatIcon },
@@ -26,6 +26,14 @@ const routes: { label: string; href: string; panel?: WorkspacePanel; icon: React
     { label: "Settings", href: "/settings", panel: "settings", icon: SettingsIcon },
 ];
 
+// Viewers can't ask for changes, so they have no requests to see; editors see how many wait for them
+export const useWaitingRequests = (workspaceId: string) => {
+    const { isViewer, canEditWork } = usePermissions({ workspaceId });
+    const { data: requests } = useGetChangeRequests({ workspaceId: isViewer ? "" : workspaceId });
+    const waiting = canEditWork ? requests?.filter((request) => request.status === "pending").length ?? 0 : 0;
+    return { isViewer, waiting };
+};
+
 export const Navigation = () => {
 
     const workspaceId = useWorkspaceId();
@@ -34,12 +42,8 @@ export const Navigation = () => {
     const groupId = useId();
     const { panel, open: openPanel } = useWorkspacePanel();
 
-    // Viewers can't ask for changes, so they have no requests to see
-    const { isViewer, canEditWork } = usePermissions({ workspaceId });
+    const { isViewer, waiting } = useWaitingRequests(workspaceId);
     const filteredRoutes = isViewer ? routes.filter((route) => route.href !== "/requests") : routes;
-    // Editors see how many requests wait for them
-    const { data: requests } = useGetChangeRequests({ workspaceId: isViewer ? "" : workspaceId });
-    const waiting = canEditWork ? requests?.filter((request) => request.status === "pending").length ?? 0 : 0;
 
     const renderItem = (item: (typeof routes)[number]) => {
         const fullHref = `/workspaces/${workspaceId}${item.href}`;

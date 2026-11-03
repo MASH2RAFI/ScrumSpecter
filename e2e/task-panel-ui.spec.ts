@@ -25,7 +25,8 @@ test.beforeAll(async ({ browser, baseURL }) => {
     const startAt = new Date(Date.UTC(dhaka.getUTCFullYear(), dhaka.getUTCMonth(), dhaka.getUTCDate(), 4)).toISOString();
     const res = await createTask(user.api, { workspaceId, projectId, assigneeId: me.$id, name: NAME, startAt, durationMinutes: 60 });
     expect(res.status(), await res.text()).toBe(200);
-    page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    // Dhaka, where the test task's 10:00 sits inside the calendar's visible hours, whatever the runner's zone
+    page = await browser.newPage({ viewport: { width: 1440, height: 900 }, timezoneId: "Asia/Dhaka" });
     errors = watchConsole(page);
     await signInBrowser(page, user, baseURL!);
 });
@@ -101,7 +102,7 @@ test("from a kanban card", async () => {
 
 test("from the calendar: week block and month card", async () => {
     await page.goto(`/workspaces/${workspaceId}/tasks?task-view=calendar`, { timeout: 90_000 });
-    for (const view of ["week", "month"]) {
+    for (const view of ["Week", "Month"]) {
         await page.getByRole("button", { name: view, exact: true }).click();
         await openAndClose(`calendar ${view}`, async () => {
             return clickAt(page.locator(".rbc-calendar").getByRole("button", { name: new RegExp(NAME) }).locator("visible=true").first());
@@ -112,8 +113,13 @@ test("from the calendar: week block and month card", async () => {
 test("from the quick-jump menu", async () => {
     await page.goto(`/workspaces/${workspaceId}/tasks`, { timeout: 90_000 });
     await openAndClose("command palette", async () => {
-        await page.keyboard.press("Control+k");
-        await page.getByRole("dialog", { name: "Quick jump" }).getByRole("textbox").fill("Hero");
+        const quickJump = page.getByRole("dialog", { name: "Quick jump" });
+        // The shortcut's listener is attached after hydration: a press before it is lost, so press again
+        await expect(async () => {
+            if (!(await quickJump.isVisible())) await page.keyboard.press("Control+k");
+            await expect(quickJump).toBeVisible({ timeout: 2_000 });
+        }).toPass();
+        await quickJump.getByRole("textbox").fill("Hero");
         await page.getByRole("option", { name: new RegExp(NAME) }).click();
     });
 });

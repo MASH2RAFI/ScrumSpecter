@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatDuration } from "../task-time";
 import type { CalendarPrefs } from "@/features/auth/hooks/use-calendar-prefs";
 import { MAX_SLOT, MIN_SLOT, SLOT_STEP } from "@/features/auth/preferences";
-import { CALENDAR_VIEWS } from "@/features/auth/preferences";
+import { CALENDAR_VIEW_LABELS, CALENDAR_VIEWS } from "@/features/auth/preferences";
 
 export type CalendarView = (typeof CALENDAR_VIEWS)[number];
 
@@ -44,7 +44,7 @@ export const CalendarToolbar = ({ title, view, onView, onNavigate, prefs, onPref
 
         {/* Phones: a second row with the view switch and the panel/settings buttons */}
         <div className="flex w-full items-center gap-2 sm:w-auto">
-        <div className="grid flex-1 grid-cols-3 rounded-md border bg-muted/40 p-0.5 sm:inline-flex sm:flex-none" role="group" aria-label="Calendar view">
+        <div className="grid flex-1 grid-cols-4 rounded-md border bg-muted/40 p-0.5 sm:inline-flex sm:flex-none" role="group" aria-label="Calendar view">
             {CALENDAR_VIEWS.map((option) => (
                 <Button
                     key={option}
@@ -52,9 +52,9 @@ export const CalendarToolbar = ({ title, view, onView, onNavigate, prefs, onPref
                     variant={view === option ? "primary" : "ghost"}
                     aria-pressed={view === option}
                     onClick={() => onView(option)}
-                    className="h-7 min-w-0 px-1 capitalize min-h-0 max-[359px]:text-xs sm:px-3"
+                    className="h-7 min-w-0 px-1 text-xs min-h-0 sm:px-3 sm:text-sm"
                 >
-                    {option}
+                    {CALENDAR_VIEW_LABELS[option]}
                 </Button>
             ))}
         </div>

@@ -188,6 +188,51 @@
     .calendar-view-week .rbc-time-view > .rbc-time-content { min-width: 42rem; flex-shrink: 0; }
 }
 
+/* List view (the library's agenda): a dated list, the phone default */
+.calendar-container .rbc-agenda-view {
+    @apply overflow-auto rounded-md border border-border;
+}
+/* Fixed columns, so a long task name ends in "…" instead of widening the table past the screen */
+.calendar-container .rbc-agenda-view table.rbc-agenda-table {
+    @apply border-0;
+    table-layout: fixed;
+}
+/* The header and the rows are two tables; both get the same column widths */
+.calendar-container .rbc-agenda-view table.rbc-agenda-table :is(th:first-child, td.rbc-agenda-date-cell) {
+    width: 7rem;
+}
+.calendar-container .rbc-agenda-view table.rbc-agenda-table :is(th:nth-child(2), td.rbc-agenda-time-cell) {
+    width: 10rem;
+}
+.calendar-container .rbc-agenda-view table.rbc-agenda-table thead > tr > th {
+    @apply border-border bg-muted/40 px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground;
+}
+.calendar-container .rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+    @apply border-border px-2 py-1.5 align-middle;
+}
+.calendar-container .rbc-agenda-view table.rbc-agenda-table tbody > tr + tr {
+    border-top: 1px solid hsl(var(--border));
+}
+.calendar-container .rbc-agenda-view table.rbc-agenda-table .rbc-agenda-date-cell,
+.calendar-container .rbc-agenda-view table.rbc-agenda-table .rbc-agenda-time-cell {
+    @apply whitespace-nowrap text-xs text-muted-foreground;
+}
+.calendar-container .rbc-agenda-view table.rbc-agenda-table .rbc-agenda-date-cell {
+    @apply font-semibold text-foreground;
+}
+.calendar-container .rbc-agenda-view table.rbc-agenda-table tbody > tr > td + td {
+    @apply border-l-0;
+}
+/* Phones: no time column (each card shows its start time), so the task names get the room */
+@media (max-width: 639px) {
+    .calendar-container .rbc-agenda-view table.rbc-agenda-table :is(th, td.rbc-agenda-time-cell):nth-last-child(2) {
+        display: none;
+    }
+}
+.calendar-container .rbc-agenda-empty {
+    @apply p-6 text-center text-sm text-muted-foreground;
+}
+
 /* Hovering a card shows it whole, above its neighbours: in week/day at least 12rem wide, in month
    wrapped onto more lines; its name and time no longer cut short. Mouse only (a tap opens the
    task), and never mid-drag, so drop targets stay put. */
@@ -208,6 +253,14 @@
         min-height: 4.5rem;
         overflow: visible;
         transition-delay: 0s;
+    }
+    /* Untimed blocks are the backdrop (layoutDay): hovered, they still stay under the timed tasks,
+       or one would cover the tasks inside its strip and take their clicks */
+    .calendar-container .rbc-time-view .rbc-event:not(.untimed) {
+        z-index: 15;
+    }
+    .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-time-view .rbc-event.untimed:not(.rbc-addons-dnd-drag-preview):hover {
+        z-index: 10;
     }
     /* The last two days grow to the left, so the grid's edge doesn't clip them */
     .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-time-view .rbc-day-slot:nth-last-child(-n+2) .rbc-event:not(.rbc-addons-dnd-drag-preview):hover {
@@ -230,6 +283,11 @@
     }
     .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-event:not(.rbc-addons-dnd-drag-preview):hover .issue-card {
         @apply h-auto min-h-full shadow-lg ring-1 ring-primary/30;
+    }
+    .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-event:not(.rbc-addons-dnd-drag-preview):hover .card-details {
+        display: block;
+        /* Month chips are kept to one line by the calendar's own styles */
+        white-space: normal;
     }
     .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-event:not(.rbc-addons-dnd-drag-preview):hover .issue-card :is(.truncate, .line-clamp-2) {
         overflow: visible;

@@ -250,6 +250,66 @@ html[data-reduce-motion] *, html[data-reduce-motion] *::before, html[data-reduce
 }
 
 /* Printing the sprint report prints only the report, not the app around it */
+/* Phones: toasts sit above the bottom tab bar (mobile-tab-bar.tsx). The toaster sets its offsets
+   inline, and only treats under 600px as mobile, so both are overridden up to where the bar hides */
+@media (max-width: 767px) {
+  [data-sonner-toaster][data-y-position="bottom"] {
+    --offset-bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
+    --mobile-offset-bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* Phones: a task table row becomes a card (data-table.tsx `cards`). The header hides (the filter's
+   sort menu sorts); line one is tick, star, name, menu; the rest wraps below the name. */
+@media (max-width: 767px) {
+  .table-cards thead { display: none; }
+  .table-cards, .table-cards tbody { display: block; }
+  .table-cards tbody tr { display: flex; flex-wrap: wrap; align-items: center; column-gap: 0.25rem; padding: 0.625rem 0.5rem; }
+  .table-cards tbody td { padding: 0; border: 0; order: 5; font-size: 0.75rem; }
+  .table-cards tbody td[data-col="select"] { order: 1; }
+  .table-cards tbody td[data-col="star"] { order: 2; }
+  /* Room left on line one for the tick, star and menu (about 2.25rem each, plus gaps) */
+  .table-cards tbody td[data-col="name"] { order: 3; flex: 1 1 calc(100% - 7.5rem); min-width: 0; font-size: 0.875rem; white-space: normal; }
+  .table-cards tbody td[data-col="actions"] { order: 4; }
+  /* Details line up under the name: the first one starts after the tick and star */
+  .table-cards tbody td[data-col="status"] { order: 5; margin-left: 3.75rem; }
+  .table-cards tbody td[data-col="dueDate"] { order: 6; }
+  .table-cards tbody td[data-col="storyPoints"] { order: 7; }
+  .table-cards tbody td[data-col="storyPoints"]:not(:empty)::before { content: "· "; color: hsl(var(--muted-foreground)); }
+  .table-cards tbody td[data-col="project"] { order: 8; flex-basis: 100%; margin-left: 3.75rem; }
+  .table-cards tbody td[data-col="assignee"] { order: 9; flex-basis: 100%; margin-left: 3.75rem; }
+}
+
+/* Routines week grid: hovering a block shows it whole, like the task calendar's cards
+   (data-calendar.css): same size, curve and timing; on top until it has shrunk back */
+@media (hover: hover) {
+  .routine-block {
+    min-width: 0;
+    min-height: 0;
+    transition: min-width 250ms cubic-bezier(0.22, 1, 0.36, 1), min-height 250ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 250ms cubic-bezier(0.22, 1, 0.36, 1), background-color 200ms ease-out, z-index 0s linear 250ms;
+  }
+  .routine-block:hover {
+    z-index: 20;
+    min-width: 12rem;
+    min-height: 4.5rem;
+    overflow: visible;
+    transition-delay: 0s;
+    @apply shadow-lg ring-1 ring-primary/30;
+  }
+  .routine-block-left:hover {
+    left: auto !important;
+    right: 2px;
+  }
+  .routine-block:hover .routine-details {
+    display: block;
+  }
+  .routine-block:hover .truncate {
+    overflow: visible;
+    white-space: normal;
+  }
+}
+
 @media print {
   body:has(> #sprint-report-print) > :not(#sprint-report-print) {
     display: none !important;

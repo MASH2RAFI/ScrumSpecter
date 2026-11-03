@@ -6,6 +6,7 @@ import { useDataVersions } from "@/features/workspaces/hooks/use-data-versions";
 import { WelcomeTour } from "@/features/onboarding/components/welcome-tour";
 
 import { CommandPalette } from "./command-palette";
+import { MobileTabBar } from "./mobile-tab-bar";
 import { Navbar } from "./navbar";
 import { Sidebar } from "./sidebar";
 import { SidebarProvider, useSidebar } from "./sidebar-context";
@@ -44,9 +45,11 @@ const Shell = ({ children }: { children: React.ReactNode }) => {
             <div className={cn("w-full transition-[padding] duration-500 ease-out motion-reduce:transition-none", pinned ? "lg:pl-[276px]" : "lg:pl-[88px]")}>
                 <div className="mx-auto max-w-screen-2xl h-full">
                     <Navbar />
-                    <main className="h-full py-4 sm:py-6 lg:py-8 px-4 sm:px-6 flex flex-col mobile-scroll">
+                    {/* Phones: room at the bottom for the tab bar */}
+                    <main className="h-full pt-4 sm:pt-6 lg:pt-8 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-6 lg:pb-8 px-4 sm:px-6 flex flex-col mobile-scroll">
                         {children}
                     </main>
+                    <MobileTabBar />
                 </div>
             </div>
         </div>
