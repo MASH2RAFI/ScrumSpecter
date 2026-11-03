@@ -193,7 +193,7 @@ export const CommandPalette = () => {
                         }}
                         placeholder="Jump to a page, project or task..."
                         aria-label="Quick jump"
-                        className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                        className="h-12 w-full bg-transparent text-base md:text-sm outline-none placeholder:text-muted-foreground"
                     />
                 </div>
                 <ul ref={listRef} role="listbox" className="max-h-80 overflow-y-auto p-2">

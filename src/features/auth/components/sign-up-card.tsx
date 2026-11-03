@@ -59,7 +59,7 @@ export const SignUpCard = ({ googleEnabled, error, next }: SignUpCardProps) => {
             }
         >
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form method="post" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     <AuthInputField control={form.control} name="name" type="text" placeholder="Enter your name" maxLength={MAX_PERSON_NAME} />
                     <AuthInputField control={form.control} name="email" type="email" placeholder="Enter email address" maxLength={MAX_EMAIL} />
                     <AuthInputField control={form.control} name="password" type="password" placeholder="Enter password" maxLength={MAX_PASSWORD} />

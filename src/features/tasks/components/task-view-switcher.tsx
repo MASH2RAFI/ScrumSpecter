@@ -178,7 +178,8 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
     const [{ status, assigneeId, projectId, dueDate, search }] = useTaskFilters();
     const workspaceId = useWorkspaceId();
     // The saved filter (Home follows it), then what this visit's link and search add
-    const { filter } = useTaskFilter(workspaceId);
+    const paramProjectId = useProjectId();
+    const { filter } = useTaskFilter(workspaceId, paramProjectId);
     const { data: members } = useGetMembers({ workspaceId });
     const { data: projects } = useGetProjects({ workspaceId });
     const tokens = parseSearch(
@@ -195,7 +196,6 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
         defaultValue: defaultTaskView,
     });
 
-    const paramProjectId = useProjectId();
     const { open } = useCreateTaskModal();
     const week = useCurrentWeek();
     const [calendarRange, setCalendarRange] = useState<CalendarRange | null>(null);
@@ -235,7 +235,7 @@ export const TaskViewSwitcher = ({ hideProjectFilter }: TaskViewSwitcherProps) =
                             <TabsTrigger
                                 key={value}
                                 value={value}
-                                className="h-8 min-w-0 gap-1.5 rounded-[5px] px-1.5 text-[13px] min-h-0 sm:px-3 sm:text-sm data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                                className="h-8 min-w-0 gap-1.5 rounded-[5px] px-1.5 text-[13px] min-h-0 max-[359px]:px-1 max-[359px]:text-xs sm:px-3 sm:text-sm data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
                             >
                                 {/* Phones: a third of the row is too narrow for "Calendar" and an icon */}
                                 <Icon className="hidden size-4 shrink-0 sm:block" />

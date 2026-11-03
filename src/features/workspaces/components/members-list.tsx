@@ -108,14 +108,14 @@ export const MembersList = ({ onClose }: { onClose?: () => void }) => {
                                     className="size-10"
                                     fallbackClassName="text-lg"
                                 />
-                                <div className="flex flex-col">
+                                <div className="flex min-w-0 flex-col">
                                     <div className="flex items-center gap-2 text-sm font-medium">
                                         {member.name}
                                         {member.isPlaceholder
                                             ? <Badge variant="outline">Placeholder</Badge>
                                             : <Badge variant="secondary" title={ROLE_DESCRIPTIONS[member.role as MemberRole]}>{ROLE_LABELS[member.role as MemberRole]}</Badge>}
                                     </div>
-                                    <p className="text-xs text-muted-foreground">
+                                    <p className="truncate text-xs text-muted-foreground">
                                         {member.isPlaceholder
                                             ? member.email ? `Hands over when ${member.email} joins` : "Hasn't joined"
                                             : member.email}

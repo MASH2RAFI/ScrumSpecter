@@ -300,7 +300,7 @@ export const AboutContent = () => {
                         </Badge>
                     </div>
                     {/* The page's one h1 (CardTitle is a div) */}
-                    <h1 className="text-4xl sm:text-5xl font-bold leading-tight tracking-tight text-foreground mb-6">
+                    <h1 className="text-[min(7.5vw,2.25rem)] sm:text-5xl font-bold leading-tight tracking-tight text-foreground mb-6">
                         <HeadingReveal>Welcome to ScrumSpecter</HeadingReveal>
                     </h1>
                     <CardDescription className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed mb-8">

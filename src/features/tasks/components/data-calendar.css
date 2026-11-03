@@ -187,3 +187,39 @@
     .calendar-view-week .rbc-time-view > .rbc-time-header,
     .calendar-view-week .rbc-time-view > .rbc-time-content { min-width: 42rem; flex-shrink: 0; }
 }
+
+/* Hovering a card shows it whole, above its neighbours: in week/day at least 12rem wide, in month
+   wrapped onto more lines; its name and time no longer cut short. Mouse only (a tap opens the
+   task), and never mid-drag, so drop targets stay put. */
+@media (hover: hover) {
+    .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-time-view .rbc-event:not(.rbc-addons-dnd-drag-preview):hover {
+        z-index: 20;
+        min-width: 12rem;
+        min-height: 4.5rem;
+        overflow: visible;
+    }
+    /* The last two days grow to the left, so the grid's edge doesn't clip them */
+    .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-time-view .rbc-day-slot:nth-last-child(-n+2) .rbc-event:not(.rbc-addons-dnd-drag-preview):hover {
+        left: auto !important;
+        right: 0;
+    }
+    /* Month: a chip keeps its day's width and grows downward over the chips below (the row stops
+       clipping while hovered) */
+    .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-month-row:hover {
+        overflow: visible;
+        z-index: 5;
+    }
+    .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-month-view .rbc-event:hover {
+        position: relative;
+        z-index: 20;
+    }
+    .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-event:not(.rbc-addons-dnd-drag-preview):hover .issue-card {
+        @apply h-auto min-h-full shadow-lg ring-1 ring-primary/30;
+    }
+    .calendar-container.rbc-addons-dnd:not(.rbc-addons-dnd-is-dragging) .rbc-event:not(.rbc-addons-dnd-drag-preview):hover .issue-card :is(.truncate, .line-clamp-2) {
+        overflow: visible;
+        white-space: normal;
+        display: block;
+        -webkit-line-clamp: unset;
+    }
+}

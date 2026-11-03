@@ -90,7 +90,11 @@ test("bulk input sets up a new workspace in one go", async ({ browser, baseURL }
     await page.goto("/workspaces/create?start=bulk", { timeout: 90_000 });
 
     const apply = page.getByRole("button", { name: /^Create workspace with/ });
-    await page.getByLabel("Commands").fill(SCRIPT);
+    // Typed before the page is interactive, the text is dropped (WebKit is slower here): retry
+    await expect(async () => {
+        await page.getByLabel("Commands").fill(SCRIPT);
+        await expect(page.getByRole("button", { name: "Check" })).toBeEnabled({ timeout: 1_000 });
+    }).toPass({ timeout: 30_000 });
     await page.getByRole("button", { name: "Check" }).click();
     await expect(page.getByLabel("Check results")).toContainText('New project "Launch"');
     // Needs a name first

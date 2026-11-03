@@ -268,6 +268,7 @@ e2e/                 Playwright end-to-end tests
 - **the API:** auth, roles, change requests, bulk input and edit, bulk workspace setup, invites, routine views, cron jobs;
 - **the browser:** sign-up and getting started, views, the welcome tour, roles and change requests, the task panel opening and closing from every entry point, loading skeletons, the Home dashboard, every page with and without reduced motion, phone layouts, drag to the bin, preferences;
 - **accessibility:** axe checks (WCAG 2.1 AA) on the main pages in both themes, and a keyboard-only walk through the sidebar, quick jump, dialogs, the task panel, Kanban and the calendar.
+- **screens and browsers** (on demand: `COMPAT=<folder> npx playwright test e2e/compat.spec.ts`): 15 pages at 22 sizes, from a 320px phone and a folding phone's cover screen to a 2560px monitor, plus 200% and 400% browser zoom and larger text, in Chromium, Chromium with forced dark mode, and Firefox. It flags anything cut off at the screen edge, text fields that would make iPhone Safari zoom in, and page errors, and saves a screenshot of each page. WebKit (Safari, and every iPhone browser) runs in Docker with `scripts/compat-webkit.sh <folder>`.
 
 Four runs take screenshots instead of checking things:
 - `INSPECT=<folder> npx playwright test e2e/inspect.spec.ts`, then `node scripts/inspect-report.mjs <folder>`, builds a side-by-side desktop and phone page of the screens being worked on;

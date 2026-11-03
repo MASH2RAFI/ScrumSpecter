@@ -20,7 +20,9 @@ type Scene = {
     act?: (page: Page, mobile: boolean) => Promise<void>;
 };
 
-const VIEWS = { desktop: { width: 1440, height: 900 }, mobile: { width: 390, height: 844 } } as const;
+// INSPECT_PHONE=375x812 checks another phone size (e.g. an iPhone Xs), with touch
+const [phoneWidth, phoneHeight] = (process.env.INSPECT_PHONE ?? "390x844").split("x").map(Number);
+const VIEWS = { desktop: { width: 1440, height: 900 }, mobile: { width: phoneWidth, height: phoneHeight } } as const;
 const THEMES = ["light", "dark"] as const;
 
 test("inspector screens", async ({ browser, baseURL }) => {
@@ -377,7 +379,7 @@ test("inspector screens", async ({ browser, baseURL }) => {
         const shots: Shot[] = [];
         for (const theme of THEMES) {
             for (const [view, viewport] of Object.entries(VIEWS)) {
-                const context = await browser.newContext({ viewport, deviceScaleFactor: 1, timezoneId: "Asia/Dhaka", colorScheme: theme });
+                const context = await browser.newContext({ viewport, deviceScaleFactor: 1, timezoneId: "Asia/Dhaka", colorScheme: theme, ...(view === "mobile" && { isMobile: true, hasTouch: true }) });
                 const page = await context.newPage();
                 // A step that can't find its element gives up quickly; the screenshot still shows the state
                 page.setDefaultTimeout(8_000);

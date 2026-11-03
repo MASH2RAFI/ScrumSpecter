@@ -11,10 +11,14 @@ import { resolvePreferences, type UserPreferences } from "@/features/auth/prefer
 // Idle expiry: a session ends after this long unused; each use (checked every few minutes) moves the end forward
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 
+// Secure everywhere except `next dev` on http://localhost, where Safari (WebKit) drops Secure
+// cookies (Chromium and Firefox make an exception for localhost). Production builds always set it.
+export const SECURE_COOKIES = process.env.NODE_ENV !== "development";
+
 export const SESSION_COOKIE_OPTIONS = {
     path: "/",
     httpOnly: true,
-    secure: true,
+    secure: SECURE_COOKIES,
     sameSite: "Lax",
     maxAge: SESSION_MAX_AGE,
 } as const;

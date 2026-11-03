@@ -94,6 +94,8 @@ export const preferencesSchema = z.object({
     kanbanShrinkEmpty: z.boolean(),
     taskFilters: perWorkspace(taskFilterSchema),
     routineFilters: perWorkspace(routineFilterSchema),
+    // Each project page's own filter, by project id (independent of My Tasks)
+    projectFilters: z.record(memberRef, taskFilterSchema).refine((value) => Object.keys(value).length <= 200, "Too many projects"),
     // Secret in this person's calendar subscribe link (export feed); "" = no link yet. Set by the server only
     calendarFeedKey: z.string().max(64),
 });
@@ -129,6 +131,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
     kanbanShrinkEmpty: false,
     taskFilters: {},
     routineFilters: {},
+    projectFilters: {},
 };
 
 // Stored values may be partial or from an older shape; anything invalid falls back to the default

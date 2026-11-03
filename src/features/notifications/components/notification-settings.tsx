@@ -89,7 +89,7 @@ export const NotificationSettings = ({ preferences }: { preferences: UserPrefere
                         <Input
                             id="pref-summaryTime"
                             type="time"
-                            className="h-9 w-32"
+                            className="h-9 w-36"
                             defaultValue={preferences.summaryTime}
                             disabled={isPending || !preferences.remindDayBefore}
                             // A time input only reports a complete HH:MM (or ""), so saving on change is safe;

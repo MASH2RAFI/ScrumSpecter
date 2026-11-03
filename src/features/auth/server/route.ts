@@ -5,7 +5,7 @@ import { createHash, randomBytes } from "crypto";
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { sessionMiddleware } from "@/lib/session-middleware";
-import { createSession, deleteSession, deviceFromHeaders, forgetCachedSessions, getUserFromToken, hashPassword, SESSION_COOKIE_OPTIONS, sessionIdFromToken, verifyPassword } from "@/lib/auth";
+import { createSession, deleteSession, deviceFromHeaders, forgetCachedSessions, getUserFromToken, hashPassword, SECURE_COOKIES, SESSION_COOKIE_OPTIONS, sessionIdFromToken, verifyPassword } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import { attemptKeys, clearFailures, lockedMinutes, recordFailure, resetRequestKeys, tooManyAttempts } from "@/lib/login-limit";
 import { PENDING_GOOGLE_COOKIE, PENDING_GOOGLE_MAX_AGE, readPendingLink, signPendingLink } from "@/lib/pending-google-link";
@@ -31,7 +31,7 @@ const cookieOptions = SESSION_COOKIE_OPTIONS;
 const pendingGoogleCookieOptions = {
     path: "/api/auth",
     httpOnly: true,
-    secure: true,
+    secure: SECURE_COOKIES,
     sameSite: "Lax",
     maxAge: PENDING_GOOGLE_MAX_AGE,
 } as const;
@@ -69,7 +69,7 @@ const sendVerificationEmail = async (userId: string, email: string, origin: stri
 const oauthCookieOptions = {
     path: "/api/auth/google",
     httpOnly: true,
-    secure: true,
+    secure: SECURE_COOKIES,
     sameSite: "Lax",
     maxAge: 60 * 10,
 } as const;
@@ -134,7 +134,7 @@ const app = new Hono()
                 }
             }
             if (pending) {
-                deleteCookie(c, PENDING_GOOGLE_COOKIE, { path: pendingGoogleCookieOptions.path, secure: true });
+                deleteCookie(c, PENDING_GOOGLE_COOKIE, { path: pendingGoogleCookieOptions.path, secure: SECURE_COOKIES });
             }
 
             const token = await createSession(user.id, device);
@@ -201,7 +201,7 @@ const app = new Hono()
         if (next) {
             setCookie(c, GOOGLE_NEXT_COOKIE, next, oauthCookieOptions);
         } else {
-            deleteCookie(c, GOOGLE_NEXT_COOKIE, { path: oauthCookieOptions.path, secure: true });
+            deleteCookie(c, GOOGLE_NEXT_COOKIE, { path: oauthCookieOptions.path, secure: SECURE_COOKIES });
         }
 
         const sessionToken = getCookie(c, AUTH_COOKIE);
@@ -209,7 +209,7 @@ const app = new Hono()
             const returnTo = safeReturnPath(c.req.query("returnTo"));
             setCookie(c, GOOGLE_LINK_COOKIE, `${sessionIdFromToken(sessionToken)}|${returnTo}`, oauthCookieOptions);
         } else {
-            deleteCookie(c, GOOGLE_LINK_COOKIE, { path: oauthCookieOptions.path, secure: true });
+            deleteCookie(c, GOOGLE_LINK_COOKIE, { path: oauthCookieOptions.path, secure: SECURE_COOKIES });
         }
 
         return c.redirect(url);
@@ -220,11 +220,11 @@ const app = new Hono()
         const codeVerifier = getCookie(c, GOOGLE_VERIFIER_COOKIE);
         const link = getCookie(c, GOOGLE_LINK_COOKIE);
         const next = safeNextPath(getCookie(c, GOOGLE_NEXT_COOKIE)) ?? "/";
-        deleteCookie(c, GOOGLE_NEXT_COOKIE, { path: oauthCookieOptions.path, secure: true });
+        deleteCookie(c, GOOGLE_NEXT_COOKIE, { path: oauthCookieOptions.path, secure: SECURE_COOKIES });
 
-        deleteCookie(c, GOOGLE_STATE_COOKIE, { path: oauthCookieOptions.path, secure: true });
-        deleteCookie(c, GOOGLE_VERIFIER_COOKIE, { path: oauthCookieOptions.path, secure: true });
-        deleteCookie(c, GOOGLE_LINK_COOKIE, { path: oauthCookieOptions.path, secure: true });
+        deleteCookie(c, GOOGLE_STATE_COOKIE, { path: oauthCookieOptions.path, secure: SECURE_COOKIES });
+        deleteCookie(c, GOOGLE_VERIFIER_COOKIE, { path: oauthCookieOptions.path, secure: SECURE_COOKIES });
+        deleteCookie(c, GOOGLE_LINK_COOKIE, { path: oauthCookieOptions.path, secure: SECURE_COOKIES });
 
         if (error) {
             return c.html(continueTo("/sign-in?error=google_cancelled"));

@@ -12,6 +12,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { useHydrated } from "@/hooks/use-hydrated";
 
 const ACTIVE_TAB_CLASS_NAME = "rounded-full px-6 shadow-sm bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground";
 const INACTIVE_TAB_CLASS_NAME = "rounded-full px-6 hover:bg-muted/50 transition-all duration-200";
@@ -120,7 +121,10 @@ interface AuthInputFieldProps<T extends FieldValues> {
     maxLength?: number;
 }
 
-export const AuthInputField = <T extends FieldValues>({ control, name, type, placeholder, maxLength }: AuthInputFieldProps<T>) => (
+// Read-only until the page's script runs: anything typed before that would be wiped when it loads
+export const AuthInputField = <T extends FieldValues>({ control, name, type, placeholder, maxLength }: AuthInputFieldProps<T>) => {
+    const hydrated = useHydrated();
+    return (
     <FormField
         name={name}
         control={control}
@@ -132,6 +136,7 @@ export const AuthInputField = <T extends FieldValues>({ control, name, type, pla
                         type={type}
                         placeholder={placeholder}
                         maxLength={maxLength}
+                        readOnly={!hydrated}
                         className="h-12 border-2 focus:border-primary/50 transition-colors duration-200"
                     />
                 </FormControl>
@@ -139,7 +144,8 @@ export const AuthInputField = <T extends FieldValues>({ control, name, type, pla
             </FormItem>
         )}
     />
-);
+    );
+};
 
 interface AuthSubmitButtonProps {
     isPending: boolean;
@@ -147,8 +153,12 @@ interface AuthSubmitButtonProps {
     pendingLabel: string;
 }
 
-export const AuthSubmitButton = ({ isPending, label, pendingLabel }: AuthSubmitButtonProps) => (
-    <Button disabled={isPending} size="lg" className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transition-all duration-200">
+// Disabled until the page's script runs: a tap before that would submit the form natively
+export const AuthSubmitButton = ({ isPending, label, pendingLabel }: AuthSubmitButtonProps) => {
+    const hydrated = useHydrated();
+    return (
+    <Button disabled={isPending || !hydrated} size="lg" className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transition-all duration-200">
         {isPending ? pendingLabel : label}
     </Button>
-);
+    );
+};

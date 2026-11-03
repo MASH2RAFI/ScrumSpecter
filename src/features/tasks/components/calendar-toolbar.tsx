@@ -52,7 +52,7 @@ export const CalendarToolbar = ({ title, view, onView, onNavigate, prefs, onPref
                     variant={view === option ? "primary" : "ghost"}
                     aria-pressed={view === option}
                     onClick={() => onView(option)}
-                    className="h-7 px-3 capitalize min-h-0"
+                    className="h-7 min-w-0 px-1 capitalize min-h-0 max-[359px]:text-xs sm:px-3"
                 >
                     {option}
                 </Button>

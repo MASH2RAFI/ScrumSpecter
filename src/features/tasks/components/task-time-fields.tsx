@@ -47,7 +47,7 @@ export const TaskTimeFields = ({ disabled }: { disabled?: boolean }) => {
                         value={startTime}
                         onChange={(e) => setValue("startTime", e.target.value || "09:00", { shouldDirty: true })}
                         disabled={disabled}
-                        className="w-32"
+                        className="w-36"
                     />
                     <div className="flex flex-wrap gap-1" role="group" aria-label="Duration">
                         {DURATION_CHIPS.map((chip) => (

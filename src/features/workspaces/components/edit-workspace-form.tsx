@@ -66,12 +66,12 @@ const GeneralSettings = ({ workspace, isAdmin }: { workspace: Workspace; isAdmin
                     <div className="space-y-1">
                         <Label htmlFor="work-day-start">Day starts</Label>
                         <Input id="work-day-start" type="time" value={dayStart} onChange={(e) => setDayStart(e.target.value || dayStart)}
-                            disabled={!isAdmin} className="w-32" />
+                            disabled={!isAdmin} className="w-36" />
                     </div>
                     <div className="space-y-1">
                         <Label htmlFor="work-day-end">Day ends</Label>
                         <Input id="work-day-end" type="time" value={dayEnd} onChange={(e) => setDayEnd(e.target.value || dayEnd)}
-                            disabled={!isAdmin} className="w-32" aria-invalid={hoursInvalid} />
+                            disabled={!isAdmin} className="w-36" aria-invalid={hoursInvalid} />
                     </div>
                 </div>
                 {hoursInvalid && <p role="alert" className="text-xs text-destructive">The day has to end after it starts.</p>}

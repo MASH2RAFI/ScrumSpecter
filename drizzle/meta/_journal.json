@@ -120,6 +120,13 @@
       "when": 1793555275674,
       "tag": "0016_email_change_drops_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793685014086,
+      "tag": "0017_stars_data_version",
+      "breakpoints": true
     }
   ]
 }

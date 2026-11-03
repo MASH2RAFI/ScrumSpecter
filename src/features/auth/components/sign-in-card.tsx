@@ -51,7 +51,9 @@ export const SignInCard = ({ googleEnabled, error, next, linkGoogleEmail }: Sign
             description="Sign in to continue to your workspace"
         >
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                {/* POST: a tap before the page's script runs submits natively, and GET would put the
+                    password in the address bar and history (the same on every account form) */}
+                <form method="post" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     <AuthInputField control={form.control} name="email" type="email" placeholder="Enter email address" maxLength={MAX_EMAIL} />
                     <AuthInputField control={form.control} name="password" type="password" placeholder="Enter password" />
                     <AuthSubmitButton isPending={isPending} label="Sign In" pendingLabel="Signing in..." />

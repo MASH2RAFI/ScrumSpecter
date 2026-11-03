@@ -124,7 +124,7 @@ const ProfileTab = ({ account }: { account: AccountInfo }) => {
     };
 
     return (
-        <form onSubmit={submit} className="space-y-4 pt-2">
+        <form method="post" onSubmit={submit} className="space-y-4 pt-2">
             <Field id="account-name" label="Name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={80} />
             <Field
                 id="account-email"
@@ -187,7 +187,7 @@ const SecurityTab = ({ account }: { account: AccountInfo }) => {
                 title={account.hasPassword ? "Change password" : "Set a password"}
                 description={account.hasPassword ? "Other devices are signed out when you change it." : "Lets you sign in with your email as well as Google."}
             >
-                <form onSubmit={savePassword} className="space-y-3">
+                <form method="post" onSubmit={savePassword} className="space-y-3">
                     {account.hasPassword && (
                         <Field id="current-password" label="Current password" type="password" autoComplete="current-password"
                             value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
@@ -235,7 +235,7 @@ const SecurityTab = ({ account }: { account: AccountInfo }) => {
             )}
 
             <Section title="Delete account" description="Removes your account and the workspaces only you are in. Shared workspaces keep your tasks, handed to another admin.">
-                <form onSubmit={removeAccount} className="space-y-3">
+                <form method="post" onSubmit={removeAccount} className="space-y-3">
                     <Field id="delete-confirm-email" label={`Type ${account.email} to confirm`} value={confirmEmail}
                         onChange={(e) => setConfirmEmail(e.target.value)} autoComplete="off" required />
                     {account.hasPassword && (

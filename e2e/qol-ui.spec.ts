@@ -48,11 +48,15 @@ test("an invite link opened signed out comes back after signing in", async ({ ba
     await expect(page).toHaveURL(/\/sign-in\?next=/);
     await expect(page.getByText("Sign in to accept the workspace invite.")).toBeVisible();
 
-    // A wrong password says so
-    await page.getByPlaceholder("Enter email address").fill(guest.email);
-    await page.getByPlaceholder("Enter password").fill("wrong-password!");
-    await page.getByRole("button", { name: "Sign In" }).click();
-    await expect(page.getByText("Wrong email or password")).toBeVisible();
+    // A wrong password says so (retried: a click before the page is interactive submits natively)
+    await expect(async () => {
+        await page.getByPlaceholder("Enter email address").fill(guest.email);
+        await page.getByPlaceholder("Enter password").fill("wrong-password!");
+        await page.getByRole("button", { name: "Sign In" }).click();
+        await expect(page.getByText("Wrong email or password")).toBeVisible({ timeout: 3_000 });
+    }).toPass({ timeout: 45_000 });
+    // Never in the address bar
+    expect(page.url()).not.toContain("wrong-password");
 
     await page.getByPlaceholder("Enter password").fill(guest.password);
     await page.getByRole("button", { name: "Sign In" }).click();
@@ -208,8 +212,10 @@ test("a browser cache saved before a new field doesn't break the page", async ()
     await expect(page.getByLabel("Routines by weekday").getByText("10 AM", { exact: true })).toBeVisible();
 });
 
-test("bulk input tab: check, apply, and copy the AI prompt", async () => {
-    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+test("bulk input tab: check, apply, and copy the AI prompt", async ({ browserName }) => {
+    // WebKit can't grant tests clipboard access: there, record what the page copies instead
+    const realClipboard = browserName !== "webkit";
+    if (realClipboard) await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.goto(`/workspaces/${workspace.$id}?workspace-panel=settings`, { timeout: 90_000 });
     const settings = page.getByRole("dialog", { name: "Workspace settings" });
     await settings.getByRole("tab", { name: "Bulk input" }).click();
@@ -226,8 +232,16 @@ test("bulk input tab: check, apply, and copy the AI prompt", async () => {
     await settings.getByRole("button", { name: "Apply 1 change" }).click();
     await expect(page.getByText("Added 1 task")).toBeVisible();
 
+    if (!realClipboard) {
+        await page.evaluate(() => {
+            const w = window as unknown as { copied: string };
+            navigator.clipboard.writeText = async (text: string) => { w.copied = text; };
+        });
+    }
     await settings.getByRole("button", { name: "Copy AI prompt" }).click();
-    const prompt = await page.evaluate(() => navigator.clipboard.readText());
+    const prompt = realClipboard
+        ? await page.evaluate(() => navigator.clipboard.readText())
+        : await page.evaluate(() => (window as unknown as { copied: string }).copied);
     expect(prompt).toContain("Reply with ONLY the commands");
     expect(prompt).toContain('Existing projects: "Website"');
     expect(prompt).toContain("task add \"<name>\" [project:");

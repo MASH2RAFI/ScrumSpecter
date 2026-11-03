@@ -51,8 +51,19 @@ export const usePush = () => {
             setState("blocked");
             return;
         }
-        const subscription = await (await registration()).pushManager.getSubscription();
-        setState(subscription && Notification.permission === "granted" ? "on" : "off");
+        // Not allowed yet, so there's no subscription to look up. Skipping it also spares a browser
+        // whose lookup never answers (Playwright's Linux WebKit froze the page on it)
+        if (Notification.permission !== "granted") {
+            setState("off");
+            return;
+        }
+        // Firefox rejects this when its push service is off (private windows, hardened builds)
+        const subscription = await registration().then((reg) => reg.pushManager.getSubscription()).catch(() => undefined);
+        if (subscription === undefined) {
+            setState("unsupported");
+            return;
+        }
+        setState(subscription ? "on" : "off");
     }, []);
 
     // Reads the browser's push permission and subscription, an outside system, so an effect is right

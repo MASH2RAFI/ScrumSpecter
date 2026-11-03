@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { clearPersistedCache } from "@/lib/query-cache";
 import { client } from "@/lib/rpc";
+import { useHydrated } from "@/hooks/use-hydrated";
 
 const errorOf = async (response: Response, fallback: string) =>
     ((await response.json().catch(() => ({}))) as { error?: string }).error ?? fallback;
@@ -26,6 +27,7 @@ const Shell = ({ title, description, children }: { title: string; description: s
 );
 
 export const ForgotPasswordCard = () => {
+    const hydrated = useHydrated();
     const [email, setEmail] = useState("");
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -51,13 +53,13 @@ export const ForgotPasswordCard = () => {
             {message ? (
                 <p role="status" className="rounded-md bg-primary/10 px-3 py-2 text-sm text-primary">{message}</p>
             ) : (
-                <form onSubmit={submit} className="space-y-4">
+                <form method="post" onSubmit={submit} className="space-y-4">
                     <div className="space-y-1.5">
                         <Label htmlFor="forgot-email">Email</Label>
-                        <Input id="forgot-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="h-11" />
+                        <Input id="forgot-email" type="email" required readOnly={!hydrated} value={email} onChange={(e) => setEmail(e.target.value)} className="h-11" />
                     </div>
                     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-                    <Button type="submit" size="lg" className="w-full" disabled={pending}>
+                    <Button type="submit" size="lg" className="w-full" disabled={pending || !hydrated}>
                         {pending ? "Sending..." : "Email me a link"}
                     </Button>
                 </form>
@@ -70,6 +72,7 @@ export const ForgotPasswordCard = () => {
 };
 
 export const ResetPasswordCard = ({ token }: { token: string | null }) => {
+    const hydrated = useHydrated();
     const router = useRouter();
     const queryClient = useQueryClient();
     const [password, setPassword] = useState("");
@@ -109,15 +112,15 @@ export const ResetPasswordCard = ({ token }: { token: string | null }) => {
 
     return (
         <Shell title="Choose a new password" description="You'll be signed out everywhere else.">
-            <form onSubmit={submit} className="space-y-4">
+            <form method="post" onSubmit={submit} className="space-y-4">
                 <div className="space-y-1.5">
                     <Label htmlFor="new-password">New password</Label>
-                    <Input id="new-password" type="password" autoComplete="new-password" minLength={8} maxLength={128} required
+                    <Input id="new-password" type="password" autoComplete="new-password" minLength={8} maxLength={128} required readOnly={!hydrated}
                         value={password} onChange={(e) => setPassword(e.target.value)} className="h-11" />
                 </div>
                 <div className="space-y-1.5">
                     <Label htmlFor="confirm-password">Confirm new password</Label>
-                    <Input id="confirm-password" type="password" autoComplete="new-password" minLength={8} maxLength={128} required
+                    <Input id="confirm-password" type="password" autoComplete="new-password" minLength={8} maxLength={128} required readOnly={!hydrated}
                         value={confirm} onChange={(e) => setConfirm(e.target.value)} className="h-11" />
                 </div>
                 {error && (
@@ -126,7 +129,7 @@ export const ResetPasswordCard = ({ token }: { token: string | null }) => {
                         {error.includes("expired") && <Link href="/forgot-password" className="underline">Ask for a new link</Link>}
                     </p>
                 )}
-                <Button type="submit" size="lg" className="w-full" disabled={pending}>
+                <Button type="submit" size="lg" className="w-full" disabled={pending || !hydrated}>
                     {pending ? "Saving..." : "Save new password"}
                 </Button>
             </form>

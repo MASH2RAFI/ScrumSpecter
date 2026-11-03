@@ -114,7 +114,10 @@ export const SimpleDatePicker = ({
                     disabled={disabled}
                     aria-label={label ? undefined : placeholder}
                     className={cn(
-                        "w-full lg:w-auto",
+                        // iOS gives an empty date field almost no width of its own
+                        "w-full min-w-36 lg:w-auto",
+                        // iOS centres the chosen date; keep it where the placeholder was
+                        "[&::-webkit-date-and-time-value]:text-left",
                         "border border-input bg-background",
                         "text-sm ring-offset-background",
                         "file:border-0 file:bg-transparent file:text-sm file:font-medium",
@@ -151,7 +154,7 @@ export const SimpleDatePicker = ({
                 />
 
                 {isMobile && empty && (
-                    <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-base text-muted-foreground">
+                    <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 flex items-center whitespace-nowrap text-base text-muted-foreground">
                         {placeholder}
                     </span>
                 )}

@@ -142,6 +142,28 @@ test("Home follows My Tasks; My work stays mine", async () => {
     await expect(myWork.getByText("Theirs todo")).toHaveCount(0);
 });
 
+test("a project's page keeps its own filter, apart from My Tasks", async () => {
+    // My Tasks is on Theo (from the test above); the project page starts from Everyone
+    await page.goto(`/workspaces/${workspaceId}/projects/${projectId}?task-view=table`, { timeout: 90_000 });
+    const filters = page.getByTestId("task-filters");
+    const rows = page.locator("tbody tr");
+    await expect(filters.getByRole("button", { name: /^Everyone/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(rows.filter({ hasText: "Mine todo" })).toHaveCount(1);
+
+    await filters.getByRole("button", { name: /^Done/ }).click();
+    await expect(rows.filter({ hasText: "Placeholder done" })).toHaveCount(1);
+    await expect(rows.filter({ hasText: "Mine todo" })).toHaveCount(0);
+    await expect.poll(async () => (await json(await me.api.get("/api/account")) as { preferences: Record<string, Record<string, unknown>> }).preferences)
+        .toMatchObject({
+            projectFilters: { [projectId]: { statuses: ["DONE"] } },
+            taskFilters: { [workspaceId]: { people: [mateId], statuses: [] } },
+        });
+    // And back on My Tasks, its own choice
+    await page.goto(`/workspaces/${workspaceId}/tasks?task-view=table`, { timeout: 90_000 });
+    await expect(page.getByTestId("task-filters").getByRole("button", { name: /^Theo Mate/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("task-filters").getByRole("button", { name: /^Done/ })).toHaveAttribute("aria-pressed", "false");
+});
+
 test("Routines keep their own filter; Reset clears My Tasks", async () => {
     await page.goto(`/workspaces/${workspaceId}/routines`, { timeout: 90_000 });
     const routineFilters = page.getByTestId("routine-filters");

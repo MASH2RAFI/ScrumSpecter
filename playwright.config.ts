@@ -1,7 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
 // End-to-end suite: a fresh in-memory database (e2e/db-server.mjs) and `next dev` on its own port.
-// Uses an installed Chromium; set CHROMIUM_PATH if it isn't at /usr/bin/chromium.
+// Uses an installed Chromium; set CHROMIUM_PATH if it isn't at /usr/bin/chromium. E2E_BROWSER=firefox
+// or webkit runs it in Playwright's own build of that browser (WebKit: scripts/e2e-webkit.sh).
+const browserName = (process.env.E2E_BROWSER ?? "chromium") as "chromium" | "firefox" | "webkit";
 const DB_PORT = 55433;
 const APP_PORT = 3100;
 const baseURL = `http://localhost:${APP_PORT}`;
@@ -17,10 +19,10 @@ export default defineConfig({
     reporter: [["list"]],
     use: {
         baseURL,
-        launchOptions: {
-            executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
-            args: ["--no-sandbox"],
-        },
+        browserName,
+        launchOptions: browserName === "chromium"
+            ? { executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium", args: ["--no-sandbox"] }
+            : {},
         trace: "retain-on-failure",
     },
     webServer: [

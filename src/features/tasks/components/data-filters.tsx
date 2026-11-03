@@ -15,6 +15,7 @@ import { EMPTY_TASK_FILTER, TASK_SORTS, type UserPreferences } from "@/features/
 import { useGetMembers } from "@/features/members/api/use-get-members";
 import { MemberAvatar } from "@/features/members/components/member-avatar";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
+import { useProjectId } from "@/features/projects/hooks/use-project-id";
 
 import { useGetTaskFacets, type UseGetTasksProps } from "../api/use-get-tasks";
 import { useTaskFilters } from "../hooks/use-task-filters";
@@ -84,13 +85,13 @@ interface DataFiltersProps {
 
 // My Tasks' filter block: search (with field shortcuts), due date and sort; then whose tasks, which
 // statuses (plus Starred and Overdue), and the project eyes. The choices are saved on the account
-// per workspace, and Home follows them. Within a row a choice means "any of"; Starred and Overdue
+// per workspace, and Home follows them; a project's page keeps its own. Within a row a choice means "any of"; Starred and Overdue
 // narrow what's left.
 export const DataFilters = ({ base, hideProjectFilter, hideDateFilter, understood = [] }: DataFiltersProps) => {
     const workspaceId = useWorkspaceId();
     const { data: members } = useGetMembers({ workspaceId });
     const { data: currentUser } = useCurrent();
-    const { filter, setFilter } = useTaskFilter(workspaceId);
+    const { filter, setFilter } = useTaskFilter(workspaceId, useProjectId());
     const { taskSort } = usePreferences();
     const savePreferences = useSavePreferences();
     const [{ search, dueDate, status: urlStatus }, setUrl] = useTaskFilters();
@@ -160,7 +161,7 @@ export const DataFilters = ({ base, hideProjectFilter, hideDateFilter, understoo
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lockIn(); } }}
                         placeholder="Search: theo in review, overdue, starred…"
                         aria-label="Search tasks"
-                        className="h-7 min-h-0 pl-7 text-xs"
+                        className="h-7 min-h-0 pl-7 text-base md:text-xs"
                     />
                 </div>
                 {!hideDateFilter && (

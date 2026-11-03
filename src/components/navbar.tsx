@@ -76,7 +76,9 @@ export const Navbar = () => {
                     <span className="flex-1 text-left">Search or jump to…</span>
                     <kbd className="rounded-md border bg-muted px-1.5 font-sans text-[11px]">Ctrl K</kbd>
                 </button>
-                <ThemeSwitch />
+                {/* Under 360px (in text units, so larger text hides it sooner) it leaves the title no room;
+                    the theme is also in Account → Preferences */}
+                <div className="max-[22.5rem]:hidden"><ThemeSwitch /></div>
                 <NotificationBell />
                 <UserButton />
             </div>

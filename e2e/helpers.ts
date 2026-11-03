@@ -96,9 +96,12 @@ export const createTask = async (
 // Fails the test on uncaught page errors and console errors (React warnings included)
 export const watchConsole = (page: Page) => {
     const errors: string[] = [];
-    page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
+    // WebKit reports a request cut off by a navigation (handled or not) as "… due to access control
+    // checks"; Chromium and Firefox stay quiet about it
+    const cutOff = (text: string) => text.endsWith("due to access control checks.");
+    page.on("pageerror", (error) => { if (!cutOff(error.message)) errors.push(`pageerror: ${error.message}`); });
     page.on("console", (message) => {
-        if (message.type() === "error") {
+        if (message.type() === "error" && !cutOff(message.text())) {
             void Promise.all(message.args().map((arg) => arg.jsonValue().catch(() => "?"))).then((args) => {
                 if (args.length > 1) console.log("console error args:", JSON.stringify(args).slice(0, 1500));
             });

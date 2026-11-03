@@ -11,6 +11,7 @@ import {
     forgetCachedSessions,
     hashPassword,
     mergePreferences,
+    SECURE_COOKIES,
     sessionIdFromToken,
     updateCachedUser,
     verifyPassword,
@@ -245,7 +246,7 @@ const app = new Hono()
         });
         forgetCachedSessions($id);
 
-        deleteCookie(c, AUTH_COOKIE, { path: "/", secure: true });
+        deleteCookie(c, AUTH_COOKIE, { path: "/", secure: SECURE_COOKIES });
         return c.json({ data: { success: true } });
     });
 

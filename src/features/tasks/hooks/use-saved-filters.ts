@@ -6,13 +6,15 @@ import {
     type RoutineFilter, type TaskFilter,
 } from "@/features/auth/preferences";
 
-// The My Tasks filter for this workspace, saved on the account (Home follows it)
-export const useTaskFilter = (workspaceId: string) => {
-    const { taskFilters, hiddenProjects } = usePreferences();
+// The My Tasks filter for this workspace, saved on the account (Home follows it); on a project's
+// page, that project's own filter instead
+export const useTaskFilter = (workspaceId: string, projectId?: string | null) => {
+    const { taskFilters, projectFilters, hiddenProjects } = usePreferences();
     const save = useSavePreferences();
-    const filter = taskFilters[workspaceId] ?? EMPTY_TASK_FILTER;
-    const setFilter = (changes: Partial<TaskFilter>) =>
-        save({ taskFilters: { ...taskFilters, [workspaceId]: { ...filter, ...changes } } });
+    const filter = (projectId ? projectFilters[projectId] : taskFilters[workspaceId]) ?? EMPTY_TASK_FILTER;
+    const setFilter = (changes: Partial<TaskFilter>) => save(projectId
+        ? { projectFilters: { ...projectFilters, [projectId]: { ...filter, ...changes } } }
+        : { taskFilters: { ...taskFilters, [workspaceId]: { ...filter, ...changes } } });
     return { filter, setFilter, hiddenProjects };
 };
 
