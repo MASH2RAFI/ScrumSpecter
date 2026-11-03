@@ -52,6 +52,11 @@ export default defineConfig({
                 NEXT_DIST_DIR: ".next-e2e",
                 // Trust the fake push service in notifications-api.spec.ts (test-only certificate)
                 NODE_EXTRA_CA_CERTS: "e2e/fixtures/push-server.crt",
+                // A test-only VAPID pair (not the live one), so push tests don't depend on .env.local
+                // and pass in CI. Generated with web-push's generateVAPIDKeys().
+                NEXT_PUBLIC_VAPID_PUBLIC_KEY: "BGvkZiIuMHu4m7wGHTsKx4ttkM_chOM-aUelU7Ctcq6gxWHO5zhjYsKyj3xXj0OTKeBAP80f_T9ozqfXE6Mpatc",
+                VAPID_PRIVATE_KEY: "rn3cL_UEVi7LbhRzmSYoZv4rs3icP-WQjPzXidw5id0",
+                VAPID_SUBJECT: "mailto:e2e@example.com",
             },
         },
     ],

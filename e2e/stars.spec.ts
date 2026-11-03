@@ -11,7 +11,6 @@ let stranger: TestUser;
 let first: { $id: string; name: string };
 let second: { $id: string; name: string };
 let taskId: string;
-let doneTaskId: string;
 let otherTaskId: string;
 let routineId: string;
 
@@ -38,7 +37,7 @@ test.beforeAll(async ({ baseURL }) => {
     const make = async (workspaceId: string, projectId: string, name: string, status = "TODO") =>
         (await json(await createTask(owner.api, { workspaceId, projectId, name, status, assigneeId: workspaceId === first.$id ? firstOwner : secondOwner })) as { $id: string }).$id;
     taskId = await make(first.$id, project.$id, "Starred alpha task");
-    doneTaskId = await make(first.$id, project.$id, "Finished alpha task", "DONE");
+    await make(first.$id, project.$id, "Finished alpha task", "DONE");
     otherTaskId = await make(second.$id, otherProject.$id, "Starred beta task");
 
     const routine = await owner.api.post("/api/routines", {
