@@ -43,8 +43,6 @@ export const setHour12 = (hour12: boolean) => {
     timeFormat = makeTimeFormat(hour12);
 };
 
-export const usesHour12 = () => timeFormat.resolvedOptions().hour12 !== false;
-
 // "10:00 – 10:30" in the viewer's locale/timezone
 export const formatTimeRange = (startAt: string, durationMinutes?: number | null) => {
     const start = new Date(startAt);

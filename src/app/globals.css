@@ -45,26 +45,6 @@
 }
 
 @layer components {
-  /* Mobile-optimized container */
-  .mobile-container {
-    @apply px-4 sm:px-6 lg:px-8;
-    @apply max-w-full;
-  }
-  
-  /* Touch-friendly spacing */
-  .touch-spacing {
-    @apply space-y-4 sm:space-y-6;
-  }
-  
-  /* Mobile-optimized text sizes */
-  .mobile-text {
-    @apply text-sm sm:text-base;
-  }
-  
-  .mobile-heading {
-    @apply text-lg sm:text-xl md:text-2xl;
-  }
-  
   /* Better mobile scrolling */
   .mobile-scroll {
     @apply overflow-y-auto;
@@ -79,39 +59,14 @@ body {
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-  
   /* Unified spacing scale */
-  .space-unified-xs { @apply space-y-1; }
   .space-unified-sm { @apply space-y-2; }
-  .space-unified-md { @apply space-y-4; }
-  .space-unified-lg { @apply space-y-6; }
-  .space-unified-xl { @apply space-y-8; }
   
   /* Unified border radius */
-  .rounded-unified { @apply rounded-lg; }
   .rounded-unified-sm { @apply rounded-md; }
-  .rounded-unified-lg { @apply rounded-xl; }
-  
-  /* Unified shadows */
-  .shadow-unified { box-shadow: var(--shadow-soft); }
-  .shadow-unified-md { box-shadow: var(--shadow-soft); }
-  .shadow-unified-lg { box-shadow: var(--shadow-lift); }
   
   /* Unified transitions */
   .transition-unified { @apply transition-all duration-200 ease-out; }
-  .transition-unified-fast { @apply transition-all duration-150 ease-out; }
-  .transition-unified-slow { @apply transition-all duration-300 ease-out; }
-  
-  /* Monochrome gradients */
-  .gradient-mono-subtle { 
-    background: linear-gradient(135deg, hsl(var(--muted)) 0%, hsl(var(--accent)) 100%);
-  }
-  .gradient-mono-strong { 
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--foreground)) 100%);
-  }
 }
 
 @layer base {
@@ -219,15 +174,6 @@ body {
 .scrollbar-on-hover:hover,
 .scrollbar-on-hover:focus-within {
   scrollbar-color: hsl(var(--muted-foreground) / 0.4) transparent;
-}
-
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
 }
 
 /* Everything settles instantly for people who ask for less motion (Motion itself follows the same

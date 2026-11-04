@@ -68,22 +68,21 @@ const FEATURES = [
     { icon: TargetIcon, title: "Sprint Management", description: "Give each project a sprint, then follow its countdown, story points and progress from the dashboard.", badge: "Core Feature" },
     { icon: CheckCircleIcon, title: "Task Management", description: "Story points, due dates, time blocks and several assignees, moving through Backlog, To Do, In Progress, In Review and Done.", badge: "Core Feature" },
     { icon: CalendarIcon, title: "Multiple Views", description: "Switch between a table, a kanban board and a calendar, with drag and drop in each. Drag a card or calendar task to the bin on the right to delete it; Undo is one click away.", badge: "Flexible" },
-    { icon: RepeatIcon, title: "Weekly Routines", description: "Set up standups and other repeating work once. Tasks are created on their days through the sprint, skipping days off, and each routine picks the views its tasks show in. Personal routines need no project.", badge: "New!" },
-    { icon: ShieldCheckIcon, title: "Roles & Review", description: "Admin, Supervisor, Reviewer, Assignee and Viewer. Assignees take work to In Review; a reviewer approves it to Done.", badge: "New!" },
-    { icon: GitPullRequestArrowIcon, title: "Change Requests", description: "Assignees and reviewers propose new tasks, edits or deletions, and an admin or supervisor approves or declines them.", badge: "New!" },
+    { icon: RepeatIcon, title: "Weekly Routines", description: "Set up standups and other repeating work once. Tasks are created on their days through the sprint, skipping days off, and each routine picks the views its tasks show in. Personal routines need no project." },
+    { icon: ShieldCheckIcon, title: "Roles & Review", description: "Admin, Supervisor, Reviewer, Assignee and Viewer. Assignees take work to In Review; a reviewer approves it to Done." },
+    { icon: GitPullRequestArrowIcon, title: "Change Requests", description: "Assignees and reviewers propose new tasks, edits or deletions, and an admin or supervisor approves or declines them." },
     { icon: BellIcon, title: "Reminders", description: "In-app and push notifications: tomorrow's tasks the evening before, a heads-up before a task ends (you pick both times), and decisions on your requests.", badge: "Essential" },
-    { icon: ListPlusIcon, title: "Bulk Input", description: "Add, change or remove many projects, tasks, routines and days off at once, checked line by line, or let your AI assistant write them. Reviewers and assignees can add tasks too; tasks for others go for approval. You can even set up a whole new workspace this way.", badge: "New!" },
-    { icon: StarIcon, title: "Starred", description: "Star the tasks and routines you keep coming back to, then filter My Tasks or Routines to just those, calendar included.", badge: "New!" },
-    { icon: DownloadIcon, title: "Export", description: "Tasks as CSV or a calendar file, a live calendar link for Google or Apple Calendar, charts as images, and a full backup of the workspace.", badge: "New!" },
-    { icon: SlidersHorizontalIcon, title: "Your Way", description: "Filters that remember themselves (people, statuses, starred, overdue) and Home follows, plus date and time format, week start, starting views, compact Kanban cards and theme, all saved to your account.", badge: "New!" },
+    { icon: ListPlusIcon, title: "Bulk Input", description: "Add, change or remove many projects, tasks, routines and days off at once, checked line by line, or let your AI assistant write them. Reviewers and assignees can add tasks too; tasks for others go for approval. You can even set up a whole new workspace this way." },
+    { icon: StarIcon, title: "Starred", description: "Star the tasks and routines you keep coming back to, then filter My Tasks or Routines to just those, calendar included." },
+    { icon: DownloadIcon, title: "Export", description: "Tasks as CSV or a calendar file, a live calendar link for Google or Apple Calendar, charts as images, and a full backup of the workspace." },
+    { icon: SlidersHorizontalIcon, title: "Your Way", description: "Filters that remember themselves (people, statuses, starred, overdue) and Home follows, plus date and time format, week start, starting views, compact Kanban cards and theme, all saved to your account. The app reopens the workspace you used last." },
     { icon: BarChart3Icon, title: "Analytics Dashboard", description: "Capacity calculator, burndown chart, velocity tracker and sprint reports.", badge: "Advanced" },
     { icon: UsersIcon, title: "Team Collaboration", description: "Invite links with optional expiry and use limits, a separate view-only link, and placeholders for people who haven't joined yet.", badge: "Essential" },
     { icon: KeyboardIcon, title: "Keyboard Friendly", description: "Jump anywhere with Ctrl/⌘ K, create a task with C, search with /, and press ? for every shortcut. Boards, the calendar and every dialog work without a mouse.", badge: "Fast" },
-    { icon: SmartphoneIcon, title: "Works Everywhere", description: "Responsive on phones, tablets and desktops, installable as an app, with light and dark themes.", badge: "Universal" },
+    { icon: SmartphoneIcon, title: "Works Everywhere", description: "Built for phones too: a bottom tab bar, tasks as cards, a swipeable one-column board and a calendar list. Installable as an app, with light and dark themes.", badge: "Universal" },
 ];
 
 const BADGE_CLASSES: Record<string, string> = {
-    "New!": "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
     "Core Feature": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
     "Essential": "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
 };
@@ -101,7 +100,7 @@ const BENEFITS = [
     { icon: ShieldIcon, color: "text-primary", title: "Secure by Default", description: "Argon2-hashed passwords, email verification, lockout after repeated failed logins, single-use reset links and TLS to the database." },
     { icon: RefreshCwIcon, color: "text-blue-600", title: "Always in Sync", description: "Changes your teammates make show up on their own within a minute, without reloading." },
     { icon: CloudIcon, color: "text-sky-600", title: "Your Own Data", description: "Stored in a self-hosted PostgreSQL database with encrypted nightly backups, and yours to export any time." },
-    { icon: CalendarDaysIcon, color: "text-purple-600", title: "Fits Your Calendar", description: "Public holidays, your own days off, working hours and your time zone shape routines and reminders." },
+    { icon: CalendarDaysIcon, color: "text-purple-600", title: "Fits Your Calendar", description: "Public holidays, your own days off and weekend, working hours and your time zone shape routines and reminders." },
     { icon: HeartIcon, color: "text-red-600", title: "Made for Small Teams", description: "Built around how small agile teams actually plan, review and ship their sprints." },
 ];
 
@@ -159,7 +158,7 @@ const STEPS: { title: string; items: StepItem[] }[] = [
         items: [
             { icon: FolderPlusIcon, bg: "bg-yellow-100 dark:bg-yellow-900/30", color: "text-yellow-600 dark:text-yellow-400", text: "Give each project a sprint start and end date; the countdown starts on its own" },
             { icon: ListTodoIcon, bg: "bg-teal-100 dark:bg-teal-900/30", color: "text-teal-600 dark:text-teal-400", text: "Add tasks with story points, one or more assignees, a due date and, if you like, a time block" },
-            { icon: RepeatIcon, bg: "bg-pink-100 dark:bg-pink-900/30", color: "text-pink-600 dark:text-pink-400", text: "Set up weekly routines for repeating work, and add days off in Settings → Holidays" },
+            { icon: RepeatIcon, bg: "bg-pink-100 dark:bg-pink-900/30", color: "text-pink-600 dark:text-pink-400", text: "Set up weekly routines for repeating work, and add days off or pick your weekend in Settings → Holidays" },
             { icon: ListPlusIcon, bg: "bg-cyan-100 dark:bg-cyan-900/30", color: "text-cyan-600 dark:text-cyan-400", text: "Lots to add? Settings → Bulk input takes many lines at once" },
         ],
     },
@@ -169,7 +168,7 @@ const STEPS: { title: string; items: StepItem[] }[] = [
             { icon: HomeIcon, bg: "bg-slate-100 dark:bg-slate-900/30", color: "text-slate-600 dark:text-slate-400", label: "Home:", text: "What's overdue, due today and due tomorrow, with countdowns" },
             { icon: ListTodoIcon, bg: "bg-sky-100 dark:bg-sky-900/30", color: "text-sky-600 dark:text-sky-400", label: "Table View:", text: "Sort, filter and search; click a row to open it, or Shift-click a range to edit many at once" },
             { icon: KanbanIcon, bg: "bg-cyan-100 dark:bg-cyan-900/30", color: "text-cyan-600 dark:text-cyan-400", label: "Kanban View:", text: "Drag tasks between Backlog, To Do, In Progress, In Review and Done" },
-            { icon: CalendarDaysIcon, bg: "bg-emerald-100 dark:bg-emerald-900/30", color: "text-emerald-600 dark:text-emerald-400", label: "Calendar View:", text: "Drag tasks onto days and times, or stretch them to change their length; all-day tasks fill the working day" },
+            { icon: CalendarDaysIcon, bg: "bg-emerald-100 dark:bg-emerald-900/30", color: "text-emerald-600 dark:text-emerald-400", label: "Calendar View:", text: "Drag tasks onto days and times, or stretch them to change their length; all-day tasks fill the working day, and the List view shows the next two weeks" },
         ],
     },
     {
@@ -330,19 +329,18 @@ export const AboutContent = () => {
                     <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {FEATURES.map(({ icon: Icon, title, description, badge }) => (
                             <StaggerItem key={title} className="group flex flex-col items-center text-center space-y-4 p-6 rounded-card bg-card border border-border/70 shadow-soft hover:shadow-lift transition-shadow duration-300 ease-out relative">
-                                <div className="absolute top-4 right-4">
-                                    <Badge
-                                        variant={badge === "New!" ? "default" : "secondary"}
-                                        className={`text-xs ${BADGE_CLASSES[badge] ?? DEFAULT_BADGE_CLASS}`}
-                                    >
-                                        {badge}
-                                    </Badge>
-                                </div>
                                 <div className={cn("p-4 rounded-2xl", ICON_TILE)}>
                                     <Icon className="h-6 w-6 text-primary" />
                                 </div>
                                 <h3 className="font-bold text-xl group-hover:text-primary transition-colors duration-300">{title}</h3>
                                 <p className="text-muted-foreground leading-relaxed">{description}</p>
+                                {badge && (
+                                    <div className="absolute top-4 right-4">
+                                        <Badge variant="secondary" className={`text-xs ${BADGE_CLASSES[badge] ?? DEFAULT_BADGE_CLASS}`}>
+                                            {badge}
+                                        </Badge>
+                                    </div>
+                                )}
                             </StaggerItem>
                         ))}
                     </Stagger>

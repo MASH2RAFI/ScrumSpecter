@@ -30,7 +30,6 @@ export const toTaskDoc = (task: typeof tasks.$inferSelect) => ({
 //   doneLimit (kanban): only the most recently finished Done tasks
 export const SORT_KEYS = ["name", "project", "assignee", "dueDate", "storyPoints", "status", "createdAt"] as const;
 export const TASK_SCOPES = ["table", "kanban", "calendar", "home"] as const;
-export type TaskScope = (typeof TASK_SCOPES)[number];
 
 const isoDate = z.string().datetime({ offset: true });
 const flag = z.enum(["true", "false"]).transform((value) => value === "true");

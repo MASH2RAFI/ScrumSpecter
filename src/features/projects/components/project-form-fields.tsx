@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { SimpleDatePicker } from "@/components/simple-date-picker";
-import { convertDDMMYYYYToDate, convertDateToDDMMYYYY } from "@/lib/sprint-utils";
+import { convertDDMMYYYYToDate, formatDateDDMMYYYY } from "@/lib/sprint-utils";
 
 interface FieldProps<T extends FieldValues> {
     control: Control<T>;
@@ -96,7 +96,7 @@ export const SprintDateField = <T extends FieldValues>({
                 <FormControl>
                     <SimpleDatePicker
                         value={field.value?.trim() ? convertDDMMYYYYToDate(field.value) : undefined}
-                        onChange={(date) => field.onChange(date ? convertDateToDDMMYYYY(date) : "")}
+                        onChange={(date) => field.onChange(date ? formatDateDDMMYYYY(date) : "")}
                         label={iconLabel ? undefined : label}
                         placeholder={`Select ${label.toLowerCase()}`}
                         size="lg"
