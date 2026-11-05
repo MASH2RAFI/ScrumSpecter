@@ -198,6 +198,8 @@ export const tasks = pgTable(
         index("tasks_workspace_idx").on(t.workspaceId),
         index("tasks_project_status_idx").on(t.projectId, t.status),
         index("tasks_assignees_idx").using("gin", t.assigneeIds),
+        // The reminder job (every 5 minutes) looks at open tasks due in the next few days
+        index("tasks_open_due_idx").on(t.dueDate).where(sql`${t.status} <> 'DONE'`),
     ]
 );
 

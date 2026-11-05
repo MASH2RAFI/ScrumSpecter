@@ -4,7 +4,7 @@ import { count, eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 
 import { db, type Tx } from "@/lib/db";
-import { projects, routines, tasks, workspaces } from "@/lib/db/schema";
+import { members, projects, routines, tasks, workspaceHolidays, workspaces } from "@/lib/db/schema";
 
 // Most a single account or workspace may hold, so one person can't fill the Pi's disk.
 // Routine tasks count toward "tasks" too: the nightly generation stops for a workspace at the cap.
@@ -13,6 +13,8 @@ export const VOLUME_CAPS = {
     projects: 100, // per workspace
     routines: 100, // per workspace
     tasks: 20_000, // per workspace
+    members: 500, // per workspace, people and placeholders together
+    holidays: 1000, // per workspace, days off and hidden public holidays
 } as const;
 
 type Kind = keyof typeof VOLUME_CAPS;
@@ -22,6 +24,8 @@ const COUNTED = {
     projects: { table: projects, scope: projects.workspaceId, where: "a workspace" },
     routines: { table: routines, scope: routines.workspaceId, where: "a workspace" },
     tasks: { table: tasks, scope: tasks.workspaceId, where: "a workspace" },
+    members: { table: members, scope: members.workspaceId, where: "a workspace" },
+    holidays: { table: workspaceHolidays, scope: workspaceHolidays.workspaceId, where: "a workspace" },
 } as const;
 
 // Throws a 409 with a clear message when adding `adding` more would pass the cap; inside a

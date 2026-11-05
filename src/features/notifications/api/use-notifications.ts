@@ -51,10 +51,27 @@ export const useGetPushDevices = () =>
             if (!response.ok) {
                 throw new ApiError("Failed to load devices", response.status);
             }
-            return (await response.json()).data.devices;
+            return (await response.json()).data;
         },
         staleTime: 0,
     });
+
+export const useRemovePushDevice = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const response = await client.api.notifications.subscriptions[":id"].$delete({ param: { id } });
+            if (!response.ok) {
+                throw new ApiError("Failed to remove the device", response.status);
+            }
+        },
+        onSuccess: () => {
+            toast.success("Device removed");
+            queryClient.invalidateQueries({ queryKey: ["push-devices"] });
+        },
+        onError: (error) => toast.error(error.message),
+    });
+};
 
 export const useSendTestNotification = () => {
     const queryClient = useQueryClient();

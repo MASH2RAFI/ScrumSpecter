@@ -15,6 +15,9 @@ const isPushServiceUrl = (value: string) => {
     }
 };
 
+// Devices an account can turn push notifications on for
+export const MAX_PUSH_DEVICES = 10;
+
 // PushSubscription.toJSON() from the browser
 export const subscriptionSchema = z.object({
     endpoint: z.string().max(2048).refine(isPushServiceUrl, "Not a push service URL"),

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { desc, eq } from "drizzle-orm";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { db } from "@/lib/db";
+import { forgetSavedFilters } from "@/lib/db/saved-filters";
 import { findById } from "@/lib/db/find-by-id";
 import { projects, routines } from "@/lib/db/schema";
 import { generateRoutineTasks } from "@/lib/routines";
@@ -15,6 +16,8 @@ import { createProjectFormSchema, updateProjectFormSchema } from "../schemas";
 import { Project } from "../types";
 import { idString } from "@/lib/limits";
 import { assertRoom } from "@/lib/volume-caps";
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 const toProject = (project: typeof projects.$inferSelect) => toDoc(project) as Project;
 
@@ -121,6 +124,14 @@ const app = new Hono()
                 return c.json({ error: "Only admins can update the starting sprint date" }, 403);
             }
 
+            // The schema compares the two dates only when both are sent; one on its own is compared
+            // with the stored other (an end before the start would drop the burndown's dates)
+            const start = currentSprintStartDate ?? existingProject.currentSprintStartDate;
+            const end = currentSprintEndDate ?? existingProject.currentSprintEndDate;
+            if (start && end && ISO_DAY.test(start) && ISO_DAY.test(end) && end < start) {
+                return c.json({ error: "End date can't be before the start date" }, 400);
+            }
+
             const updateData = {
                 name,
                 sprintDuration,
@@ -168,6 +179,7 @@ const app = new Hono()
 
             // Tasks are removed by ON DELETE CASCADE
             await db.delete(projects).where(eq(projects.id, projectId));
+            await forgetSavedFilters(db, { projectIds: [projectId] });
 
             return c.json({ data: { $id: existingProject.id } });
         }

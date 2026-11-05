@@ -96,6 +96,7 @@ export const writePlan = async (tx: Tx, workspaceId: string, plan: Planned[]) =>
     await assertRoom("projects", workspaceId, adding.project ?? 0, tx);
     await assertRoom("routines", workspaceId, adding.routine ?? 0, tx);
     await assertRoom("tasks", workspaceId, adding.task ?? 0, tx);
+    await assertRoom("members", workspaceId, adding.placeholder ?? 0, tx);
     for (const step of ofKind(plan, "project")) {
         await tx.insert(projects).values({
             id: step.id,

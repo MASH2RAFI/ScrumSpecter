@@ -141,6 +141,13 @@
       "when": 1793842826468,
       "tag": "0019_task_done_at",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793910504456,
+      "tag": "0020_tasks_open_due_idx",
+      "breakpoints": true
     }
   ]
 }

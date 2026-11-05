@@ -13,8 +13,8 @@ export const useTaskFilter = (workspaceId: string, projectId?: string | null) =>
     const save = useSavePreferences();
     const filter = (projectId ? projectFilters[projectId] : taskFilters[workspaceId]) ?? EMPTY_TASK_FILTER;
     const setFilter = (changes: Partial<TaskFilter>) => save(projectId
-        ? { projectFilters: { ...projectFilters, [projectId]: { ...filter, ...changes } } }
-        : { taskFilters: { ...taskFilters, [workspaceId]: { ...filter, ...changes } } });
+        ? { projectFilters: { [projectId]: { ...filter, ...changes } } }
+        : { taskFilters: { [workspaceId]: { ...filter, ...changes } } });
     return { filter, setFilter, hiddenProjects };
 };
 
@@ -24,7 +24,7 @@ export const useRoutineFilter = (workspaceId: string) => {
     const save = useSavePreferences();
     const filter = routineFilters[workspaceId] ?? EMPTY_ROUTINE_FILTER;
     const setFilter = (changes: Partial<RoutineFilter>) =>
-        save({ routineFilters: { ...routineFilters, [workspaceId]: { ...filter, ...changes } } });
+        save({ routineFilters: { [workspaceId]: { ...filter, ...changes } } });
     return { filter, setFilter };
 };
 

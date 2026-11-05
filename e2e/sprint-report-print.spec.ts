@@ -34,3 +34,32 @@ test("sprint report print doesn't run HTML from a member's name", async ({ page,
     await expect(report.locator("img")).toHaveCount(0);
     expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
 });
+
+// The breakdown covers every status, so its parts add up to the task total
+test("sprint report: the status breakdown adds up to the total", async ({ page, baseURL }) => {
+    test.setTimeout(120_000);
+    const user = await registerUser(baseURL!, "Rhea Report");
+    const workspaceId = (await createWorkspace(user.api, "Breakdown WS")).$id;
+    const projectId = (await createProject(user.api, workspaceId, "Breakdown Project")).$id;
+    const memberId = (await getMembers(user.api, workspaceId))[0].$id;
+    const counts = { BACKLOG: 1, TODO: 2, IN_PROGRESS: 1, IN_REVIEW: 3, DONE: 2 } as const;
+    for (const [status, count] of Object.entries(counts)) {
+        for (let i = 0; i < count; i++) {
+            const res = await createTask(user.api, { workspaceId, projectId, assigneeId: memberId, name: `${status} ${i}`, status });
+            expect(res.status(), await res.text()).toBe(200);
+        }
+    }
+
+    await signInBrowser(page, user, baseURL!);
+    await page.goto(`/workspaces/${workspaceId}/analytics`);
+    await page.getByRole("tab", { name: "Sprint Report" }).click();
+    await page.getByRole("tabpanel").locator("#project-select").click();
+    await page.getByRole("option", { name: "Breakdown Project" }).click();
+    const report = page.locator("#sprint-report-print");
+    await expect(report).toContainText("Tasks Completed");
+    const tile = (label: string) => report.locator("div.p-4", { has: page.locator(`p:text-is("${label}")`) });
+    await expect(tile("Tasks Completed")).toContainText("2/9");
+    for (const [label, count] of [["Backlog", 1], ["Todo", 2], ["In Progress", 1], ["In Review", 3], ["Done", 2]] as const) {
+        await expect(tile(label), label).toContainText(String(count));
+    }
+});

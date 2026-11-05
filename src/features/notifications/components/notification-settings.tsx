@@ -1,16 +1,19 @@
 "use client";
 
+import { formatDistanceToNow } from "date-fns";
 import { BellIcon, BellOffIcon, SendIcon } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useUpdatePreferences } from "@/features/account/api/use-account";
+import { describeDevice } from "@/features/account/device";
 import type { UserPreferences } from "@/features/auth/preferences";
 
-import { useGetPushDevices, useSendTestNotification } from "../api/use-notifications";
+import { useGetPushDevices, useRemovePushDevice, useSendTestNotification } from "../api/use-notifications";
 import { usePush } from "../hooks/use-push";
 import { clockLabel } from "@/features/tasks/task-time";
 
@@ -22,8 +25,10 @@ const DEVICE_HELP: Record<string, string> = {
 
 // Account settings → Notifications
 export const NotificationSettings = ({ preferences }: { preferences: UserPreferences }) => {
-    const { state, busy, enable, disable } = usePush();
-    const { data: devices } = useGetPushDevices();
+    const { state, busy, endpoint, enable, disable } = usePush();
+    const { data: pushDevices } = useGetPushDevices();
+    const devices = pushDevices?.devices;
+    const removeDevice = useRemovePushDevice();
     const sendTest = useSendTestNotification();
     const { mutate: updatePreferences, isPending } = useUpdatePreferences();
 
@@ -77,6 +82,40 @@ export const NotificationSettings = ({ preferences }: { preferences: UserPrefere
                 <p className="text-xs text-muted-foreground">
                     {devices === undefined ? "" : devices === 0 ? "No devices set up yet." : `Set up on ${devices} ${devices === 1 ? "device" : "devices"}.`}
                 </p>
+                {!!pushDevices?.items.length && (
+                    <ul className="divide-y rounded-md border" aria-label="Devices with notifications on">
+                        {pushDevices.items.map((item) => {
+                            const { label } = describeDevice(item.userAgent);
+                            const isThis = item.endpoint === endpoint;
+                            return (
+                                <li key={item.id} className="flex items-center gap-3 px-3 py-2">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 text-sm font-medium">
+                                            <span className="truncate">{label}</span>
+                                            {isThis && <Badge variant="secondary">This device</Badge>}
+                                        </div>
+                                        <p className="truncate text-xs text-muted-foreground">
+                                            Added {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                                            {item.lastUsedAt ? ` · last reminder ${formatDistanceToNow(new Date(item.lastUsedAt), { addSuffix: true })}` : ""}
+                                        </p>
+                                    </div>
+                                    {/* This browser turns itself off above, which also unsubscribes it here */}
+                                    {!isThis && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={removeDevice.isPending}
+                                            aria-label={`Remove ${label}`}
+                                            onClick={() => removeDevice.mutate(item.id)}
+                                        >
+                                            Remove
+                                        </Button>
+                                    )}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
             </section>
 
             <section className="space-y-3 rounded-lg border p-4">

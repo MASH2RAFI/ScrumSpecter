@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { createHash, randomBytes } from "crypto";
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
+import { after } from "next/server";
 import { z } from "zod";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { createSession, deleteSession, deviceFromHeaders, forgetCachedSessions, getUserFromToken, hashPassword, mergePreferences, SECURE_COOKIES, SESSION_COOKIE_OPTIONS, sessionIdFromToken, verifyPassword } from "@/lib/auth";
@@ -311,23 +312,31 @@ const app = new Hono()
             return c.json({ error: tooManyAttempts(locked) }, 429);
         }
 
-        const [user] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
-        if (user) {
-            const token = randomBytes(32).toString("base64url");
-            await db.insert(passwordResets).values({
-                id: hashToken(token),
-                userId: user.id,
-                expiresAt: new Date(Date.now() + RESET_TOKEN_MINUTES * 60_000),
-            });
-            const link = `${appOrigin(c.req.url)}/reset-password?token=${token}`;
-            await sendEmail({
-                to: email,
-                subject: "Reset your ScrumSpecter password",
-                text: `Someone asked to reset the password for your ScrumSpecter account.\n\n` +
-                    `Choose a new password here (the link works once, for ${RESET_TOKEN_MINUTES} minutes):\n${link}\n\n` +
-                    `If it wasn't you, ignore this email; your password stays the same.`,
-            });
-        }
+        // The lookup, the token and the mail happen after the answer, and a mail outage is only logged:
+        // otherwise an address with an account answers slower (or with a 500), which tells.
+        const origin = appOrigin(c.req.url);
+        after(async () => {
+            try {
+                const [user] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+                if (!user) return;
+                const token = randomBytes(32).toString("base64url");
+                await db.insert(passwordResets).values({
+                    id: hashToken(token),
+                    userId: user.id,
+                    expiresAt: new Date(Date.now() + RESET_TOKEN_MINUTES * 60_000),
+                });
+                const link = `${origin}/reset-password?token=${token}`;
+                await sendEmail({
+                    to: email,
+                    subject: "Reset your ScrumSpecter password",
+                    text: `Someone asked to reset the password for your ScrumSpecter account.\n\n` +
+                        `Choose a new password here (the link works once, for ${RESET_TOKEN_MINUTES} minutes):\n${link}\n\n` +
+                        `If it wasn't you, ignore this email; your password stays the same.`,
+                });
+            } catch (e) {
+                console.error("Password reset email failed", e);
+            }
+        });
 
         return c.json({ data: answer });
     })
@@ -339,20 +348,25 @@ const app = new Hono()
             const { token, password } = c.req.valid("json");
             const id = hashToken(token);
 
-            // Claims the token in the same statement that checks it, so it can only be used once
-            const [reset] = await db.update(passwordResets)
-                .set({ usedAt: new Date() })
-                .where(and(eq(passwordResets.id, id), isNull(passwordResets.usedAt), gt(passwordResets.expiresAt, new Date())))
-                .returning({ userId: passwordResets.userId });
-            if (!reset) {
+            // Claims the token in the same statement that checks it, so it can only be used once. In
+            // one transaction with the new password: if saving fails, the link is not used up.
+            const passwordHash = await hashPassword(password);
+            const user = await db.transaction(async (tx) => {
+                const [reset] = await tx.update(passwordResets)
+                    .set({ usedAt: new Date() })
+                    .where(and(eq(passwordResets.id, id), isNull(passwordResets.usedAt), gt(passwordResets.expiresAt, new Date())))
+                    .returning({ userId: passwordResets.userId });
+                if (!reset) return null;
+                const [updated] = await tx.update(users)
+                    // The emailed link proves the inbox, so it verifies the address too
+                    .set({ passwordHash: passwordHash, emailVerifiedAt: sql`coalesce(${users.emailVerifiedAt}, now())` })
+                    .where(eq(users.id, reset.userId))
+                    .returning({ id: users.id, email: users.email });
+                return updated;
+            });
+            if (!user) {
                 return c.json({ error: "This reset link is invalid or has expired. Ask for a new one." }, 400);
             }
-
-            const [user] = await db.update(users)
-                // The emailed link proves the inbox, so it verifies the address too
-                .set({ passwordHash: await hashPassword(password), emailVerifiedAt: sql`coalesce(${users.emailVerifiedAt}, now())` })
-                .where(eq(users.id, reset.userId))
-                .returning({ id: users.id, email: users.email });
 
             await claimPlaceholders(user.id);
 

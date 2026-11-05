@@ -114,7 +114,8 @@ test("a timed block dragged to another day keeps its time and length", async ({ 
     await expect.poll(async () => (await taskNamed("Move my block")).startAt).not.toBe(start.toISOString());
     const moved = await taskNamed("Move my block");
     // A whole number of days later or earlier, at the same time, still an hour long
-    expect((new Date(moved.startAt!).getTime() - start.getTime()) % 86_400_000).toBe(0);
+    // (absolute value: dragged to an earlier day the remainder is -0, which toBe(0) refuses)
+    expect(Math.abs(new Date(moved.startAt!).getTime() - start.getTime()) % 86_400_000).toBe(0);
     expect(moved.durationMinutes).toBe(60);
 });
 

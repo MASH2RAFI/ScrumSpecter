@@ -15,6 +15,7 @@ export const LIMITS = {
     bulkApply: { max: 10, windowSeconds: 3600 }, // per account; each run can add 500 items
     verifyEmail: { max: 3, windowSeconds: 3600 }, // per account; "Resend email"
     export: { max: 30, windowSeconds: 3600 }, // per account; workspace script, backup and "My data" (whole-workspace reads)
+    pushTest: { max: 20, windowSeconds: 3600 }, // per account; "Send a test notification" (a bell row and a push per device)
     changeRequest: { max: 5, windowSeconds: 120 }, // per member; a burst, then a cooldown
 } as const;
 

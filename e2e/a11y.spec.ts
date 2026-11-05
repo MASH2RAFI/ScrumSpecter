@@ -53,8 +53,12 @@ for (const scheme of ["light", "dark"] as const) {
         await scan(page, "about");
         // (the page before it fades out first, so wait until only the new form is left)
         await open(page, "/sign-in", async () => {
-            await expect(page.getByPlaceholder("Enter email address")).toHaveCount(1);
-            await expect(page.getByPlaceholder("Enter email address")).toBeVisible();
+            // (together, retried: the old and the new form can both be there for a moment, and
+            // the count can read 1 just before the second one shows up)
+            await expect(async () => {
+                await expect(page.getByPlaceholder("Enter email address")).toHaveCount(1, { timeout: 2_000 });
+                await expect(page.getByPlaceholder("Enter email address")).toBeVisible({ timeout: 2_000 });
+            }).toPass({ timeout: 20_000 });
         });
         await scan(page, "sign-in");
         await page.close();

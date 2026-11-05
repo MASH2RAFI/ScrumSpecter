@@ -257,7 +257,7 @@ export const WorkspaceIdClient = () => {
     return (
         <Stagger className="flex flex-col gap-6">
             <StaggerItem><EnableRemindersCard /></StaggerItem>
-            <FollowingNote workspaceId={workspaceId} filter={filter} hiddenCount={hiddenProjects.length} members={members.documents} memberId={memberId} />
+            <FollowingNote workspaceId={workspaceId} filter={filter} hiddenCount={hiddenCount} members={members.documents} memberId={memberId} />
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <StatCards counts={summary} workspaceId={workspaceId} />

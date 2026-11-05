@@ -1,0 +1,1 @@
+CREATE INDEX "tasks_open_due_idx" ON "tasks" USING btree ("due_date") WHERE "tasks"."status" <> 'DONE';

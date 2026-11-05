@@ -5,6 +5,8 @@ import { and, arrayContains, asc, eq, isNotNull } from "drizzle-orm";
 import { removeAssignee } from "@/lib/db/assignees";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { db } from "@/lib/db";
+import { assertRoom } from "@/lib/volume-caps";
+import { forgetSavedFilters } from "@/lib/db/saved-filters";
 import { findById } from "@/lib/db/find-by-id";
 import { members, notifications, tasks, users } from "@/lib/db/schema";
 import { toDoc } from "@/lib/db/types";
@@ -100,6 +102,7 @@ const app = new Hono()
                 // Their bell must not keep naming this workspace's tasks
                 if (memberToDelete.userId) {
                     await tx.delete(notifications).where(and(eq(notifications.userId, memberToDelete.userId), eq(notifications.workspaceId, memberToDelete.workspaceId)));
+                    await forgetSavedFilters(tx, { workspaceId: memberToDelete.workspaceId, userId: memberToDelete.userId });
                 }
                 return true;
             });
@@ -172,6 +175,8 @@ const app = new Hono()
             if (member instanceof Response) {
                 return member;
             }
+
+            await assertRoom("members", workspaceId);
 
             const [placeholder] = await db.insert(members).values({
                 workspaceId,
@@ -265,6 +270,7 @@ const app = new Hono()
                 await removeAssignee(tx, member.$id, adminMember.id);
                 await tx.delete(members).where(eq(members.id, member.$id));
                 await tx.delete(notifications).where(and(eq(notifications.userId, user.$id), eq(notifications.workspaceId, workspaceId)));
+                await forgetSavedFilters(tx, { workspaceId, userId: user.$id });
 
                 return { reassignedTasks: assigned.length, newAssignee: adminMember.userId };
             });

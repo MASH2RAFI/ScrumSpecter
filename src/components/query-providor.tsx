@@ -11,13 +11,14 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 
 import { isClientError } from '@/lib/api-error'
 import { CACHE_BUSTER, CACHE_MAX_AGE, CACHE_STORAGE_KEY, cacheStorage } from '@/lib/query-cache'
-import { absorbOwnChanges } from '@/features/workspaces/hooks/use-data-versions'
+import { checkAfterOwnChange } from '@/features/workspaces/hooks/use-data-versions'
 
 function makeQueryClient() {
   const queryClient: QueryClient = new QueryClient({
-    // Our own edits bump the workspace version too; record it so the next check doesn't refetch
+    // Our own edits bump the workspace version too; check soon after, so anyone else's change
+    // that landed with ours is picked up (see checkAfterOwnChange)
     mutationCache: new MutationCache({
-      onSuccess: () => absorbOwnChanges(queryClient),
+      onSuccess: () => checkAfterOwnChange(queryClient),
     }),
     defaultOptions: {
       queries: {

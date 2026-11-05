@@ -20,10 +20,12 @@ const fetchVersions = async (): Promise<Versions | null> => {
 };
 
 let stopped = false;
+let checkTimer: ReturnType<typeof setTimeout> | undefined;
 
 // Signing out: the session is going away, so later checks would only get 401s
 export const stopVersionChecks = () => {
     stopped = true;
+    clearTimeout(checkTimer);
 };
 
 export const resumeVersionChecks = () => {
@@ -31,16 +33,17 @@ export const resumeVersionChecks = () => {
 };
 
 // Compares the server's data versions with the last ones seen and refetches only what changed
-export const syncVersions = async (queryClient: QueryClient, { absorb = false } = {}) => {
+export const syncVersions = async (queryClient: QueryClient) => {
     if (stopped) return;
     const latest = await fetchVersions().catch(() => null);
-    if (!latest) return;
+    // Signing out may have started while the request was away
+    if (!latest || stopped) return;
 
     const seen = queryClient.getQueryData<Versions>(VERSIONS_QUERY_KEY);
     queryClient.setQueryData(VERSIONS_QUERY_KEY, latest);
 
-    // First visit (or an older cache shape), or the change came from this tab's own mutation
-    if (!seen?.workspaces || absorb) return;
+    // First visit (or an older cache shape): nothing to compare with
+    if (!seen?.workspaces) return;
 
     if (seen.user !== latest.user) {
         await queryClient.invalidateQueries({ queryKey: ["current"] });
@@ -65,12 +68,14 @@ export const syncVersions = async (queryClient: QueryClient, { absorb = false } 
     });
 };
 
-let absorbTimer: ReturnType<typeof setTimeout> | undefined;
-
-// Called after this tab's mutations; debounced so a burst of edits costs one request
-export const absorbOwnChanges = (queryClient: QueryClient) => {
-    clearTimeout(absorbTimer);
-    absorbTimer = setTimeout(() => void syncVersions(queryClient, { absorb: true }), 500);
+// Called after this tab's mutations; debounced so a burst of edits costs one request. It is a
+// normal check, not one that "absorbs" the new version: a teammate's change that lands just after
+// ours moves the version too, and swallowing it left the lists without their change (not even a
+// reload brought it back, the cache and its version agreeing) until something else changed. The
+// price is one more refetch of what is on screen after an edit.
+export const checkAfterOwnChange = (queryClient: QueryClient) => {
+    clearTimeout(checkTimer);
+    checkTimer = setTimeout(() => void syncVersions(queryClient), 500);
 };
 
 // Mounted once in the dashboard: check on load, on tab focus and every minute while visible

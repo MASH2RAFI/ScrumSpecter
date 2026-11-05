@@ -24,12 +24,9 @@ export const ProjectVisibility = ({ workspaceId, setting = "hiddenProjects", pag
     if (!projects?.documents.length) return null;
     const hidden = new Set(hiddenProjects);
 
-    const toggle = (projectId: string) => {
-        const next = hidden.has(projectId)
-            ? hiddenProjects.filter((id) => id !== projectId)
-            : [...hiddenProjects, projectId];
-        save({ [setting]: next });
-    };
+    // Only this project's change is sent, and the server adds or removes just that id, so another
+    // device's change to the list is kept
+    const toggle = (projectId: string) => save({ hiddenToggle: { list: setting, id: projectId, hidden: !hidden.has(projectId) } });
 
     return (
         <ul className={cn("flex flex-wrap", compact ? "gap-1" : "gap-2")} aria-label={`Projects shown in ${page}`}>

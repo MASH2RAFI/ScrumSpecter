@@ -1,6 +1,8 @@
 import { expect, request, test } from "@playwright/test";
 
-import { createProject, createTask, createWorkspace, CRON_SECRET, getMembers, registerUser, type TestUser } from "./helpers";
+import { createHash } from "node:crypto";
+
+import { createProject, createTask, createWorkspace, CRON_SECRET, getMembers, registerUser, sql, type TestUser } from "./helpers";
 
 // API: data versions, holidays (and routines skipping them), account settings
 test.describe.configure({ mode: "serial" });
@@ -222,4 +224,248 @@ test("signed-in devices: listed with details, and signed out one at a time", asy
     expect((await person.api.get("/api/auth/current")).status()).toBe(200);
     expect(((await (await person.api.get("/api/account/sessions")).json()).data as unknown[])).toHaveLength(1);
     await Promise.all([phone.dispose(), phoneSession.dispose()]);
+});
+
+test("the notifications version moves when notifications are read, so other devices update their bell", async ({ baseURL }) => {
+    // Its own account: the tests above sign the shared admin's devices in and out
+    const admin = await registerUser(baseURL!, "Bell Bea");
+    const notificationsVersion = async () => (await (await admin.api.get("/api/workspaces/versions")).json()).data.notifications as number;
+    expect((await admin.api.post("/api/notifications/test")).status()).toBe(200);
+    const created = await notificationsVersion();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect((await admin.api.post("/api/notifications/read", { data: {} })).status()).toBe(200);
+    const read = await notificationsVersion();
+    expect(read).toBeGreaterThan(created);
+    // Reading again changes nothing: nothing was left unread
+    expect((await admin.api.post("/api/notifications/read", { data: {} })).status()).toBe(200);
+    expect(await notificationsVersion()).toBe(read);
+});
+
+test("saved filters of different workspaces are merged, not replaced; the limit still holds", async ({ baseURL }) => {
+    const admin = await registerUser(baseURL!, "Filter Fay");
+    const filter = (starred: boolean) => ({ people: [], statuses: [], starred, overdue: false });
+    const save = (id: string, starred = false) => admin.api.patch("/api/account/preferences", { data: { taskFilters: { [id]: filter(starred) } } });
+    const saved = async () => (await (await admin.api.get("/api/auth/current")).json()).user.preferences.taskFilters as Record<string, { starred: boolean }>;
+
+    // Two devices, each saving a different workspace's filter from its own (stale) copy
+    expect((await save("ws-one", true)).status()).toBe(200);
+    expect((await save("ws-two")).status()).toBe(200);
+    expect(Object.keys(await saved()).sort()).toEqual(["ws-one", "ws-two"]);
+    expect((await saved())["ws-one"].starred).toBe(true);
+
+    // Changing one entry leaves the other alone
+    expect((await save("ws-two", true)).status()).toBe(200);
+    expect(await saved()).toMatchObject({ "ws-one": { starred: true }, "ws-two": { starred: true } });
+
+    // 50 workspaces are kept; one more is refused with a message
+    for (let i = 3; i <= 50; i++) expect((await save(`ws-${i}`)).status()).toBe(200);
+    const tooMany = await save("ws-51");
+    expect(tooMany.status()).toBe(400);
+    expect((await tooMany.json()).error).toMatch(/Too many saved filters/);
+    expect(Object.keys(await saved())).toHaveLength(50);
+});
+
+test("a project's eye changes only that project; the list stays within its limit", async ({ baseURL }) => {
+    const user = await registerUser(baseURL!, "Eye Ede");
+    const prefs = async () => (await (await user.api.get("/api/auth/current")).json()).user.preferences;
+    const toggle = (list: string, id: string, hidden: boolean) =>
+        user.api.patch("/api/account/preferences", { data: { hiddenToggle: { list, id, hidden } } });
+
+    // Another device already hid "b"; this device's toggle of "a" keeps it
+    expect((await user.api.patch("/api/account/preferences", { data: { hiddenProjects: ["b"] } })).status()).toBe(200);
+    expect((await toggle("hiddenProjects", "a", true)).status()).toBe(200);
+    expect([...(await prefs()).hiddenProjects].sort()).toEqual(["a", "b"]);
+    // Twice is the same as once; the Routines list is its own
+    expect((await toggle("hiddenProjects", "a", true)).status()).toBe(200);
+    expect((await toggle("hiddenRoutineProjects", "c", true)).status()).toBe(200);
+    expect((await toggle("hiddenProjects", "b", false)).status()).toBe(200);
+    expect(await prefs()).toMatchObject({ hiddenProjects: ["a"], hiddenRoutineProjects: ["c"] });
+    // The toggle itself is never stored
+    expect(await prefs()).not.toHaveProperty("hiddenToggle");
+
+    const full = Array.from({ length: 200 }, (_, i) => `p${i}`);
+    expect((await user.api.patch("/api/account/preferences", { data: { hiddenProjects: full } })).status()).toBe(200);
+    const over = await toggle("hiddenProjects", "one-more", true);
+    expect(over.status()).toBe(400);
+    expect((await over.json()).error).toMatch(/Too many hidden projects/);
+    expect((await prefs()).hiddenProjects).toHaveLength(200);
+});
+
+test("deleting a project or workspace removes its saved filters from every account", async ({ baseURL }) => {
+    const user = await registerUser(baseURL!, "Prune Pru");
+    const workspace = await createWorkspace(user.api, "Prune WS");
+    const kept = await createProject(user.api, workspace.$id, "Kept");
+    const doomed = await createProject(user.api, workspace.$id, "Doomed");
+    const filter = { people: [], statuses: [], starred: false, overdue: false };
+    const saved = async () => (await (await user.api.get("/api/auth/current")).json()).user.preferences;
+    expect((await user.api.patch("/api/account/preferences", { data: {
+        projectFilters: { [kept.$id]: filter, [doomed.$id]: filter },
+        taskFilters: { [workspace.$id]: filter, other: filter },
+        routineFilters: { [workspace.$id]: { people: [], tags: [] } },
+        hiddenProjects: [doomed.$id, kept.$id], hiddenRoutineProjects: [doomed.$id],
+    } })).status()).toBe(200);
+
+    expect((await user.api.delete(`/api/projects/${doomed.$id}`)).status()).toBe(200);
+    expect(Object.keys((await saved()).projectFilters)).toEqual([kept.$id]);
+    // It no longer counts as hidden anywhere
+    expect(await saved()).toMatchObject({ hiddenProjects: [kept.$id], hiddenRoutineProjects: [] });
+
+    expect((await user.api.delete(`/api/workspaces/${workspace.$id}`)).status()).toBe(200);
+    const after = await saved();
+    expect(after.projectFilters).toEqual({});
+    expect(Object.keys(after.taskFilters)).toEqual(["other"]);
+    expect(after.routineFilters).toEqual({});
+});
+
+test("the calendar link keeps one key when asked many times at once", async ({ baseURL }) => {
+    const user = await registerUser(baseURL!, "Cal Cass");
+    const workspace = await createWorkspace(user.api, "Cal WS");
+    const ask = async (reset = false) => (await (await user.api.post("/api/export/calendar-feed", { data: { workspaceId: workspace.$id, reset } })).json()).data.url as string;
+
+    // The first request of a new account, six times at the same moment: one key, one link
+    const links = await Promise.all(Array.from({ length: 6 }, () => ask()));
+    expect(new Set(links).size).toBe(1);
+    expect(await ask()).toBe(links[0]);
+    // Reset still makes a new one
+    expect(await ask(true)).not.toBe(links[0]);
+});
+
+test("leaving a workspace, or being removed from it, clears that person's saved filters for it", async ({ baseURL }) => {
+    const admin = await registerUser(baseURL!, "Own Olu");
+    const workspace = await createWorkspace(admin.api, "Leave WS");
+    const filter = { people: [], statuses: [], starred: false, overdue: false };
+    const prefs = async (user: TestUser) => (await (await user.api.get("/api/auth/current")).json()).user.preferences;
+    const mine = async (user: TestUser) => (await prefs(user)).taskFilters as Record<string, unknown>;
+    const project = await createProject(admin.api, workspace.$id, "Leave project");
+    const joinWithFilter = async (name: string) => {
+        const user = await registerUser(baseURL!, name);
+        expect((await user.api.post(`/api/workspaces/${workspace.$id}/join`, { data: { code: workspace.inviteCode } })).status()).toBe(200);
+        expect((await user.api.patch("/api/account/preferences", { data: {
+            taskFilters: { [workspace.$id]: filter, elsewhere: filter },
+            hiddenProjects: [project.$id, "elsewhere-project"], hiddenRoutineProjects: [project.$id],
+        } })).status()).toBe(200);
+        return user;
+    };
+    const leaver = await joinWithFilter("Lea Ver");
+    const removed = await joinWithFilter("Rem Oved");
+
+    expect((await leaver.api.post("/api/members/leave-workspace", { data: { workspaceId: workspace.$id } })).status()).toBe(200);
+    expect(Object.keys(await mine(leaver))).toEqual(["elsewhere"]);
+    // Its projects' eyes go too; another workspace's stay
+    expect(await prefs(leaver)).toMatchObject({ hiddenProjects: ["elsewhere-project"], hiddenRoutineProjects: [] });
+
+    const member = (await getMembers(admin.api, workspace.$id)).find((m) => m.name === "Rem Oved")!;
+    expect((await admin.api.delete(`/api/members/${member.$id}`)).status()).toBe(200);
+    expect(Object.keys(await mine(removed))).toEqual(["elsewhere"]);
+    expect(await prefs(removed)).toMatchObject({ hiddenProjects: ["elsewhere-project"], hiddenRoutineProjects: [] });
+});
+
+test("a new email is not verified, and links sent for the old one stop working", async ({ baseURL }) => {
+    const user = await registerUser(baseURL!, "Verity Vee");
+    const [{ id: userId }] = await sql<{ id: string }>("select id from users where email = $1", [user.email]);
+    const token = "old-address-verification-token-0123456789";
+    await sql("insert into email_verifications (id, user_id, expires_at) values ($1, $2, now() + interval '1 day')",
+        [createHash("sha256").update(token).digest("hex"), userId]);
+    await sql("update users set email_verified_at = now() where id = $1", [userId]);
+    const verified = async () => (await (await user.api.get("/api/auth/email-verification")).json()).data.verified as boolean;
+    expect(await verified()).toBe(true);
+
+    const changed = await user.api.patch("/api/account/profile", { data: { email: `moved-${Date.now()}@example.com`, currentPassword: user.password } });
+    expect(changed.status(), await changed.text()).toBe(200);
+    expect(await verified()).toBe(false);
+    // The link sent for the old address cannot verify the new one
+    const anon = await request.newContext({ baseURL });
+    expect((await anon.post("/api/auth/verify-email", { data: { token } })).status()).toBe(400);
+    expect(await verified()).toBe(false);
+
+    // Changing only the name leaves things as they are
+    await sql("update users set email_verified_at = now() where id = $1", [userId]);
+    expect((await user.api.patch("/api/account/profile", { data: { name: "Verity V." } })).status()).toBe(200);
+    expect(await verified()).toBe(true);
+});
+
+test("forgot password: the link is made after the answer, and a known address gets one", async ({ baseURL }) => {
+    const user = await registerUser(baseURL!, "Forgetful Fay");
+    const [{ id: userId }] = await sql<{ id: string }>("select id from users where email = $1", [user.email]);
+    const anon = await request.newContext({ baseURL });
+    expect((await anon.post("/api/auth/forgot-password", { data: { email: user.email } })).status()).toBe(200);
+    await expect.poll(async () => (await sql("select 1 from password_resets where user_id = $1", [userId])).length, { timeout: 10_000 }).toBe(1);
+    // An unknown address gets the same answer and nothing is made
+    expect((await anon.post("/api/auth/forgot-password", { data: { email: "nobody-at-all@example.com" } })).status()).toBe(200);
+});
+
+test("a project's sprint end can't be moved before its start (or the start after its end), one date at a time", async ({ baseURL }) => {
+    const user = await registerUser(baseURL!, "Sprint Sue");
+    const workspace = await createWorkspace(user.api, "Sprint WS");
+    const project = await createProject(user.api, workspace.$id, "Sprint project", 14);
+    const dates = async () => {
+        const body = (await (await user.api.get(`/api/projects/${project.$id}`)).json()).data;
+        return { start: body.currentSprintStartDate as string, end: body.currentSprintEndDate as string };
+    };
+    const { start, end } = await dates();
+    expect(start <= end).toBe(true);
+    const patch = (fields: Record<string, string>) => user.api.patch(`/api/projects/${project.$id}`, { multipart: { workspaceId: workspace.$id, ...fields } });
+    const shift = (day: string, days: number) => new Date(Date.parse(`${day}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
+    const early = await patch({ currentSprintEndDate: shift(start, -1) });
+    expect(early.status(), await early.text()).toBe(400);
+    expect((await early.json()).error).toMatch(/can't be before the start/);
+    const late = await patch({ currentSprintStartDate: shift(end, 1) });
+    expect(late.status(), await late.text()).toBe(400);
+    expect(await dates()).toEqual({ start, end });
+
+    // A valid one-date change still works, and so does the same day
+    expect((await patch({ currentSprintEndDate: shift(end, 7) })).status()).toBe(200);
+    expect((await patch({ currentSprintEndDate: start })).status()).toBe(200);
+    expect(await dates()).toEqual({ start, end: start });
+});
+
+test("a workspace holds at most 500 members, placeholders included", async ({ baseURL }) => {
+    test.setTimeout(120_000);
+    const admin = await registerUser(baseURL!, "Crowd Cleo");
+    const workspace = await createWorkspace(admin.api, "Crowd WS");
+    const add = (n: number) => admin.api.post("/api/members/placeholders", { data: { workspaceId: workspace.$id, name: `Stand-in ${n}` } });
+
+    // The admin is member 1: 499 placeholders fill it
+    for (let start = 0; start < 499; start += 50) {
+        const batch = await Promise.all(Array.from({ length: Math.min(50, 499 - start) }, (_, i) => add(start + i)));
+        for (const res of batch) expect(res.status(), await res.text()).toBe(200);
+    }
+    expect((await getMembers(admin.api, workspace.$id))).toHaveLength(500);
+
+    const over = await add(500);
+    expect(over.status()).toBe(409);
+    expect((await over.json()).error).toMatch(/at most 500 members/);
+    // Joining is refused the same way
+    const newcomer = await registerUser(baseURL!, "Late Lena");
+    const join = await newcomer.api.post(`/api/workspaces/${workspace.$id}/join`, { data: { code: workspace.inviteCode } });
+    expect(join.status()).toBe(409);
+    expect((await getMembers(admin.api, workspace.$id))).toHaveLength(500);
+});
+
+test("holidays: a made-up date is a 400, and a workspace holds at most 1000 days", async ({ baseURL }) => {
+    test.setTimeout(120_000);
+    const admin = await registerUser(baseURL!, "Holi Hana");
+    const workspace = await createWorkspace(admin.api, "Holidays WS");
+    const url = `/api/workspaces/${workspace.$id}/holidays`;
+    const day = (offset: number) => new Date(Date.UTC(2030, 0, 1) + offset * 86_400_000).toISOString().slice(0, 10);
+
+    // The right shape, but not days on the calendar: refused with a message, not a server error
+    for (const date of ["2026-02-30", "2026-13-45", "2026-00-10"]) {
+        const bad = await admin.api.post(url, { data: { date, name: "Nope", kind: "custom" } });
+        expect(bad.status(), date).toBe(400);
+        expect((await bad.json()).error).toBeTruthy();
+        expect((await admin.api.delete(url, { data: { date, kind: "custom" } })).status(), date).toBe(400);
+    }
+    expect((await admin.api.post(url, { data: { date: "2026-02-28", name: "Real day", kind: "custom" } })).status()).toBe(200);
+
+    // 999 more fill it (the same day twice is one row)
+    for (let start = 0; start < 999; start += 50) {
+        const batch = await Promise.all(Array.from({ length: Math.min(50, 999 - start) }, (_, i) =>
+            admin.api.post(url, { data: { date: day(start + i), name: `Day ${start + i}`, kind: "custom" } })));
+        for (const res of batch) expect(res.status(), await res.text()).toBe(200);
+    }
+    const over = await admin.api.post(url, { data: { date: day(5000), name: "One too many", kind: "custom" } });
+    expect(over.status()).toBe(409);
+    expect((await over.json()).error).toMatch(/at most 1,000 holidays/);
 });

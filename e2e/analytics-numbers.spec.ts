@@ -53,8 +53,11 @@ test("capacity: the total follows every edit and project change, and typed numbe
     const numbers = page.locator('input[type="number"]');
     const daily = numbers.nth(1);
     const availability = numbers.nth(2);
-    await availability.fill("50");
-    await expect(total).toHaveText("56 hours");
+    // (retried like the boxes below: a refetch can land just as the box is filled and keep the old value)
+    await expect(async () => {
+        await availability.fill("50");
+        await expect(total).toHaveText("56 hours", { timeout: 2_000 });
+    }).toPass();
     // Out-of-range numbers are held at the limits
     // (retried: a refetch of the page's data can land just as a box is filled, and WebKit then keeps the old value)
     await expect(async () => {

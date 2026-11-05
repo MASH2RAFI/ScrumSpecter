@@ -112,6 +112,8 @@ interface DataCalendarProps {
     data: Task[];
     // The dates on screen, [from, to), so only those tasks need loading
     onRangeChange?: (from: Date, to: Date) => void;
+    // Every task without a date, when `data` holds only the first of them
+    unscheduledTotal?: number;
 }
 
 // What the grid shows: whole weeks around the month, the week, or the day
@@ -137,7 +139,7 @@ export const DataCalendar = (props: DataCalendarProps) => {
     return <ReadyCalendar {...props} />;
 };
 
-const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
+const ReadyCalendar = ({ data, onRangeChange, unscheduledTotal }: DataCalendarProps) => {
     const [value, setValue] = useState(new Date());
     // Moving to another month/week slides the grid in from that side
     const [gridScope, animateGrid] = useAnimate<HTMLDivElement>();
@@ -446,7 +448,7 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
                     onNavigate={handleNavigate}
                     prefs={prefs}
                     onPrefs={updatePrefs}
-                    unscheduledCount={unscheduled.length}
+                    unscheduledCount={Math.max(unscheduled.length, unscheduledTotal ?? 0)}
                     hour12={hour12}
                 />
             </div>
@@ -575,6 +577,7 @@ const ReadyCalendar = ({ data, onRangeChange }: DataCalendarProps) => {
                 {prefs.showUnscheduled && (
                     <UnscheduledPanel
                         tasks={unscheduled}
+                        total={unscheduledTotal}
                         canSchedule={canReschedule}
                         onOpen={openTask}
                         onDragStart={setDraggedTask}

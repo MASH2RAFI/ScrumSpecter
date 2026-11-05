@@ -166,7 +166,7 @@ const CalendarView = ({ base, range, setRange }: {
 
     return (
         <div className="h-full min-h-[600px]">
-            <LazyCalendar data={tasks} onRangeChange={onRangeChange} />
+            <LazyCalendar data={tasks} onRangeChange={onRangeChange} unscheduledTotal={unscheduled?.total} />
         </div>
     );
 };

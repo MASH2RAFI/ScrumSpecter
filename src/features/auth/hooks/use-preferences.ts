@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { useUpdatePreferences } from "@/features/account/api/use-account";
 
 import { useCurrent } from "../api/use-current";
-import { DATE_FORMATS, DEFAULT_PREFERENCES, resolvePreferences, type UserPreferences } from "../preferences";
+import { DATE_FORMATS, DEFAULT_PREFERENCES, mergePreferenceChanges, resolvePreferences, type PreferenceChanges } from "../preferences";
 
 // The signed-in user's preferences, or the defaults while loading / signed out
 export const usePreferences = () => {
@@ -19,10 +19,11 @@ export const useSavePreferences = () => {
     const queryClient = useQueryClient();
     const { mutate } = useUpdatePreferences({ silent: true });
 
-    return (changes: Partial<UserPreferences>) => {
+    // For the saved filters, `changes` holds only the entries being changed (the server merges them)
+    return (changes: PreferenceChanges) => {
         // Into the cached user at once, so the views update before the save comes back
         queryClient.setQueryData<{ preferences: Record<string, unknown> } | null>(["current"], (current) =>
-            current ? { ...current, preferences: { ...current.preferences, ...changes } } : current);
+            current ? { ...current, preferences: mergePreferenceChanges(current.preferences, changes) } : current);
         mutate(changes);
     };
 };

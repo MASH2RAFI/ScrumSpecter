@@ -6,6 +6,7 @@ import { MemberAvatarStack } from "@/features/members/components/member-avatar";
 import { TaskDate } from "./task-date";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 import { cn } from "@/lib/utils";
+import { TaskHoverCard } from "./task-hover-card";
 import { useTaskPanel } from "../hooks/use-task-panel";
 import { StarButton } from "@/features/stars/components/star-button";
 
@@ -27,7 +28,8 @@ export const KanbanCard = ({ task, compact }: KanbanCardProps) => {
     const { open } = useTaskPanel();
 
     return (
-        // @hello-pangea/dnd swallows the click that ends a drag, so this only fires on a real click
+        <TaskHoverCard task={task}>
+        {/* @hello-pangea/dnd swallows the click that ends a drag, so this only fires on a real click */}
         <div onClick={() => open(task.$id)} className={cn(
             "cursor-pointer",
             "bg-card p-2 sm:p-2.5 mb-1 sm:mb-1.5 rounded-xl shadow-soft space-unified-sm border border-border/70 transition-[box-shadow,transform] duration-300 ease-out hover:shadow-lift hover:-translate-y-0.5 border-l-4 touch-manipulation",
@@ -80,5 +82,6 @@ export const KanbanCard = ({ task, compact }: KanbanCardProps) => {
             </div>
             </>}
         </div>
+        </TaskHoverCard>
     );
 };

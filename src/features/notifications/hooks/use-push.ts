@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { client } from "@/lib/rpc";
@@ -37,6 +38,8 @@ export const usePush = () => {
     const queryClient = useQueryClient();
     const [state, setState] = useState<PushState | null>(null);
     const [busy, setBusy] = useState(false);
+    // This browser's own push address, to tell which entry of the account's device list it is
+    const [endpoint, setEndpoint] = useState<string | null>(null);
 
     const refresh = useCallback(async () => {
         if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
@@ -64,6 +67,7 @@ export const usePush = () => {
             return;
         }
         setState(subscription ? "on" : "off");
+        setEndpoint(subscription?.endpoint ?? null);
     }, []);
 
     // Reads the browser's push permission and subscription, an outside system, so an effect is right
@@ -94,11 +98,21 @@ export const usePush = () => {
                 subscription = null;
             }
             subscription ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
-            const { endpoint, keys } = subscription.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
-            const response = await client.api.notifications.subscriptions.$post({ json: { endpoint, keys } });
-            if (!response.ok) throw new Error("Couldn't save this device");
+            const { endpoint: address, keys } = subscription.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
+            const response = await client.api.notifications.subscriptions.$post({ json: { endpoint: address, keys } });
+            if (!response.ok) {
+                // Not saved (for example the limit of devices): don't stay subscribed in this browser, or it would say "on" and get nothing
+                await subscription.unsubscribe().catch(() => undefined);
+                throw new Error((await response.json().catch(() => null) as { error?: string } | null)?.error ?? "Couldn't save this device");
+            }
             setState("on");
+            setEndpoint(address);
             return true;
+        } catch (error) {
+            // The buttons call this without waiting for the answer, so say what went wrong here
+            toast.error(error instanceof Error ? error.message : "Couldn't turn notifications on");
+            await refresh();
+            return false;
         } finally {
             setBusy(false);
             queryClient.invalidateQueries({ queryKey: ["push-devices"] });
@@ -114,11 +128,12 @@ export const usePush = () => {
                 await subscription.unsubscribe();
             }
             setState("off");
+            setEndpoint(null);
         } finally {
             setBusy(false);
             queryClient.invalidateQueries({ queryKey: ["push-devices"] });
         }
     };
 
-    return { state, busy, enable, disable };
+    return { state, busy, endpoint, enable, disable };
 };

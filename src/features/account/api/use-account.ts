@@ -1,12 +1,12 @@
 import { useAppQuery } from "@/lib/use-app-query";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { ApiError } from "@/lib/api-error";
 import { stopPersistingCache } from "@/lib/query-cache";
 import { resumeVersionChecks, stopVersionChecks } from "@/features/workspaces/hooks/use-data-versions";
 import { client } from "@/lib/rpc";
-import type { UserPreferences } from "@/features/auth/preferences";
+import type { PreferenceChanges, UserPreferences } from "@/features/auth/preferences";
 
 // Throws the server's own message (e.g. "Current password is incorrect") so forms can show it
 const unwrap = async <T,>(response: Response): Promise<T> => {
@@ -39,12 +39,15 @@ export const useGetAccount = () =>
 const useAccountMutation = <Input, Output>(
     request: (input: Input) => Promise<Response>,
     success: string | ((output: Output) => string) | null,
+    // Replaces the usual refetch of the account when the response already holds what changed
+    after?: (output: Output, queryClient: QueryClient) => void,
 ) => {
     const queryClient = useQueryClient();
     return useMutation<Output, Error, Input>({
         mutationFn: async (input) => unwrap<Output>(await request(input)),
         onSuccess: (output) => {
             if (success) toast.success(typeof success === "string" ? success : success(output));
+            if (after) return after(output, queryClient);
             queryClient.invalidateQueries({ queryKey: ["account"] });
             queryClient.invalidateQueries({ queryKey: ["account-devices"] });
             queryClient.invalidateQueries({ queryKey: ["current"] });
@@ -69,9 +72,17 @@ export const useUnlinkGoogle = () =>
     useAccountMutation(() => client.api.account.google.$delete(), "Google sign-in removed");
 
 // silent: background saves (the time zone) don't show a toast
+// A background save puts the stored result (other devices' changes merged in) into the cached user
+// instead of refetching it; the settings page's own save refetches as before
 export const useUpdatePreferences = ({ silent = false } = {}) =>
-    useAccountMutation((json: Partial<UserPreferences>) =>
-        client.api.account.preferences.$patch({ json }), silent ? null : "Preferences saved");
+    useAccountMutation((json: PreferenceChanges) =>
+        client.api.account.preferences.$patch({ json }), silent ? null : "Preferences saved",
+        silent ? (preferences: UserPreferences, queryClient) => {
+            // Another save still on its way: this reply doesn't include it, so it would flip that
+            // change back for a moment (the last reply to arrive holds everything)
+            if (queryClient.isMutating() > 1) return;
+            queryClient.setQueryData<{ preferences: UserPreferences } | null>(["current"], (current) => current && { ...current, preferences });
+        } : undefined);
 
 export const useDeleteAccount = () =>
     useMutation<unknown, Error, { confirmEmail: string; password?: string }>({

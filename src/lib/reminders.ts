@@ -17,6 +17,10 @@ const DAY = 24 * 60 * MINUTE;
 // sends what fell due; the dedupe key keeps anything from going out twice
 export const LOOKBACK_MINUTES = 15;
 
+// (a smaller batch can be set for tests, to run several batches without thousands of reminders)
+const INSERT_BATCH = Math.max(1, Number(process.env.REMINDERS_INSERT_BATCH) || 500);
+const PUSH_GROUP = 20;
+
 
 const atLocal = (date: string, time: string, timeZone: string) => {
     const [year, month, day] = date.split("-").map(Number);
@@ -122,18 +126,27 @@ export const runReminders = async (now = new Date()) => {
         return { created: 0, pushed: 0 };
     }
 
-    // Only reminders not sent before come back
-    const created = await db.insert(notifications).values(reminders)
-        .onConflictDoNothing({ target: notifications.dedupeKey })
-        .returning();
+    // Only reminders not sent before come back. In batches: one statement holds at most ~65,000
+    // values, and everything due at a workspace's day end falls in the same run.
+    const created: (typeof notifications.$inferSelect)[] = [];
+    for (let start = 0; start < reminders.length; start += INSERT_BATCH) {
+        created.push(...await db.insert(notifications).values(reminders.slice(start, start + INSERT_BATCH))
+            .onConflictDoNothing({ target: notifications.dedupeKey })
+            .returning());
+    }
 
     const byUser = new Map<string, typeof created>();
     for (const notification of created) {
         byUser.set(notification.userId, [...(byUser.get(notification.userId) ?? []), notification]);
     }
-    const pushed = await Promise.all(Array.from(byUser.entries()).map(([userId, list]) =>
-        pushToUser(userId, list.map((n) => ({ title: n.title, body: n.body, url: n.url, tag: n.dedupeKey })))
-    ));
+    // A group of people at a time, so a large run doesn't open thousands of connections at once
+    const pushed: Awaited<ReturnType<typeof pushToUser>>[] = [];
+    const people = Array.from(byUser.entries());
+    for (let start = 0; start < people.length; start += PUSH_GROUP) {
+        pushed.push(...await Promise.all(people.slice(start, start + PUSH_GROUP).map(([userId, list]) =>
+            pushToUser(userId, list.map((n) => ({ title: n.title, body: n.body, url: n.url, tag: n.dedupeKey })))
+        )));
+    }
 
     return { created: created.length, pushed: pushed.reduce((sum, { delivered }) => sum + delivered, 0) };
 };

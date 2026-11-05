@@ -123,7 +123,7 @@
 <details>
 <summary><strong>🗂️ Planning</strong></summary>
 
-- **Workspaces, projects and sprints.** Each project has a sprint (start and end date). Its countdown, story points and progress show on the dashboard.
+- **Workspaces, projects and sprints.** Each project has a sprint (start and end date). Its countdown, story points and progress show on the dashboard. The end date can't be before the start, whichever of the two you change.
 - **Tasks:**
   - story points, due dates, optional time blocks (start time and duration), descriptions, and up to 20 assignees;
   - five statuses: Backlog, To Do, In Progress, In Review and Done;
@@ -133,14 +133,19 @@
   - the database records when a task was finished, and keeps it through edits and drags (the burndown uses it);
   - a task is **overdue** once its time block has ended or, for a task with only a date, once the workspace's working day has ended on that date in your time zone. Home, the Overdue filter and the project cards all use this one rule;
   - in the calendar's Week and Day views, tasks with a due date but no time fill the working day in the timeline, and the strip above the hours names holidays and weekends; on a phone the week scrolls sideways;
+  - the calendar's Unscheduled panel lists tasks with no date, to drag onto a day or hour; it loads the first 100 and says so when there are more (the count shows all of them);
   - drag a Kanban card, a calendar task, a routine or your own pending request to the bin on the right edge of the page to delete (or withdraw) it; the menus do the same from the keyboard.
+  - rest the mouse on a Kanban card for a moment to see a preview: the full name, status, points, date, project, assignees and description (mouse only; a tap opens the task);
 - **Filters:** My Tasks has a compact filter block, saved on your account: whose tasks (any people in the workspace), which statuses, Starred and Overdue, each chip with a live count, plus a search box that reads plain words (`tom in review overdue`, `mine today`, `no project`; quotes search names only) and shows what it understood; Enter turns those words into chips. The older forms (`status:todo`, `@tom`, `project:web`, `is:starred`, `due:today`) still work. Home follows it; Routines have their own.
+- **Saved filters and eyes:** filters are saved per workspace and per project on your account, and saving merges entry by entry, so two devices saving different filters don't overwrite each other. An eye on a project changes only that project. Deleting a project or workspace, or leaving one, removes its saved filters and eyes.
 - **Starred:** star tasks and routines, then filter to them (the calendar too).
 - **Export:** tasks as CSV or a calendar file (`.ics`), a private calendar-subscribe link for Google or Apple Calendar, the whole workspace as a bulk-input script or a JSON backup (Admins; streamed, so large workspaces work), analytics charts as PNG or CSV, and your own data.
 - **Home ("My work"):** your overdue tasks and those due today and tomorrow, with a countdown to each one's end time.
 - **My Tasks:** an eye beside each project hides or shows its tasks there. The choice is saved to your account; picking a project in the filter still shows it.
 - **Routines:** tasks that repeat weekly. They're created for each of their weekdays through the end of the sprint, and they skip days off. A routine (or task) can also be personal, with no project: its tasks keep the next 14 days filled. Each routine chooses which task views (table, kanban, calendar) list its tasks, with toggles right on its card on the Routines page; Home and My work always do.
+- **Routines week overview:** a routine's weekday and time are shown in your time zone (an evening run in Los Angeles is next morning's in Dhaka), and a run that goes past midnight continues on the next weekday.
 - **Days off and working hours:** public holidays come from a country feed, and you can add your own days off. The weekend follows the country unless you pick its days in Settings → Holidays. Working hours frame the routines week and the calendar's all-day tasks, and decide when unfinished To Do tasks move to Backlog.
+- **Limits:** 20 workspaces per account; per workspace 100 projects, 100 routines, 20,000 tasks, 500 members (people and placeholders together) and 1,000 days off; 10 notification devices per account. Days off and sprint dates must be real calendar days.
 
 </details>
 
@@ -172,7 +177,9 @@
 - **Notifications:** in-app and push.
   - a summary of tomorrow's tasks the day before (6 PM unless you pick another time);
   - a reminder before a task ends (10, 15, 30 or 60 minutes; 30 by default);
-  - change-request decisions.
+  - change-request decisions;
+  - up to 10 devices per account, listed in Notification settings with a Remove button for any that no longer exist (a device is also dropped when its push service says it is gone); "Send a test" is limited to 20 an hour; a push that gets no answer or a server error is tried once more, since the reminder is recorded before it is pushed;
+  - the bell stays in sync across your devices: reading a notification on one clears it on the others.
 
 </details>
 
@@ -190,7 +197,7 @@
 - **Capacity calculator:** pick a project; each assigned person gets daily hours (0 to 24) and availability (0 to 100 %). The total is always the sum of the rows and follows every edit.
 - **Burndown chart:** the ideal line against the points still open on each day up to today, taken from when tasks were finished (days to come stay empty). The length comes from the project's own sprint dates, and the Progress colour compares with how far into the sprint you are. Download it as PNG or CSV.
 - **Velocity tracker:** one bar per project, oldest to newest; the trend compares the newest three with the average.
-- **Sprint report:** a Markdown report (also printable) with the same burndown, using the project's real sprint length.
+- **Sprint report:** a Markdown report (also printable) with the same burndown, using the project's real sprint length, and a status breakdown that covers all five statuses so it adds up to the task total.
 
 </details>
 
@@ -273,6 +280,8 @@ e2e/                 Playwright end-to-end tests
 
 `npm run test:all` (`scripts/test-all.sh [stage ...]`) is the full check before calling UI work done: it runs the suite in Chromium, Firefox, WebKit (inside Playwright's Docker image, `scripts/e2e-webkit.sh`), and against a production build (`E2E_PROD=1`, `next start`, where the dev-only cron-clock and push tests skip themselves), then the screen-size run. It writes logs and `summary.txt` to `~/.cache/scrumspecter-tests/<time>` and keeps a failing stage's traces. Run it detached, one Playwright run at a time (they share ports 3100 and 55433). A few tests use "today" in the Dhaka time zone, so don't start a full run in the 15 minutes before midnight there.
 
+Run one Playwright run at a time: they share ports 3100 and 55433, and a second start clears `test-results/` and breaks the first. A stopped run can leave its `next dev` processes behind; stop them by process number before starting again.
+
 `npm run test:e2e` starts its own in-memory Postgres (PGlite, `e2e/db-server.mjs`) and its own `next dev` (build folder `.next-e2e`), so it never touches a real database. It covers:
 - **the API:** auth, roles, change requests, bulk input and edit, bulk workspace setup, invites, routine views, cron jobs;
 - **the browser:** sign-up and getting started, views, the welcome tour, roles and change requests, the task panel opening and closing from every entry point, loading skeletons, the Home dashboard, every page with and without reduced motion, phone layouts, drag to the bin, preferences;
@@ -296,6 +305,7 @@ Four runs take screenshots instead of checking things:
 | `AUTH_LINK_SECRET` | yes | Signs the pending "link Google to this account" cookie |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | optional | Google sign-in. Redirect URI: `${NEXT_PUBLIC_APP_URL}/api/auth/google/callback` |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | optional | Push notifications (`npx web-push generate-vapid-keys`) |
+| `REMINDERS_INSERT_BATCH` | optional | Reminders saved per database statement (default 500; the test server uses 2) |
 | `RESEND_API_KEY`, `EMAIL_FROM` | optional | Password-reset emails through [Resend](https://resend.com). Without them the link is written to the server log |
 | `HOLIDAY_FEED` | optional | `off` disables the public-holiday feed |
 

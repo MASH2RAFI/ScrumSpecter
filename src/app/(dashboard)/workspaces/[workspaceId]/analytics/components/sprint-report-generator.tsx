@@ -41,9 +41,12 @@ interface SprintReport {
     bestVelocity: number;
     sprintDuration: number;
     burndownData: BurndownDay[];
+    // Every status, so the parts add up to totalTasks
     taskStatusBreakdown: {
+        backlog: number;
         todo: number;
         inProgress: number;
+        inReview: number;
         done: number;
     };
 }
@@ -65,8 +68,10 @@ const EMPTY_REPORT: SprintReport = {
     sprintDuration: DEFAULT_SPRINT_DURATION,
     burndownData: [],
     taskStatusBreakdown: {
+        backlog: 0,
         todo: 0,
         inProgress: 0,
+        inReview: 0,
         done: 0,
     },
 };
@@ -135,11 +140,13 @@ const PrintableReport = ({ report, today }: { report: SprintReport; today: strin
         />
         <ReportSection
             title="🎯 Task Status Breakdown"
-            gridClassName="grid-cols-3 text-center"
+            gridClassName="grid-cols-5 text-center"
             valueClassName="text-3xl font-bold"
             tiles={[
+                { label: "Backlog", value: report.taskStatusBreakdown.backlog, className: "bg-gray-100 text-gray-700" },
                 { label: "Todo", value: report.taskStatusBreakdown.todo, className: "bg-red-50 text-red-700" },
                 { label: "In Progress", value: report.taskStatusBreakdown.inProgress, className: "bg-yellow-50 text-amber-700" },
+                { label: "In Review", value: report.taskStatusBreakdown.inReview, className: "bg-sky-50 text-sky-700" },
                 { label: "Done", value: report.taskStatusBreakdown.done, className: "bg-green-50 text-green-700" },
             ]}
         />
@@ -219,8 +226,10 @@ export const SprintReportGenerator = () => {
             sprintDuration: sprintDays,
             burndownData: burndownDays,
             taskStatusBreakdown: {
+                backlog: projectTasks.filter(task => task.status === TaskStatus.BACKLOG).length,
                 todo: projectTasks.filter(task => task.status === TaskStatus.TODO).length,
                 inProgress: projectTasks.filter(task => task.status === TaskStatus.IN_PROGRESS).length,
+                inReview: projectTasks.filter(task => task.status === TaskStatus.IN_REVIEW).length,
                 done: completedTasks.length,
             },
         };
@@ -245,8 +254,10 @@ export const SprintReportGenerator = () => {
 - **Total Sprints**: ${report.totalSprints}
 
 ## Task Status Breakdown
+- **Backlog**: ${report.taskStatusBreakdown.backlog}
 - **To Do**: ${report.taskStatusBreakdown.todo}
 - **In Progress**: ${report.taskStatusBreakdown.inProgress}
+- **In Review**: ${report.taskStatusBreakdown.inReview}
 - **Done**: ${report.taskStatusBreakdown.done}
 
 ---

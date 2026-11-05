@@ -6,9 +6,10 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { notifications, pushSubscriptions } from "@/lib/db/schema";
 import { pushToUser } from "@/lib/push";
+import { rateLimited } from "@/lib/rate-limit";
 import { sessionMiddleware } from "@/lib/session-middleware";
 
-import { markReadSchema, subscriptionSchema } from "../schemas";
+import { markReadSchema, MAX_PUSH_DEVICES, subscriptionSchema } from "../schemas";
 
 const LIST_LIMIT = 30;
 
@@ -51,16 +52,34 @@ const app = new Hono()
         return c.json({ data: { success: true } });
     })
 
+    // The account's devices (at most MAX_PUSH_DEVICES), newest first. `endpoint` is the person's own
+    // device address, sent so a device can tell which entry it is itself.
     .get("/subscriptions", sessionMiddleware, async (c) => {
-        const [{ value: devices }] = await db.select({ value: count() }).from(pushSubscriptions)
-            .where(eq(pushSubscriptions.userId, c.get("user").$id));
-        return c.json({ data: { devices } });
+        const items = await db.select({
+            id: pushSubscriptions.id,
+            endpoint: pushSubscriptions.endpoint,
+            userAgent: pushSubscriptions.userAgent,
+            createdAt: pushSubscriptions.createdAt,
+            lastUsedAt: pushSubscriptions.lastUsedAt,
+        }).from(pushSubscriptions).where(eq(pushSubscriptions.userId, c.get("user").$id)).orderBy(desc(pushSubscriptions.createdAt));
+        return c.json({ data: { devices: items.length, items } });
     })
 
     .post("/subscriptions", sessionMiddleware, zValidator("json", subscriptionSchema), async (c) => {
         const userId = c.get("user").$id;
         const { endpoint, keys } = c.req.valid("json");
         const userAgent = c.req.header("user-agent")?.slice(0, 300) ?? null;
+
+        // At most MAX_PUSH_DEVICES per account: every reminder is sent to each of them, and the
+        // address only has to look like a push service's, so there is no other limit on how many
+        // someone could add. A device already on this account can always renew.
+        const [known] = await db.select({ userId: pushSubscriptions.userId }).from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint)).limit(1);
+        if (known?.userId !== userId) {
+            const [{ value: devices }] = await db.select({ value: count() }).from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+            if (devices >= MAX_PUSH_DEVICES) {
+                return c.json({ error: `You can turn notifications on for at most ${MAX_PUSH_DEVICES} devices. Turn them off on one you no longer use, or press "Send a test" in Account settings: it removes devices that no longer exist.` }, 400);
+            }
+        }
 
         // An endpoint belongs to one browser; if someone else signs in there, it follows them
         await db.insert(pushSubscriptions)
@@ -81,9 +100,21 @@ const app = new Hono()
         return c.json({ data: { success: true } });
     })
 
+    // Removes one of the account's devices (one that is gone, or another browser's)
+    .delete("/subscriptions/:id", sessionMiddleware, async (c) => {
+        await db.delete(pushSubscriptions).where(and(
+            eq(pushSubscriptions.userId, c.get("user").$id),
+            eq(pushSubscriptions.id, c.req.param("id")),
+        ));
+        return c.json({ data: { success: true } });
+    })
+
     // "Send a test notification" in Account settings: also lands in the bell
     .post("/test", sessionMiddleware, async (c) => {
         const userId = c.get("user").$id;
+        const limited = await rateLimited(c, "pushTest", userId);
+        if (limited) return limited;
+
         const now = new Date();
         const [row] = await db.insert(notifications).values({
             userId,

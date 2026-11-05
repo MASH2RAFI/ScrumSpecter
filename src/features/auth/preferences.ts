@@ -45,9 +45,10 @@ export const routineFilterSchema = z.object({
 export type RoutineFilter = z.infer<typeof routineFilterSchema>;
 export const EMPTY_ROUTINE_FILTER: RoutineFilter = { people: [], tags: [] };
 
-// One saved filter per workspace (at most 50 workspaces kept)
+// Saved filters are kept per workspace (at most 50 workspaces) and per project (at most 200)
+export const MAP_LIMITS = { taskFilters: 50, routineFilters: 50, projectFilters: 200 } as const;
 const perWorkspace = <T extends z.ZodTypeAny>(schema: T) =>
-    z.record(memberRef, schema).refine((value) => Object.keys(value).length <= 50, "Too many workspaces");
+    z.record(memberRef, schema).refine((value) => Object.keys(value).length <= MAP_LIMITS.taskFilters, "Too many workspaces");
 
 // My Tasks table's starting sort; "newest" is the server's own order
 export const TASK_SORTS = ["newest", "dueDate", "name", "storyPoints"] as const;
@@ -97,12 +98,24 @@ export const preferencesSchema = z.object({
     taskFilters: perWorkspace(taskFilterSchema),
     routineFilters: perWorkspace(routineFilterSchema),
     // Each project page's own filter, by project id (independent of My Tasks)
-    projectFilters: z.record(memberRef, taskFilterSchema).refine((value) => Object.keys(value).length <= 200, "Too many projects"),
+    projectFilters: z.record(memberRef, taskFilterSchema).refine((value) => Object.keys(value).length <= MAP_LIMITS.projectFilters, "Too many projects"),
     // Secret in this person's calendar subscribe link (export feed); "" = no link yet. Set by the server only
     calendarFeedKey: z.string().max(64),
 });
 
 export type UserPreferences = z.infer<typeof preferencesSchema>;
+
+// One project's eye on My Tasks or Routines, sent as a change to that id alone (see mergePreferenceChanges)
+export const hiddenToggleSchema = z.object({
+    list: z.enum(["hiddenProjects", "hiddenRoutineProjects"]),
+    id: z.string().min(1).max(64),
+    hidden: z.boolean(),
+});
+export type HiddenToggle = z.infer<typeof hiddenToggleSchema>;
+export type PreferenceChanges = Partial<UserPreferences> & { hiddenToggle?: HiddenToggle };
+
+// The longest a hidden-projects list may be (the schema's own limit)
+export const HIDDEN_LIST_LIMIT = 200;
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
     defaultTaskView: "table",
@@ -145,4 +158,27 @@ export const resolvePreferences = (raw: unknown): UserPreferences => {
         if (parsed.success) (result as Record<string, unknown>)[key] = parsed.data;
     }
     return result;
+};
+
+// A save of one of the keyed maps (taskFilters, routineFilters, projectFilters) carries only the
+// entries it changes, and they are merged into the stored map one level down. Sending the whole map
+// from a device's copy let a second device's save of another workspace's filter wipe the first's.
+// Used by the server (the stored value) and the browser (the cached copy), so they agree.
+export const mergePreferenceChanges = (current: Record<string, unknown>, changes: Record<string, unknown>) => {
+    const { hiddenToggle, ...rest } = changes as { hiddenToggle?: HiddenToggle } & Record<string, unknown>;
+    const merged: Record<string, unknown> = { ...current, ...rest };
+    // One project's eye: add or remove just that id in the list, not the whole list from a device's copy
+    if (hiddenToggle) {
+        const list = new Set((merged[hiddenToggle.list] as string[] | undefined) ?? []);
+        if (hiddenToggle.hidden) list.add(hiddenToggle.id);
+        else list.delete(hiddenToggle.id);
+        merged[hiddenToggle.list] = [...list];
+    }
+    for (const key of Object.keys(MAP_LIMITS)) {
+        const change = changes[key];
+        if (change && typeof change === "object") {
+            merged[key] = { ...(current[key] as Record<string, unknown> | undefined), ...(change as Record<string, unknown>) };
+        }
+    }
+    return merged;
 };

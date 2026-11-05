@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { idString, MAX_TITLE } from "@/lib/limits";
+import { idString, isoDay, MAX_TITLE } from "@/lib/limits";
 
 import { sprintLengthInDays } from "@/lib/sprint-utils";
 
@@ -39,8 +39,7 @@ const apiEndNotBeforeStart = (
 };
 
 // API form fields: a real YYYY-MM-DD day, and whole numbers (bad input is a 400, not a database error)
-const apiDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
-    .refine((day) => !Number.isNaN(Date.parse(`${day}T00:00:00Z`)) && new Date(`${day}T00:00:00Z`).toISOString().startsWith(day), "Not a real date");
+const apiDay = isoDay();
 const apiWholeNumber = z.string().regex(/^\d{1,6}$/, "Use a whole number");
 
 export const createProjectFormSchema = z.object({

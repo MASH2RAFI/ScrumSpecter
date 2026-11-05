@@ -2,11 +2,12 @@ import "server-only";
 
 import { createHash, randomBytes } from "crypto";
 import { hash, verify } from "@node-rs/argon2";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
+import { HTTPException } from "hono/http-exception";
 
 import { db } from "@/lib/db";
 import { sessions, users } from "@/lib/db/schema";
-import { resolvePreferences, type UserPreferences } from "@/features/auth/preferences";
+import { HIDDEN_LIST_LIMIT, MAP_LIMITS, mergePreferenceChanges, resolvePreferences, type UserPreferences } from "@/features/auth/preferences";
 
 // Idle expiry: a session ends after this long unused; each use (checked every few minutes) moves the end forward
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
@@ -129,17 +130,45 @@ export const getUserFromToken = async (token: string): Promise<{ user: SessionUs
 
 export const sessionIdFromToken = hashToken;
 
-// After a profile change or a sign-out elsewhere, drop this instance's cached copies
-// Merged inside Postgres in one statement: two saves at once (two quick eye toggles, the time-zone
-// sync, a new calendar-feed key) can't overwrite each other. Returns the stored preferences.
+// Merges changes into the stored preferences under a row lock, so two saves at once (two quick eye
+// toggles, the time-zone sync, a new calendar-feed key, two devices) can't overwrite each other.
+// The per-workspace and per-project filter maps merge entry by entry (mergePreferenceChanges).
+// Returns the stored preferences.
 export const mergePreferences = async (userId: string, changes: Record<string, unknown>) => {
-    const [row] = await db.update(users)
-        .set({ preferences: sql`coalesce(${users.preferences}, '{}'::jsonb) || ${JSON.stringify(changes)}::jsonb` })
-        .where(eq(users.id, userId))
-        .returning({ preferences: users.preferences });
-    return resolvePreferences(row.preferences);
+    return db.transaction(async (tx) => {
+        const [current] = await tx.select({ preferences: users.preferences }).from(users).where(eq(users.id, userId)).for("update");
+        const merged = mergePreferenceChanges((current?.preferences ?? {}) as Record<string, unknown>, changes);
+        for (const [key, limit] of Object.entries(MAP_LIMITS)) {
+            const entries = Object.keys((merged[key] ?? {}) as object).length;
+            if (entries > limit) {
+                throw new HTTPException(400, { res: Response.json({ error: `Too many saved filters (at most ${limit})` }, { status: 400 }) });
+            }
+        }
+        for (const key of ["hiddenProjects", "hiddenRoutineProjects"]) {
+            if (((merged[key] ?? []) as unknown[]).length > HIDDEN_LIST_LIMIT) {
+                throw new HTTPException(400, { res: Response.json({ error: `Too many hidden projects (at most ${HIDDEN_LIST_LIMIT})` }, { status: 400 }) });
+            }
+        }
+        const [row] = await tx.update(users).set({ preferences: merged }).where(eq(users.id, userId)).returning({ preferences: users.preferences });
+        return resolvePreferences(row.preferences);
+    });
 };
 
+// The secret in this person's calendar link. Read and written under the row lock, from the stored
+// copy: a signed-in user cached on another server (up to 30 s) or a second click at the same moment
+// must not make a second key, which would silently break the link already given out.
+export const ensureFeedKey = async (userId: string, reset = false) => {
+    return db.transaction(async (tx) => {
+        const [row] = await tx.select({ preferences: users.preferences }).from(users).where(eq(users.id, userId)).for("update");
+        const stored = (row?.preferences as Record<string, unknown> | undefined)?.calendarFeedKey;
+        if (typeof stored === "string" && stored && !reset) return stored;
+        const key = randomBytes(24).toString("base64url");
+        await tx.update(users).set({ preferences: { ...(row?.preferences ?? {}), calendarFeedKey: key } }).where(eq(users.id, userId));
+        return key;
+    });
+};
+
+// After a profile change or a sign-out elsewhere, drop this instance's cached copies
 export const forgetCachedSessions = (userId: string, keepSessionId?: string) => {
     for (const [id, entry] of Array.from(sessionCache.entries())) {
         if (entry.user.$id === userId && id !== keepSessionId) sessionCache.delete(id);

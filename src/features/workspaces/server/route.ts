@@ -2,12 +2,13 @@ import { randomUUID } from "crypto";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, eq, gt, isNull, lt, max, or, sql, TransactionRollbackError } from "drizzle-orm";
+import { and, eq, gt, isNull, lt, or, sql, TransactionRollbackError } from "drizzle-orm";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { generateInviteCode } from "@/lib/utils";
 import { db, type Tx } from "@/lib/db";
+import { forgetSavedFilters } from "@/lib/db/saved-filters";
 import { findById } from "@/lib/db/find-by-id";
-import { members, notifications, routines, users, workspaceHolidays, workspaces } from "@/lib/db/schema";
+import { members, notifications, projects, routines, users, workspaceHolidays, workspaces } from "@/lib/db/schema";
 import { getHolidays, isSupportedCountry, listCountries, weekendDays } from "@/lib/holidays";
 import { generateRoutineTasks, removeRoutineTasksOn } from "@/lib/routines";
 import { toDoc } from "@/lib/db/types";
@@ -78,7 +79,9 @@ const app = new Hono()
                     .innerJoin(members, eq(members.workspaceId, workspaces.id))
                     .where(eq(members.userId, userId)),
                 db.select({ updatedAt: users.updatedAt }).from(users).where(eq(users.id, userId)).limit(1),
-                db.select({ at: max(notifications.createdAt) }).from(notifications).where(eq(notifications.userId, userId)),
+                // The newest creation OR read time: marking notifications read on one device must move it, or the others keep showing them unread
+                db.select({ at: sql<Date | null>`max(greatest(${notifications.createdAt}, coalesce(${notifications.readAt}, ${notifications.createdAt})))`.mapWith((value) => (value === null ? null : new Date(value))) })
+                    .from(notifications).where(eq(notifications.userId, userId)),
             ]);
 
             return c.json({
@@ -86,7 +89,7 @@ const app = new Hono()
                     workspaces: Object.fromEntries(rows.map((row) => [row.id, row.version])) as Record<string, number>,
                     // Profile and preferences
                     user: account?.updatedAt.getTime() ?? 0,
-                    // Newest reminder, so the bell picks up new ones
+                    // Newest reminder or read, so the bell picks up new ones and reads from other devices
                     notifications: latestNotification?.at?.getTime() ?? 0,
                 },
             });
@@ -286,6 +289,7 @@ const app = new Hono()
                 return member;
             }
 
+            await assertRoom("holidays", workspaceId);
             await db.insert(workspaceHolidays).values({ workspaceId, date, name, kind }).onConflictDoNothing();
 
             if (kind === "custom") {
@@ -341,7 +345,9 @@ const app = new Hono()
             }
 
             // Tasks, projects and members are removed by ON DELETE CASCADE
+            const projectIds = (await db.select({ id: projects.id }).from(projects).where(eq(projects.workspaceId, workspaceId))).map((row) => row.id);
             await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+            await forgetSavedFilters(db, { workspaceId, projectIds });
 
             return c.json({ data: { $id: workspaceId } });
         }
@@ -548,6 +554,9 @@ const app = new Hono()
                 if (!claimed) {
                     return "used-up" as const;
                 }
+
+                // Over the workspace's size limit: rolls back, so the invite link keeps its place
+                await assertRoom("members", workspaceId, 1, tx);
 
                 // A concurrent join (double click, retry) hits the unique index instead of a 500
                 const [joined] = await tx

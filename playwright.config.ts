@@ -47,6 +47,8 @@ export default defineConfig({
                 DB_POOL_MAX: "1",
                 NEXT_PUBLIC_APP_URL: baseURL,
                 CRON_SECRET: "e2e-cron-secret",
+                // Reminders are saved in batches; 2 makes every test with a few reminders run several
+                REMINDERS_INSERT_BATCH: "2",
                 // Known to qol-api.spec.ts, which signs a pending Google link like the server does
                 AUTH_LINK_SECRET: "e2e-link-secret",
                 // Bundled holiday data, so tests don't depend on Google's live feed

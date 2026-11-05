@@ -256,3 +256,22 @@ test("tasks still in To Do after they end move to Backlog", async () => {
     expect(await status(runningBlock)).toBe("TODO");
     expect(await status(unassigned.data.$id)).toBe("TODO");
 });
+
+test("many reminders in one run are all saved and sent once, in batches", async () => {
+    // The test server saves reminders 2 at a time (REMINDERS_INSERT_BATCH), so 7 take four batches
+    const day = dhakaDay(6);
+    const names = Array.from({ length: 7 }, (_, i) => `Batch task ${i + 1}`);
+    for (const name of names) {
+        const created = await createTask(user.api, { workspaceId, projectId, assigneeId: memberId, name, dueDate: dhaka(day, "00:00") });
+        expect(created.status(), await created.text()).toBe(200);
+    }
+    const mine = async () => (await reminders(user)).documents.filter((n) => n.title.startsWith("Ends in 30 min: Batch task"));
+
+    const first = await runAt(dhaka(day, "17:30"));
+    expect(first.created).toBeGreaterThanOrEqual(7);
+    expect((await mine()).map((n) => n.title).sort()).toEqual(names.map((name) => `Ends in 30 min: ${name}`).sort());
+    // Running again creates nothing new
+    const again = await runAt(dhaka(day, "17:32"));
+    expect(again.created).toBe(0);
+    expect(await mine()).toHaveLength(7);
+});

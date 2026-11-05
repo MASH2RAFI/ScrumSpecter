@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { MAX_TITLE, MAX_WORKSPACE_NAME } from "@/lib/limits";
+import { isoDay, MAX_TITLE, MAX_WORKSPACE_NAME } from "@/lib/limits";
 
 import { endNotBeforeStart, sprintDatesFields } from "@/features/projects/schemas";
 
@@ -32,7 +32,7 @@ export const holidayRangeSchema = z.object({
 }).refine(({ from, to }) => from <= to && Number(to.slice(0, 4)) - Number(from.slice(0, 4)) <= 1, "Range must be within two years");
 
 export const holidayChangeSchema = z.object({
-    date: z.string().regex(YYYY_MM_DD, "Pick a date"),
+    date: isoDay("Pick a date"),
     name: z.string().trim().min(1, "Give it a name").max(80),
     kind: z.enum(["custom", "hidden"]),
 });

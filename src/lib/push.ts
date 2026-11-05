@@ -26,6 +26,19 @@ const isConfigured = () => {
 // Sends each message to every device the user turned notifications on for. Devices the push
 // service reports as gone (404/410) or made with other VAPID keys (401/403) are forgotten, so
 // turning notifications on again subscribes afresh. Returns how many deliveries succeeded/failed.
+// One more try after a second when the push service didn't answer or failed on its side (no status,
+// or 5xx): the reminder is recorded before it is pushed, so nothing would send it again.
+const send = async (...args: Parameters<typeof webpush.sendNotification>) => {
+    try {
+        return await webpush.sendNotification(...args);
+    } catch (error) {
+        const status = (error as { statusCode?: number }).statusCode;
+        if (status !== undefined && status < 500) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 1_000));
+        return webpush.sendNotification(...args);
+    }
+};
+
 export const pushToUser = async (userId: string, messages: PushMessage[]) => {
     if (!isConfigured() || messages.length === 0) return { delivered: 0, failed: 0 };
 
@@ -36,7 +49,7 @@ export const pushToUser = async (userId: string, messages: PushMessage[]) => {
 
     await Promise.all(subscriptions.flatMap((subscription) => messages.map(async (message) => {
         try {
-            await webpush.sendNotification(
+            await send(
                 { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } },
                 JSON.stringify(message),
                 // A reminder that arrives hours late is noise

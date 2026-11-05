@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomBytes, timingSafeEqual } from "crypto";
+import { timingSafeEqual } from "crypto";
 
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
@@ -13,7 +13,7 @@ import { rateLimited } from "@/lib/rate-limit";
 import { localDate } from "@/lib/time-zone";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { VOLUME_CAPS } from "@/lib/volume-caps";
-import { forgetCachedSessions, mergePreferences } from "@/lib/auth";
+import { ensureFeedKey, forgetCachedSessions } from "@/lib/auth";
 import { idString, MAX_DESCRIPTION, MAX_TITLE } from "@/lib/limits";
 import { requireAdmin, requireMember } from "@/features/members/utils";
 import { resolvePreferences } from "@/features/auth/preferences";
@@ -392,13 +392,9 @@ const app = new Hono()
             if (member instanceof Response) return member;
 
             const user = c.get("user");
-            let key = user.preferences.calendarFeedKey;
-            if (!key || reset) {
-                key = randomBytes(24).toString("base64url");
-                await mergePreferences(user.$id, { calendarFeedKey: key });
-                // Cached sessions still hold the old preferences for up to 30 s
-                forgetCachedSessions(user.$id);
-            }
+            const key = await ensureFeedKey(user.$id, reset);
+            // Cached sessions may still hold the old preferences for up to 30 s
+            forgetCachedSessions(user.$id);
             const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(c.req.url).origin;
             return c.json({ data: { url: `${origin}/api/export/feed/${user.$id}/${workspaceId}/${key}.ics` } });
         }
