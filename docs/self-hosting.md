@@ -24,12 +24,12 @@ The commands below use placeholders:
    2. Run as the app user, so anything new is owned by it: `DATABASE_URL="postgres://scrumspecter_app:<password>@127.0.0.1:15432/scrumspecter" npx drizzle-kit migrate`.
    3. Close the tunnel.
 
-   Deploy the matching code right after, because the live site expects the database to match it.
+   Back up first (`sh ~/docker/postgres/backup.sh`). **Order matters:** a migration that adds a column or table the new code reads (like `0019_task_done_at`, the finished-at column) must be applied *before* the code is pushed, or every query that touches it fails until it is. A migration the old code simply ignores can go either way; deploy the matching code soon after. The app role has a 15-second statement limit (`scripts/pi/app-role-limits.sql`): a migration that rewrites a very large table is better run as the superuser inside the container.
 5. **Vercel:** set the variables above (`DATABASE_SSL=direct`). Funnel routes connections by TLS SNI and drops Postgres's plaintext `SSLRequest`, so Vercel connects with direct TLS (`src/lib/db/pool-config.ts`, which needs Postgres 17+).
 
 ## Reminders job
 
-Vercel's free cron runs only once a day, so the Pi calls `GET /api/cron/reminders` every 5 minutes. Each call sends due reminders, then moves tasks still in To Do after they ended to Backlog.
+Vercel's free cron runs once a day (`/api/cron/routines`: it tops up routine tasks, and removes expired sessions, old sign-in counters, notifications older than 90 days and used or expired tokens), so the Pi calls `GET /api/cron/reminders` every 5 minutes. Each call sends due reminders, then moves tasks still in To Do after they ended to Backlog.
 
 - **Crontab** (`crontab -l` on the Pi): `*/5 * * * * sh /home/<ssh-user>/docker/postgres/reminders.sh`, next to the 03:00 backup line.
 - **Script:** `~/docker/postgres/reminders.sh` calls `https://scrumspecter.vercel.app/api/cron/reminders` with `Authorization: Bearer <CRON_SECRET>`.
@@ -50,7 +50,7 @@ One-time setup. `scripts/pi/install-backups.sh` does the parts that need no secr
 2. **Encryption key:** on your own computer, `age-keygen -o scrumspecter-backup.key`. Keep that file (the private key) in your password manager, not on the Pi. Copy only the public key line (`age1…`) to `~/docker/postgres/backup-age.pub` on the Pi. Install `age` on the Pi (`sudo apt install age`).
 3. **Nightly hook:** added to `backup.sh` by the install script; it runs only once `telegram.env` and `backup-age.pub` exist.
 
-What it does: encrypts the dump with `age`, splits it into 19 MB parts (the Bot API downloads at most 20 MB per file), posts each part with a caption (`scrumspecter · <date> · <size> · sha256 <hash> · part n/N`), and logs date, part, hash and `file_id` to `telegram-backups.log`, because a bot can't list old messages. Any failure sends "❌ backup failed: <step>"; every Sunday it sends a "✅ N backups this week" summary.
+What it does: encrypts the dump with `age`, splits it into 19 MB parts (the Bot API downloads at most 20 MB per file), posts each part with a caption (`scrumspecter · <date> · <size> · sha256 <hash> · part n/N`), and logs date, part, hash and `file_id` to `telegram-backups.log`, because a bot can't list old messages. The log lines of a night are written only after every part has uploaded, so a failed upload leaves nothing in the log for the restore test to mistake for the latest backup (copy the updated `backup-offsite.sh` to the Pi to get this). Any failure sends "❌ backup failed: <step>"; every Sunday it sends a "✅ N backups this week" summary.
 
 **Restore test (monthly):** copy the private key to the Pi for the test only, then:
 ```

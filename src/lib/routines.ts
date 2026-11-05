@@ -1,12 +1,13 @@
 import "server-only";
 
-import { and, eq, gte, inArray, isNotNull, isNull, lt, max, or, sql, type SQL } from "drizzle-orm";
+import { and, count, eq, gte, inArray, isNotNull, isNull, lt, max, or, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { projects, routines, tasks, workspaces } from "@/lib/db/schema";
 import { getHolidays } from "@/lib/holidays";
 import { TaskStatus } from "@/features/tasks/types";
 import { isValidTimeZone, zonedTimeToUtc } from "@/lib/time-zone";
+import { VOLUME_CAPS } from "@/lib/volume-caps";
 
 type RoutineTime = { startTime: string | null; timeZone: string | null; durationMinutes: number | null };
 
@@ -121,15 +122,29 @@ export const generateRoutineTasks = async (filter?: SQL) => {
         })
     );
 
+    // A workspace at its task cap gets no more: 100 daily routines over a year-long sprint would
+    // otherwise pass it (and the Pi's disk guard) on their own
+    const workspaceIds = Array.from(new Set(rows.map((row) => row.workspaceId)));
+    const used = new Map((workspaceIds.length
+        ? await db.select({ workspaceId: tasks.workspaceId, value: count() }).from(tasks)
+            .where(inArray(tasks.workspaceId, workspaceIds)).groupBy(tasks.workspaceId)
+        : []).map((row) => [row.workspaceId, row.value]));
+
     // Postgres allows 65,535 bind parameters per statement; 13 columns x 1,000 rows stays well under it
     let createdCount = 0;
-    for (let i = 0; i < rows.length; i += INSERT_CHUNK_ROWS) {
-        const created = await db
-            .insert(tasks)
-            .values(rows.slice(i, i + INSERT_CHUNK_ROWS))
-            .onConflictDoNothing({ target: [tasks.routineId, tasks.dueDate] })
-            .returning({ id: tasks.id });
-        createdCount += created.length;
+    for (const workspaceId of workspaceIds) {
+        const mine = rows.filter((row) => row.workspaceId === workspaceId);
+        let room = VOLUME_CAPS.tasks - (used.get(workspaceId) ?? 0);
+        // shortcut: checked between chunks, so a run can pass the cap by up to one chunk (1,000 rows)
+        for (let i = 0; i < mine.length && room > 0; i += INSERT_CHUNK_ROWS) {
+            const created = await db
+                .insert(tasks)
+                .values(mine.slice(i, i + INSERT_CHUNK_ROWS))
+                .onConflictDoNothing({ target: [tasks.routineId, tasks.dueDate] })
+                .returning({ id: tasks.id });
+            createdCount += created.length;
+            room -= created.length;
+        }
     }
 
     return createdCount;

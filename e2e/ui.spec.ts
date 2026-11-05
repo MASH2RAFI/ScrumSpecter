@@ -245,9 +245,12 @@ test("every workspace page renders", async () => {
         const res = await page.goto(`/workspaces/${workspaceId}${path}`);
         expect(res?.status(), path).toBe(200);
         await expect(page.locator("main, body").first()).toBeVisible();
-        // The old settings pages redirect in the browser after loading (to the settings and
-        // edit-project popups): wait for it, or it lands on top of the next goto
+        // The old settings and members pages redirect in the browser after loading (to the popups):
+        // wait for it, or it lands on top of the next goto
         if (path.endsWith("/settings")) await expect(page).toHaveURL(/[?&](workspace-panel=settings|edit-project=)/);
+        if (path === "/members") await expect(page).toHaveURL(/[?&]workspace-panel=members/);
+        // ...and the popup loads its code after that: leaving first aborts the download (ChunkLoadError in WebKit)
+        if (path === "/members" || path.endsWith("/settings")) await expect(page.getByRole("dialog")).toBeVisible();
         await page.waitForLoadState("networkidle");
     }
 });

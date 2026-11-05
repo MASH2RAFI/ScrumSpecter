@@ -12,13 +12,13 @@ import { getHolidays, isSupportedCountry, listCountries, weekendDays } from "@/l
 import { generateRoutineTasks, removeRoutineTasksOn } from "@/lib/routines";
 import { toDoc } from "@/lib/db/types";
 import { MemberRole } from "@/features/members/types";
-import { getMember, handOverPlaceholder, requireMember, requireRole } from "@/features/members/utils";
+import { claimPlaceholders, getMember, requireMember, requireRole } from "@/features/members/utils";
 import { canEditWork, canRequestChanges } from "@/features/members/permissions";
 import { MAX_SCRIPT_LENGTH, planScript } from "./bulk-input";
 import { insertTaskRequests, MAX_PENDING_PER_MEMBER, notifyBulkRequests, pendingRequests } from "@/features/change-requests/server/route";
 import { countPlan, finishPlan, loadContext, newWorkspaceContext, ofKind, writePlan } from "./bulk-apply";
 import { createWorkspaceSchema, holidayChangeSchema, holidayRangeSchema, inviteLimitsSchema, updateWorkspaceSchema } from "../schemas";
-import { listUserWorkspaces } from "../queries";
+import { forRole, listUserWorkspaces } from "../queries";
 import { rateLimited } from "@/lib/rate-limit";
 import { assertRoom } from "@/lib/volume-caps";
 
@@ -172,7 +172,7 @@ const app = new Hono()
                 return c.json({ error: "Workspace not found" }, 404);
             }
 
-            return c.json({ data: workspace });
+            return c.json({ data: forRole(workspace, member.role) });
         }
     )
 
@@ -576,18 +576,8 @@ const app = new Hono()
                 return c.json({ error: "Already a member" }, 400);
             }
 
-            // Placeholders set up for this person's email: their tasks are now theirs
-            const [joinedMember] = await db.select({ id: members.id }).from(members)
-                .where(and(eq(members.workspaceId, workspaceId), eq(members.userId, user.$id))).limit(1);
-            // (Not for viewers, who can't work on tasks)
-            const placeholders = viaViewerLink ? [] : await db.select({ id: members.id }).from(members).where(and(
-                eq(members.workspaceId, workspaceId),
-                isNull(members.userId),
-                eq(members.placeholderEmail, user.email.toLowerCase()),
-            ));
-            for (const placeholder of placeholders) {
-                await handOverPlaceholder(placeholder.id, joinedMember.id);
-            }
+            // Placeholders set up for this person's (verified) email: their tasks are now theirs
+            await claimPlaceholders(user.$id);
 
             return c.json({ data: workspace });
         }

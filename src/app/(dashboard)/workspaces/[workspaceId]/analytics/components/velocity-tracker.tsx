@@ -27,10 +27,11 @@ export const VelocityTracker = () => {
     const { data: summary } = useGetTaskSummary({ workspaceId });
     const { data: projects } = useGetProjects({ workspaceId });
 
-    // One "sprint" entry per project
+    // One "sprint" entry per project, oldest first (the list comes newest first): the trend takes
+    // the last three, which must be the newest, and the chart then runs from old to new
     const sprints = useMemo(() => {
         if (!summary || !projects?.documents) return [];
-        return projects.documents.map(project => {
+        return [...projects.documents].sort((a, b) => a.$createdAt.localeCompare(b.$createdAt)).map(project => {
             const row = summary.projects.find((p) => p.projectId === project.$id);
             const totalStoryPoints = row?.points ?? 0;
             const completedStoryPoints = row?.donePoints ?? 0;

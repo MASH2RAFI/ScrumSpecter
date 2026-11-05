@@ -72,10 +72,14 @@ test("an invite link opened signed out comes back after signing in", async ({ ba
 test("a shared task link opened signed out comes back after signing in", async () => {
     await page.goto(`/workspaces/${workspace.$id}/tasks?task-view=kanban`, { timeout: 90_000 });
     await expect(page).toHaveURL(/\/sign-in\?next=/);
+    // The page before it fades out first: wait until only the new sign-in form is left
+    await expect(page.getByPlaceholder("Enter email address")).toHaveCount(1);
     await page.getByPlaceholder("Enter email address").fill(admin.email);
     await page.getByPlaceholder("Enter password").fill(admin.password);
     await page.getByRole("button", { name: "Sign In" }).click();
     await expect(page).toHaveURL(new RegExp(`/workspaces/${workspace.$id}/tasks\\?task-view=kanban$`), { timeout: 60_000 });
+    // The board loads its code after the page: leaving first aborts the download (ChunkLoadError in WebKit)
+    await expect(page.getByText("Backlog", { exact: true }).first()).toBeVisible();
 });
 
 test("forgot and reset password pages", async () => {

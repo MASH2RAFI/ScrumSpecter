@@ -43,6 +43,8 @@ export type Task = Document & {
     description?: string;
     storyPoints: number;
     sprintId?: string;
+    // When it was finished (set by the database when its status becomes DONE); null while open
+    doneAt?: string | null;
     // Optional time block; null/absent = all-day task on dueDate
     startAt?: string | null;
     durationMinutes?: number | null;

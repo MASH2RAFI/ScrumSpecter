@@ -129,11 +129,16 @@ const LinkField = ({ label, link, canReset, resetting, onReset }: {
 };
 
 // The invite links: copy them, limit the regular one, email it, or replace them
-const InviteSettings = ({ workspace, isAdmin }: { workspace: Workspace; isAdmin: boolean }) => {
+const InviteSettings = ({ workspace, isAdmin, isViewer }: { workspace: Workspace; isAdmin: boolean; isViewer: boolean }) => {
     const { mutate: resetInviteCode, isPending } = useResetInviteCode();
     const { mutate: resetViewerCode, isPending: isResettingViewer } = useResetViewerInviteCode();
     const joinLink = (code: string) => `${window.location.origin}/workspaces/${workspace.$id}/join/${code}`;
     const inviteLink = joinLink(workspace.inviteCode);
+
+    // Viewers don't get the link (it joins as an Assignee)
+    if (isViewer) {
+        return <p className="text-sm text-muted-foreground">Viewers can&apos;t invite people. Ask an admin for a link.</p>;
+    }
 
     return (
         <div className="space-y-4">
@@ -226,7 +231,7 @@ export const WorkspaceSettings = ({ workspace }: { workspace: Workspace }) => {
                     <GeneralSettings key={workspace.$updatedAt} workspace={workspace} isAdmin={admin} />
                 </TabsContent>
                 <TabsContent value="invites" className="pt-2">
-                    <InviteSettings workspace={workspace} isAdmin={admin} />
+                    <InviteSettings workspace={workspace} isAdmin={admin} isViewer={isViewer} />
                 </TabsContent>
                 <TabsContent value="holidays" className="pt-2">
                     <HolidaySettings workspaceId={workspace.$id} isAdmin={admin} />

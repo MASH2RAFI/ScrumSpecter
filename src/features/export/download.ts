@@ -27,7 +27,8 @@ export const toQuery = (params: Record<string, string | null | undefined>) =>
 export const downloadCsv = (rows: unknown[][], filename: string) =>
     saveBlob(new Blob([CSV_BOM, ...rows.map(csvRow)], { type: "text/csv;charset=utf-8" }), filename);
 
-type Series = { name: string; values: number[]; color: string; dashed?: boolean };
+// null: no value that day (a gap in a line, no bar)
+type Series = { name: string; values: (number | null)[]; color: string; dashed?: boolean };
 
 // A chart drawn from its numbers onto a canvas and saved as PNG: lines (burndown) or bars
 // (velocity, capacity). Light background, so it reads the same wherever it's pasted.
@@ -50,7 +51,7 @@ export const downloadChartPng = ({ title, kind, labels, series, unit = "", filen
 
     const plotW = width - pad.left - pad.right;
     const plotH = height - pad.top - pad.bottom;
-    const max = Math.max(1, ...series.flatMap((s) => s.values));
+    const max = Math.max(1, ...series.flatMap((s) => s.values.flatMap((value) => value ?? [])));
     const y = (value: number) => pad.top + plotH - (value / max) * plotH;
 
     // Grid and y labels
@@ -82,12 +83,18 @@ export const downloadChartPng = ({ title, kind, labels, series, unit = "", filen
             ctx.lineWidth = 3;
             ctx.setLineDash(s.dashed ? [8, 8] : []);
             ctx.beginPath();
-            s.values.forEach((value, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, pad.left + step * (i + 0.5), y(value)));
+            let drawing = false;
+            s.values.forEach((value, i) => {
+                if (value === null) { drawing = false; return; }
+                (drawing ? ctx.lineTo : ctx.moveTo).call(ctx, pad.left + step * (i + 0.5), y(value));
+                drawing = true;
+            });
             ctx.stroke();
             ctx.setLineDash([]);
         } else {
             const barW = (step * 0.7) / series.length;
             s.values.forEach((value, i) => {
+                if (value === null) return;
                 ctx.fillRect(pad.left + step * (i + 0.15) + barW * index, y(value), barW, pad.top + plotH - y(value));
             });
         }

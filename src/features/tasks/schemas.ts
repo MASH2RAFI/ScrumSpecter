@@ -51,5 +51,6 @@ export const restoreTasksSchema = z.object({
         durationMinutes: z.number().int().min(5).max(1440).nullable().optional(),
         sprintId: z.string().max(MAX_ID).nullable().optional(),
         routineId: z.string().max(MAX_ID).nullable().optional(),
+        doneAt: z.iso.datetime({ offset: true }).nullable().optional(),
     })).min(1).max(200),
 });

@@ -1,8 +1,8 @@
 import type { Context } from "hono";
-import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, ne } from "drizzle-orm";
 
 import { db, type Tx } from "@/lib/db";
-import { members } from "@/lib/db/schema";
+import { members, users } from "@/lib/db/schema";
 import { replaceAssignee } from "@/lib/db/assignees";
 import { toDoc } from "@/lib/db/types";
 import type { SessionEnv } from "@/lib/session-middleware";
@@ -82,6 +82,24 @@ export const handOverPlaceholder = async (placeholderId: string, memberId: strin
     });
 };
 
+// A verified address takes over the placeholders made for it in the workspaces its owner joined
+// (viewers can't work on tasks, so they don't). Unverified, anyone with an invite link could sign up
+// with someone else's address and receive their tasks, so this also runs when an address gets verified.
+export const claimPlaceholders = async (userId: string) => {
+    const [user] = await db.select({ email: users.email, verifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userId)).limit(1);
+    if (!user?.verifiedAt) return;
+    const mine = await db.select({ id: members.id, workspaceId: members.workspaceId }).from(members)
+        .where(and(eq(members.userId, userId), ne(members.role, MemberRole.VIEWER)));
+    if (mine.length === 0) return;
+    const placeholders = await db.select({ id: members.id, workspaceId: members.workspaceId }).from(members).where(and(
+        inArray(members.workspaceId, mine.map((member) => member.workspaceId)),
+        isNull(members.userId),
+        eq(members.placeholderEmail, user.email.toLowerCase()),
+    ));
+    for (const placeholder of placeholders) {
+        await handOverPlaceholder(placeholder.id, mine.find((member) => member.workspaceId === placeholder.workspaceId)!.id);
+    }
+};
 
 // The workspace's admins (people only), locked until the transaction ends, so two admins
 // demoting or removing each other at once can't leave the workspace with none

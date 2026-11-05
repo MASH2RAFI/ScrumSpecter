@@ -17,7 +17,7 @@ import {
     verifyPassword,
 } from "@/lib/auth";
 import { isGoogleAuthEnabled } from "@/lib/google-oauth";
-import { attemptKeys, lockedMinutes, recordFailure, tooManyAttempts } from "@/lib/login-limit";
+import { attemptKeys, clearFailures, reserveAttempt, tooManyAttempts } from "@/lib/login-limit";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { AUTH_COOKIE } from "@/features/auth/constants";
 import { resolvePreferences } from "@/features/auth/preferences";
@@ -90,14 +90,14 @@ const app = new Hono()
 
         // Same lockout as sign-in, so a stolen session can't be used to guess the password
         const keys = attemptKeys(user.email, null);
-        const locked = await lockedMinutes(keys);
+        const locked = await reserveAttempt(keys);
         if (locked) {
             return c.json({ error: tooManyAttempts(locked) }, 429);
         }
         if (user.passwordHash && (!currentPassword || !(await verifyPassword(user.passwordHash, currentPassword)))) {
-            await recordFailure(keys);
             return c.json({ error: "Current password is incorrect" }, 400);
         }
+        await clearFailures(keys);
 
         await db.update(users).set({ passwordHash: await hashPassword(newPassword) }).where(eq(users.id, $id));
 

@@ -130,11 +130,13 @@
   - three views: a table, a kanban board and a calendar, all with drag and drop;
   - in the table, clicking a row opens the task in a side panel; Shift-click selects a range of rows and Ctrl/⌘-click adds or removes one, for bulk edit;
   - Undo after deleting or moving a task;
+  - the database records when a task was finished, and keeps it through edits and drags (the burndown uses it);
+  - a task is **overdue** once its time block has ended or, for a task with only a date, once the workspace's working day has ended on that date in your time zone. Home, the Overdue filter and the project cards all use this one rule;
   - in the calendar's Week and Day views, tasks with a due date but no time fill the working day in the timeline, and the strip above the hours names holidays and weekends; on a phone the week scrolls sideways;
   - drag a Kanban card, a calendar task, a routine or your own pending request to the bin on the right edge of the page to delete (or withdraw) it; the menus do the same from the keyboard.
 - **Filters:** My Tasks has a compact filter block, saved on your account: whose tasks (any people in the workspace), which statuses, Starred and Overdue, each chip with a live count, plus a search box that reads plain words (`tom in review overdue`, `mine today`, `no project`; quotes search names only) and shows what it understood; Enter turns those words into chips. The older forms (`status:todo`, `@tom`, `project:web`, `is:starred`, `due:today`) still work. Home follows it; Routines have their own.
 - **Starred:** star tasks and routines, then filter to them (the calendar too).
-- **Export:** tasks as CSV or a calendar file (`.ics`), a private calendar-subscribe link for Google or Apple Calendar, the whole workspace as a bulk-input script or a JSON backup (Admins), analytics charts as PNG or CSV, and your own data.
+- **Export:** tasks as CSV or a calendar file (`.ics`), a private calendar-subscribe link for Google or Apple Calendar, the whole workspace as a bulk-input script or a JSON backup (Admins; streamed, so large workspaces work), analytics charts as PNG or CSV, and your own data.
 - **Home ("My work"):** your overdue tasks and those due today and tomorrow, with a countdown to each one's end time.
 - **My Tasks:** an eye beside each project hides or shows its tasks there. The choice is saved to your account; picking a project in the filter still shows it.
 - **Routines:** tasks that repeat weekly. They're created for each of their weekdays through the end of the sprint, and they skip days off. A routine (or task) can also be personal, with no project: its tasks keep the next 14 days filled. Each routine chooses which task views (table, kanban, calendar) list its tasks, with toggles right on its card on the Routines page; Home and My work always do.
@@ -158,7 +160,7 @@
   Reviewers and Assignees request changes instead (see Change requests below). Placeholders stand in for people who haven't joined yet.
 - **Change requests:** Reviewers and Assignees propose new tasks, edits or deletions. Admins and Supervisors approve or decline them on the **Requests** page, and both sides are notified.
 - **Invites:**
-  - an invite link for Assignees, with an optional expiry (1, 7 or 30 days) and use limit;
+  - an invite link for Assignees, with an optional expiry (1, 7 or 30 days) and use limit (Viewers don't see it, since it would let them add an Assignee account);
   - a separate link for Viewers;
   - links that survive signing in.
 
@@ -185,7 +187,10 @@
 <details>
 <summary><strong>📈 Analytics</strong></summary>
 
-- **Analytics:** capacity calculator, burndown chart, velocity tracker and a sprint report generator (Markdown).
+- **Capacity calculator:** pick a project; each assigned person gets daily hours (0 to 24) and availability (0 to 100 %). The total is always the sum of the rows and follows every edit.
+- **Burndown chart:** the ideal line against the points still open on each day up to today, taken from when tasks were finished (days to come stay empty). The length comes from the project's own sprint dates, and the Progress colour compares with how far into the sprint you are. Download it as PNG or CSV.
+- **Velocity tracker:** one bar per project, oldest to newest; the trend compares the newest three with the average.
+- **Sprint report:** a Markdown report (also printable) with the same burndown, using the project's real sprint length.
 
 </details>
 
@@ -195,7 +200,8 @@
 - **Accounts:**
   - email and password or Google sign-in;
   - forgot-password emails, and an email-verification link at sign-up;
-  - lockout after repeated failed logins;
+  - lockout after repeated failed logins (guesses are counted before the password is checked, so a burst can't slip through);
+  - a password reset signs every device out and also ends the secret calendar-subscribe link;
   - a list of signed-in devices;
   - preferences saved to the account: default task view, week start, 12 or 24-hour time, date format, time zone, reminders, landing page, theme, reduce motion, calendar defaults, My Tasks sort / page size / Done tasks, and Kanban card size and empty columns.
 
@@ -260,9 +266,12 @@ e2e/                 Playwright end-to-end tests
 | `npm run lint` | ESLint |
 | `npm run db:generate` | Writes a migration after a change to `src/lib/db/schema.ts` |
 | `npm run db:migrate` | Applies migrations to `DATABASE_URL` |
-| `npm run test:e2e` | Playwright suite |
+| `npm run test:e2e` | Playwright suite (Chromium, `next dev`) |
+| `npm run test:all` | Every check, one after another: types, lint, Chromium, Firefox, WebKit (Docker), a production build and its suite, and the screen-size run. About two hours; see below |
 
 ### Tests
+
+`npm run test:all` (`scripts/test-all.sh [stage ...]`) is the full check before calling UI work done: it runs the suite in Chromium, Firefox, WebKit (inside Playwright's Docker image, `scripts/e2e-webkit.sh`), and against a production build (`E2E_PROD=1`, `next start`, where the dev-only cron-clock and push tests skip themselves), then the screen-size run. It writes logs and `summary.txt` to `~/.cache/scrumspecter-tests/<time>` and keeps a failing stage's traces. Run it detached, one Playwright run at a time (they share ports 3100 and 55433). A few tests use "today" in the Dhaka time zone, so don't start a full run in the 15 minutes before midnight there.
 
 `npm run test:e2e` starts its own in-memory Postgres (PGlite, `e2e/db-server.mjs`) and its own `next dev` (build folder `.next-e2e`), so it never touches a real database. It covers:
 - **the API:** auth, roles, change requests, bulk input and edit, bulk workspace setup, invites, routine views, cron jobs;
@@ -292,7 +301,7 @@ Four runs take screenshots instead of checking things:
 
 ## ⏰ Scheduled jobs
 
-- `GET /api/cron/routines`: daily via Vercel Cron (`vercel.json`). Keeps routine tasks generated through each sprint's end.
+- `GET /api/cron/routines`: daily via Vercel Cron (`vercel.json`). Keeps routine tasks generated through each sprint's end (a workspace at its 20,000-task limit gets no more), then removes rows that stopped mattering: expired sessions, finished sign-in and rate-limit counters, notifications older than 90 days, and used or expired reset and verification tokens.
 - `GET /api/cron/reminders`: every 5 minutes from the Pi's crontab, because Vercel's free cron runs only daily. It sends due reminders, then moves tasks still in To Do after they ended to Backlog. On the Pi this is `~/docker/postgres/reminders.sh`, which reads the secret from `cron-secret` (owner-only) and logs only failures to `reminders.log`.
 
 Both need `Authorization: Bearer $CRON_SECRET`.

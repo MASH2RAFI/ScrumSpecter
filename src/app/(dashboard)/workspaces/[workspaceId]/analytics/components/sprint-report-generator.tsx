@@ -17,7 +17,8 @@ import {
     DEFAULT_SPRINT_DURATION,
     calculateAverageVelocity,
     calculateVelocity,
-    generateBurndownData,
+    buildBurndown,
+    projectSprintDays,
     getProjectPointStats,
 } from "@/lib/sprint-utils";
 
@@ -185,6 +186,14 @@ export const SprintReportGenerator = () => {
             projectTasks.some(task => task.assigneeIds.includes(member.$id))
         );
         const velocity = calculateVelocity(completedStoryPoints, totalStoryPoints);
+        // The project's own sprint length and start, so the lines match its real days
+        const sprintDays = projectSprintDays(project) ?? DEFAULT_SPRINT_DURATION;
+        const { days: burndownDays } = buildBurndown({
+            totalPoints: totalStoryPoints,
+            start: project?.currentSprintStartDate,
+            days: sprintDays,
+            done: completedTasks.map((task) => ({ points: task.storyPoints ?? 0, doneAt: task.doneAt ?? task.$updatedAt })),
+        });
 
         const allProjects = projects.documents;
         const projectVelocities = allProjects.map(p => {
@@ -207,8 +216,8 @@ export const SprintReportGenerator = () => {
             velocityTrend: velocity >= averageVelocity * 1.1 ? "increasing" : velocity <= averageVelocity * 0.9 ? "decreasing" : "stable",
             totalSprints: allProjects.length,
             bestVelocity: Math.max(...projectVelocities, 0),
-            sprintDuration: DEFAULT_SPRINT_DURATION,
-            burndownData: generateBurndownData(totalStoryPoints, completedStoryPoints, DEFAULT_SPRINT_DURATION),
+            sprintDuration: sprintDays,
+            burndownData: burndownDays,
             taskStatusBreakdown: {
                 todo: projectTasks.filter(task => task.status === TaskStatus.TODO).length,
                 inProgress: projectTasks.filter(task => task.status === TaskStatus.IN_PROGRESS).length,

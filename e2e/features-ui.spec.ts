@@ -49,6 +49,9 @@ test("Members and Settings open as popups from the sidebar", async () => {
     await expect(page).toHaveURL(/workspace-panel=members/);
     await page.keyboard.press("Escape");
     await expect(members).toBeHidden();
+    // Closing it clears ?workspace-panel a moment later: opening Settings before that lets the
+    // late clear close it again (Firefox)
+    await expect(page).not.toHaveURL(/workspace-panel/);
 
     await sidebar.getByRole("button", { name: "Settings" }).click();
     const settings = page.getByRole("dialog", { name: "Workspace settings" });
@@ -128,18 +131,24 @@ test("Edit project is a popup; the old settings URL opens it", async () => {
 });
 
 test("routines: week overview starts on Saturday; Home and My Tasks show only this week", async () => {
+    // Routine tasks are made from today on, so the routine must run today for this week to have
+    // one on any weekday (Monday, Wednesday and Saturday alone leave none on a Thursday or Friday)
+    const names = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const todayIso = ((new Date(Date.now() + 6 * 3_600_000).getUTCDay() + 6) % 7) + 1;
+    const weekdays = [...new Set([1, 3, 6, todayIso])].sort();
+    const absent = [2, 4, 5, 7].find((day) => !weekdays.includes(day))!;
     const res = await user.api.post("/api/routines", {
-        data: { workspaceId, name: "Standup", projectId, assigneeIds: [memberId], weekdays: [1, 3, 6], startTime: "09:30", timeZone: "Asia/Dhaka", durationMinutes: 15 },
+        data: { workspaceId, name: "Standup", projectId, assigneeIds: [memberId], weekdays, startTime: "09:30", timeZone: "Asia/Dhaka", durationMinutes: 15 },
     });
     expect(res.status()).toBe(200);
 
     await page.goto(`/workspaces/${workspaceId}/routines`, { timeout: 90_000 });
     const week = page.getByLabel("Routines by weekday");
     await expect(week.locator("section").first()).toHaveAttribute("aria-label", "Saturday");
-    for (const day of ["Monday", "Wednesday", "Saturday"]) {
-        await expect(week.getByRole("region", { name: day }).getByText("Standup")).toBeVisible();
+    for (const day of weekdays) {
+        await expect(week.getByRole("region", { name: names[day] }).getByText("Standup")).toBeVisible();
     }
-    await expect(week.getByRole("region", { name: "Tuesday" }).getByText("Standup")).toHaveCount(0);
+    await expect(week.getByRole("region", { name: names[absent] }).getByText("Standup")).toHaveCount(0);
     // Hours down the side; the 9:30 routine sits between the 9 AM and 10 AM lines
     await expect(week.getByText("9 AM", { exact: true })).toBeVisible();
     const nine = (await week.getByText("9 AM", { exact: true }).boundingBox())!;

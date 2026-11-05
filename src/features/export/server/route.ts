@@ -23,9 +23,12 @@ import { DEFAULT_DURATION_MINUTES } from "@/features/tasks/task-time";
 import { bulkQuote, CSV_BOM, csvRow, icsDate, icsLine, icsText, icsUtc } from "../format";
 
 // Exports (TODO §14). Every one checks membership like the routes it mirrors; the whole-workspace
-// ones (bulk script, backup) are Admin only. No export returns more tasks than a workspace may hold.
+// ones (bulk script, backup) are Admin only. No export returns more than twice the tasks a workspace may hold.
 
 const CHUNK = 1000;
+// Above the task cap on purpose: the cap can be passed (races, a routine run's last chunk), and a
+// backup or export must never cut those tasks off. Only a stop against a runaway stream.
+const EXPORT_LIMIT = VOLUME_CAPS.tasks * 2;
 const MINUTE = 60_000;
 
 
@@ -70,10 +73,10 @@ const streamTasks = (where: SQL | undefined, order: SQL[], head: string, toText:
             controller.enqueue(encoder.encode(head));
         },
         async pull(controller) {
-            const rows = await selectTasks(where).orderBy(...order).limit(Math.min(CHUNK, VOLUME_CAPS.tasks - offset)).offset(offset);
+            const rows = await selectTasks(where).orderBy(...order).limit(Math.min(CHUNK, EXPORT_LIMIT - offset)).offset(offset);
             offset += rows.length;
             controller.enqueue(encoder.encode(rows.map(toText).join("")));
-            if (rows.length < CHUNK || offset >= VOLUME_CAPS.tasks) {
+            if (rows.length < CHUNK || offset >= EXPORT_LIMIT) {
                 controller.enqueue(encoder.encode(tail));
                 controller.close();
             }
@@ -138,7 +141,7 @@ const app = new Hono()
             if (member instanceof Response) return member;
 
             const timeZone = c.get("user").preferences.timeZone;
-            const filters = and(...baseFilters(q, member.$id, c.get("user").$id), routineRule(q));
+            const filters = and(...baseFilters(q, member.$id, c.get("user").$id, timeZone), routineRule(q));
 
             if (format === "csv") {
                 const [people, routineRows] = await Promise.all([
@@ -195,7 +198,7 @@ const app = new Hono()
                 db.select().from(tasks)
                     .where(and(eq(tasks.workspaceId, workspaceId), isNull(tasks.routineId)))
                     .orderBy(asc(tasks.createdAt), asc(tasks.id))
-                    .limit(VOLUME_CAPS.tasks),
+                    .limit(EXPORT_LIMIT),
             ]);
 
             const lines = [
@@ -282,7 +285,7 @@ const app = new Hono()
             const limited = await rateLimited(c, "export", user.$id);
             if (limited) return limited;
 
-            const [[workspace], people, projectRows, taskRows, routineRows, holidayRows, requestRows] = await Promise.all([
+            const [[workspace], people, projectRows, routineRows, holidayRows, requestRows] = await Promise.all([
                 // Not the invite codes: they let people in
                 db.select({
                     name: workspaces.name,
@@ -293,13 +296,12 @@ const app = new Hono()
                 }).from(workspaces).where(eq(workspaces.id, workspaceId)),
                 loadMembers(workspaceId),
                 db.select().from(projects).where(eq(projects.workspaceId, workspaceId)).orderBy(asc(projects.createdAt)),
-                db.select().from(tasks).where(eq(tasks.workspaceId, workspaceId)).orderBy(asc(tasks.createdAt), asc(tasks.id)).limit(VOLUME_CAPS.tasks),
                 db.select().from(routines).where(eq(routines.workspaceId, workspaceId)).orderBy(asc(routines.createdAt)),
                 db.select().from(workspaceHolidays).where(eq(workspaceHolidays.workspaceId, workspaceId)).orderBy(asc(workspaceHolidays.date)),
                 db.select().from(changeRequests).where(eq(changeRequests.workspaceId, workspaceId)).orderBy(asc(changeRequests.createdAt)),
             ]);
 
-            const backup = {
+            const front = {
                 version: 1,
                 exportedAt: new Date().toISOString(),
                 workspace: { id: workspaceId, ...workspace },
@@ -311,12 +313,31 @@ const app = new Hono()
                     ...(withEmails ? { email: person.email ?? person.placeholderEmail } : {}),
                 })),
                 projects: projectRows,
-                tasks: taskRows,
-                routines: routineRows,
-                holidays: holidayRows,
-                changeRequests: requestRows,
             };
-            return c.body(JSON.stringify(backup, null, 2), 200, attachment("application/json; charset=utf-8", "workspace-backup.json"));
+            const back = { routines: routineRows, holidays: holidayRows, changeRequests: requestRows };
+
+            // Streamed, with the tasks (the one big part) a chunk at a time: a workspace of thousands
+            // of tasks would otherwise be one response too big for Vercel (4.5 MB) and for memory.
+            // Same document as before, in the same key order, but compact.
+            const encoder = new TextEncoder();
+            let offset = 0;
+            const stream = new ReadableStream<Uint8Array>({
+                start(controller) {
+                    controller.enqueue(encoder.encode(`${JSON.stringify(front).slice(0, -1)},"tasks":[`));
+                },
+                async pull(controller) {
+                    const rows = await db.select().from(tasks).where(eq(tasks.workspaceId, workspaceId))
+                        .orderBy(asc(tasks.createdAt), asc(tasks.id)).limit(Math.min(CHUNK, EXPORT_LIMIT - offset)).offset(offset);
+                    const text = rows.map((row) => JSON.stringify(row)).join(",");
+                    controller.enqueue(encoder.encode(offset > 0 && text ? `,${text}` : text));
+                    offset += rows.length;
+                    if (rows.length < CHUNK || offset >= EXPORT_LIMIT) {
+                        controller.enqueue(encoder.encode(`],${JSON.stringify(back).slice(1)}`));
+                        controller.close();
+                    }
+                },
+            });
+            return new Response(stream, { headers: attachment("application/json; charset=utf-8", "workspace-backup.json") });
         }
     )
 
@@ -343,7 +364,7 @@ const app = new Hono()
                     .from(tasks).leftJoin(projects, eq(projects.id, tasks.projectId))
                     .where(arrayOverlaps(tasks.assigneeIds, memberIds))
                     .orderBy(asc(tasks.createdAt))
-                    .limit(VOLUME_CAPS.tasks),
+                    .limit(EXPORT_LIMIT),
                 db.select().from(changeRequests).where(inArray(changeRequests.requesterId, memberIds)).orderBy(asc(changeRequests.createdAt)),
             ]);
 

@@ -7,7 +7,7 @@ import { db, type Tx } from "@/lib/db";
 import { projects, routines, tasks, workspaces } from "@/lib/db/schema";
 
 // Most a single account or workspace may hold, so one person can't fill the Pi's disk.
-// Routine tasks are made by the server and not counted against "tasks" when generated.
+// Routine tasks count toward "tasks" too: the nightly generation stops for a workspace at the cap.
 export const VOLUME_CAPS = {
     workspaces: 20, // created per account
     projects: 100, // per workspace

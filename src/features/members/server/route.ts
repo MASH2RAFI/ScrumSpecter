@@ -6,7 +6,7 @@ import { removeAssignee } from "@/lib/db/assignees";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { db } from "@/lib/db";
 import { findById } from "@/lib/db/find-by-id";
-import { members, tasks, users } from "@/lib/db/schema";
+import { members, notifications, tasks, users } from "@/lib/db/schema";
 import { toDoc } from "@/lib/db/types";
 import { getMember, handOverPlaceholder, isAdmin, lockAdmins, requireMember } from "../utils";
 import { Member, MemberRole } from "../types";
@@ -97,6 +97,10 @@ const app = new Hono()
                 // Off their tasks and routines; an admin takes over where nobody else is left
                 await removeAssignee(tx, memberToDelete.id, adminMember?.id ?? null);
                 await tx.delete(members).where(eq(members.id, memberId));
+                // Their bell must not keep naming this workspace's tasks
+                if (memberToDelete.userId) {
+                    await tx.delete(notifications).where(and(eq(notifications.userId, memberToDelete.userId), eq(notifications.workspaceId, memberToDelete.workspaceId)));
+                }
                 return true;
             });
 
@@ -260,6 +264,7 @@ const app = new Hono()
                 // Off their tasks and routines; the admin takes over where nobody else is left
                 await removeAssignee(tx, member.$id, adminMember.id);
                 await tx.delete(members).where(eq(members.id, member.$id));
+                await tx.delete(notifications).where(and(eq(notifications.userId, user.$id), eq(notifications.workspaceId, workspaceId)));
 
                 return { reassignedTasks: assigned.length, newAssignee: adminMember.userId };
             });

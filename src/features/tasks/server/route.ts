@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, desc, eq, inArray, max, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, max, ne, sql } from "drizzle-orm";
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { db } from "@/lib/db";
 import { findById } from "@/lib/db/find-by-id";
@@ -172,7 +172,7 @@ const app = new Hono()
             }
             // assigneeId=me (resolved in baseFilters) lets a page ask for "my tasks" without first
             // waiting for the members list
-            const filters = baseFilters(q, member.$id, c.get("user").$id);
+            const filters = baseFilters(q, member.$id, c.get("user").$id, c.get("user").preferences.timeZone);
             const rule = routineRule(q);
             const where = and(...filters, rule);
 
@@ -183,7 +183,7 @@ const app = new Hono()
                 })(),
                 page ? countTasks(where) : null,
                 capDone
-                    ? selectTasks(and(where, eq(tasks.status, TaskStatus.DONE))).orderBy(desc(tasks.updatedAt)).limit(q.doneLimit!)
+                    ? selectTasks(and(where, eq(tasks.status, TaskStatus.DONE))).orderBy(sql`${tasks.doneAt} desc nulls last`, desc(tasks.updatedAt)).limit(q.doneLimit!)
                     : [],
                 capDone ? countTasks(and(where, eq(tasks.status, TaskStatus.DONE))) : null,
                 q.scope === "table" || q.scope === "kanban" ? hiddenRoutineCount(q, filters) : 0,
@@ -220,7 +220,7 @@ const app = new Hono()
             if (member instanceof Response) {
                 return member;
             }
-            return c.json({ data: await taskFacets(q, member.$id, c.get("user").$id) });
+            return c.json({ data: await taskFacets(q, member.$id, c.get("user").$id, c.get("user").preferences.timeZone) });
         }
     )
 
@@ -244,7 +244,7 @@ const app = new Hono()
             if (member instanceof Response) {
                 return member;
             }
-            return c.json({ data: await taskSummary(workspaceId, weekFrom, weekTo, savedFilters(saved, member.$id, c.get("user").$id)) });
+            return c.json({ data: await taskSummary(workspaceId, weekFrom, weekTo, savedFilters(saved, member.$id, c.get("user").$id, c.get("user").preferences.timeZone), c.get("user").preferences.timeZone) });
         }
     )
 
@@ -418,10 +418,10 @@ const app = new Hono()
                 }
             }
 
-            // A routine deleted meanwhile can't be pointed at any more
+            // A routine deleted meanwhile (or from another workspace) can't be pointed at
             const routineIds = Array.from(new Set(snapshots.map((task) => task.routineId).filter((id): id is string => Boolean(id))));
             const liveRoutines = new Set(routineIds.length
-                ? (await db.select({ id: routines.id }).from(routines).where(inArray(routines.id, routineIds))).map((row) => row.id)
+                ? (await db.select({ id: routines.id }).from(routines).where(and(inArray(routines.id, routineIds), eq(routines.workspaceId, workspaceId)))).map((row) => row.id)
                 : []);
 
             await assertRoom("tasks", workspaceId, snapshots.length);
@@ -440,6 +440,8 @@ const app = new Hono()
                 durationMinutes: task.durationMinutes,
                 sprintId: task.sprintId,
                 routineId: task.routineId && liveRoutines.has(task.routineId) ? task.routineId : null,
+                // Undo of a delete keeps when it was finished (the database sets it when it's missing)
+                doneAt: task.doneAt ? new Date(task.doneAt) : undefined,
             // Skips a task that exists again meanwhile (same id, or its routine re-created that day)
             }))).onConflictDoNothing().returning({ id: tasks.id });
 
@@ -459,7 +461,9 @@ const app = new Hono()
                         status: z.nativeEnum(TaskStatus),
                         position: z.number().int().positive().min(1000).max(1_000_000),
                     })
-                )
+                // One update per task in one transaction. A drag renumbers every card in the column
+                // it lands in (data-kanban.tsx), so this must stay above any column a board shows
+                ).min(1).max(2000)
             })
         ),
         async (c) => {

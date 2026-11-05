@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CalculatorIcon, UsersIcon, TargetIcon } from "lucide-react";
@@ -34,7 +33,6 @@ export const CapacityCalculator = () => {
     // The person's own numbers per member; the rest default to 8 hours a day, fully available
     const [edits, setEdits] = useState<Record<string, Partial<TeamMember>>>({});
     const [sprintDuration, setSprintDuration] = useState(14);
-    const [totalCapacity, setTotalCapacity] = useState(0);
 
     // The members assigned to the selected project's tasks
     const assignedMemberIds = new Set(tasks?.documents.filter((task) => task.projectId === selectedProject).flatMap((task) => task.assigneeIds));
@@ -44,15 +42,15 @@ export const CapacityCalculator = () => {
 
     const memberHours = (member: TeamMember) => Math.round(member.capacity * member.availability / 100 * sprintDuration);
 
-    const calculateCapacity = () => {
-        const total = teamMembers.reduce((sum, member) => {
-            return sum + (member.capacity * member.availability / 100 * sprintDuration);
-        }, 0);
-        setTotalCapacity(Math.round(total));
-    };
+    // The sum of the rows, so it always matches them (and follows every edit and project change)
+    const totalCapacity = teamMembers.reduce((sum, member) => sum + memberHours(member), 0);
 
-    const updateTeamMember = (id: string, field: keyof TeamMember, value: string | number) => {
-        setEdits((current) => ({ ...current, [id]: { ...current[id], [field]: value } }));
+    // Typed numbers stay in range: up to 24 hours a day, 0 to 100 % available
+    const limits = { capacity: [0, 24], availability: [0, 100] } as const;
+    const updateTeamMember = (id: string, field: "capacity" | "availability", value: string | number) => {
+        const [low, high] = limits[field];
+        const number = Math.min(high, Math.max(low, Number(value) || 0));
+        setEdits((current) => ({ ...current, [id]: { ...current[id], [field]: number } }));
     };
 
     return (
@@ -83,7 +81,7 @@ export const CapacityCalculator = () => {
                                         id="sprint-duration"
                                         type="number"
                                         value={sprintDuration}
-                                        onChange={(e) => setSprintDuration(Number(e.target.value))}
+                                        onChange={(e) => setSprintDuration(Math.max(1, Math.floor(Number(e.target.value)) || 1))}
                                         min="1"
                                     />
                                 </div>
@@ -120,7 +118,7 @@ export const CapacityCalculator = () => {
                                                     type="number"
                                                     value={member.capacity}
                                                     onChange={(e) => updateTeamMember(member.id, 'capacity', Number(e.target.value))}
-                                                    min="1"
+                                                    min="0"
                                                     max="24"
                                                 />
                                             </div>
@@ -138,10 +136,6 @@ export const CapacityCalculator = () => {
                                     ))}
                                 </div>
                             </div>
-
-                            <Button onClick={calculateCapacity} className="w-full">
-                                Calculate Capacity
-                            </Button>
 
                             <ChartDownloads
                                 disabled={teamMembers.length === 0}

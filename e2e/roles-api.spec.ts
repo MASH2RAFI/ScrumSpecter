@@ -53,6 +53,35 @@ test("the viewer link joins as a viewer; only admins reset it", async ({ baseURL
     expect((await supervisor.api.patch(`/api/members/${ids.assignee}`, { data: { role: "REVIEWER" } })).status()).toBe(401);
 });
 
+test("projects: only admins and supervisors edit them; viewers don't get the regular invite code", async () => {
+    // Reviewers, assignees and viewers can't rename a project or move its sprint
+    for (const user of [reviewer, assignee, viewer]) {
+        expect((await user.api.patch(`/api/projects/${projectId}`, { multipart: { workspaceId: workspace.$id, name: "Hijacked" } })).status()).toBe(403);
+        expect((await user.api.patch(`/api/projects/${projectId}`, { multipart: { workspaceId: workspace.$id, currentSprintEndDate: "2099-12-31" } })).status()).toBe(403);
+    }
+    expect((await supervisor.api.patch(`/api/projects/${projectId}`, { multipart: { workspaceId: workspace.$id, name: "Roles project" } })).status()).toBe(200);
+    expect((await admin.api.patch(`/api/projects/${projectId}`, { multipart: { workspaceId: workspace.$id, name: "Roles project" } })).status()).toBe(200);
+    expect((await json(await admin.api.get(`/api/projects/${projectId}`))).name).toBe("Roles project");
+
+    // The regular link joins as an Assignee, so a Viewer must not hold it (a second account would
+    // climb past the read-only role); everyone else still sees it
+    expect((await json(await viewer.api.get(`/api/workspaces/${workspace.$id}`))).inviteCode).toBe("");
+    const listed = (await json(await viewer.api.get("/api/workspaces"))).documents.find((w: { $id: string }) => w.$id === workspace.$id);
+    expect(listed.inviteCode).toBe("");
+    expect((await json(await assignee.api.get(`/api/workspaces/${workspace.$id}`))).inviteCode).toBe(workspace.inviteCode);
+});
+
+test("reordering a column: a big column is accepted, an absurd list is not", async () => {
+    // Dropping a card at the top of a 600-card column renumbers all of them in one request
+    const list = (length: number) => Array.from({ length }, (_, i) => ({ $id: `none-${i}`, status: "TODO", position: 1000 + i }));
+    // Unknown ids are skipped, so the answer is "all in another workspace / none found" (400), not a size error
+    const big = await assignee.api.post("/api/tasks/bulk-update", { data: { tasks: list(600) } });
+    expect((await big.json()).error).toBe("All tasks must belong to the same workspace");
+    const absurd = await assignee.api.post("/api/tasks/bulk-update", { data: { tasks: list(2001) } });
+    expect(absurd.status()).toBe(400);
+    expect(JSON.stringify(await absurd.json())).toMatch(/too_big|2000|Too big/i);
+});
+
 test("several assignees: create, show, filter, and drop a removed member", async () => {
     const res = await createTask(supervisor.api, {
         workspaceId: workspace.$id, projectId, name: "Pair work", assigneeIds: [ids.assignee, ids.other, ids.assignee],

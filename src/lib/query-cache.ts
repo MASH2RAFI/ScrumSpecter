@@ -4,7 +4,7 @@ export const CACHE_STORAGE_KEY = "scrumspecter-cache";
 
 // Bump when the shape of cached API data changes (e.g. a new column), so old copies are discarded.
 // A schema change alone doesn't move any workspace's data_version, so caches wouldn't refresh.
-export const CACHE_BUSTER = "2026-10-28.roles-assignees";
+export const CACHE_BUSTER = "2026-11-04.no-signed-out-copy";
 
 export const CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
 

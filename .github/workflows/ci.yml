@@ -26,9 +26,20 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm run build
-      # Next 14's own advisory stays until the Next.js upgrade, so this only warns for now
+
+  # A new high-severity advisory turns this red, so it is seen, but it doesn't hold back the
+  # end-to-end tests (an advisory with no fixed version would otherwise block every push)
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
       - run: npm audit --omit=dev --audit-level=high
-        continue-on-error: true
 
   e2e:
     needs: checks

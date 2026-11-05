@@ -1,6 +1,6 @@
 import { expect, request, test } from "@playwright/test";
 
-import { createProject, createTask, createWorkspace, getMembers, registerUser, type TestUser } from "./helpers";
+import { createProject, createTask, createWorkspace, getMembers, registerUser, sql, type TestUser } from "./helpers";
 
 // API: exports (TODO §14): tasks CSV and calendar, the bulk-input script round trip, the backup
 // and personal data, and who may take each
@@ -110,6 +110,34 @@ test("the bulk-input script pastes back into Bulk setup without errors", async (
     const { results } = (await check.json()).data as { results: { ok: boolean; text: string; error?: string }[] };
     expect(results.filter((result) => !result.ok)).toEqual([]);
     expect(results.length).toBeGreaterThanOrEqual(6);
+});
+
+test("a workspace past its task cap is still exported and backed up in full", async ({ baseURL }) => {
+    // The cap can be passed by a few hundred (races, the last chunk of a routine run)
+    const boss = await registerUser(baseURL!, "Over Cap");
+    const full = await createWorkspace(boss.api, "Over cap WS");
+    await sql("insert into tasks (id, name, status, workspace_id, position, due_date) select 'over-' || i, 'Filler ' || i, 'TODO', $1, i, now() from generate_series(1, 20300) as i", [full.$id]);
+
+    const backup = await (await boss.api.get(`/api/export/workspaces/${full.$id}/backup`)).json();
+    expect(backup.tasks).toHaveLength(20_300);
+    const csv = await (await boss.api.get(`/api/export/tasks?workspaceId=${full.$id}&format=csv`)).text();
+    // Header plus one row per task (names have no line breaks)
+    expect(csv.trim().split("\r\n")).toHaveLength(20_301);
+});
+
+test("the streamed backup is valid JSON for an empty workspace and for an exact multiple of a chunk", async ({ baseURL }) => {
+    const boss = await registerUser(baseURL!, "Chunk Cleo");
+    const empty = await createWorkspace(boss.api, "Empty WS");
+    expect((await (await boss.api.get(`/api/export/workspaces/${empty.$id}/backup`)).json()).tasks).toEqual([]);
+
+    const even = await createWorkspace(boss.api, "Even WS");
+    await sql("insert into tasks (id, name, status, workspace_id, position) select 'even-' || i, 'T ' || i, 'TODO', $1, i from generate_series(1, 2000) as i", [even.$id]);
+    const backup = await (await boss.api.get(`/api/export/workspaces/${even.$id}/backup`)).json();
+    expect(backup.tasks).toHaveLength(2000);
+    expect(new Set(backup.tasks.map((task: { id: string }) => task.id)).size).toBe(2000);
+    // The parts after the tasks are still there
+    expect(backup.routines).toEqual([]);
+    expect(backup.version).toBe(1);
 });
 
 test("the admin backup is versioned and leaves out emails unless asked", async () => {

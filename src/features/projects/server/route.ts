@@ -9,7 +9,8 @@ import { projects, routines } from "@/lib/db/schema";
 import { generateRoutineTasks } from "@/lib/routines";
 import { toDoc } from "@/lib/db/types";
 import { MemberRole } from "@/features/members/types";
-import { requireAdmin, requireMember } from "@/features/members/utils";
+import { requireAdmin, requireMember, requireRole } from "@/features/members/utils";
+import { canEditWork } from "@/features/members/permissions";
 import { createProjectFormSchema, updateProjectFormSchema } from "../schemas";
 import { Project } from "../types";
 import { idString } from "@/lib/limits";
@@ -111,7 +112,7 @@ const app = new Hono()
                 return c.json({ error: "Project not found" }, 404);
             }
 
-            const member = await requireMember(c, existingProject.workspaceId);
+            const member = await requireRole(c, existingProject.workspaceId, canEditWork, "Only admins and supervisors can edit projects");
             if (member instanceof Response) {
                 return member;
             }

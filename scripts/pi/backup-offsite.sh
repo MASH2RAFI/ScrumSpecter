@@ -32,13 +32,18 @@ HASH=$(sha256sum "$ENC" | cut -c1-16)
 split -b "$PART_SIZE" -d -a 2 "$ENC" "$ENC.part" || fail "split"
 PARTS=$(ls "$ENC".part* | wc -l)
 N=0
+# The log is written only after every part is up: a failed night must not leave half a day in it
+# (the restore test would take that incomplete day as the latest)
+LINES="$WORK/log-lines"
+: > "$LINES"
 for part in "$ENC".part*; do
     N=$((N + 1))
     id=$(tg_send_file "$part" "scrumspecter · $DAY · $SIZE · sha256 $HASH · part $N/$PARTS") || true
     [ -n "$id" ] || fail "upload of part $N/$PARTS"
     # The Bot API can't list old messages, so this log is how a restore finds a day's parts
-    printf '%s\t%s/%s\t%s\t%s\n' "$DAY" "$N" "$PARTS" "$HASH" "$id" >> "$LOG"
+    printf '%s\t%s/%s\t%s\t%s\n' "$DAY" "$N" "$PARTS" "$HASH" "$id" >> "$LINES"
 done
+cat "$LINES" >> "$LOG"
 
 # A weekly sign of life on Sundays
 if [ "$(date +%u)" = 7 ]; then

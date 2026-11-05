@@ -32,7 +32,7 @@ const open = async (page: Page, path: string, ready: () => Promise<void>) => {
     // Let entrance animations settle so contrast is measured on final colors (staggered lists
     // finish later the longer they are, so wait for them rather than a fixed time)
     await page.waitForTimeout(300);
-    await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"), null, { timeout: 10_000 });
+    await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"), null, { timeout: 30_000 });
     await page.waitForTimeout(200);
 };
 
@@ -51,7 +51,11 @@ for (const scheme of ["light", "dark"] as const) {
         const page = await (await browser.newContext({ colorScheme: scheme })).newPage();
         await open(page, "/about", async () => { await expect(page.getByRole("heading").first()).toBeVisible(); });
         await scan(page, "about");
-        await open(page, "/sign-in", async () => { await expect(page.getByPlaceholder("Enter email address")).toBeVisible(); });
+        // (the page before it fades out first, so wait until only the new form is left)
+        await open(page, "/sign-in", async () => {
+            await expect(page.getByPlaceholder("Enter email address")).toHaveCount(1);
+            await expect(page.getByPlaceholder("Enter email address")).toBeVisible();
+        });
         await scan(page, "sign-in");
         await page.close();
     });

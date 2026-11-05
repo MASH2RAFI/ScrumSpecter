@@ -122,7 +122,7 @@ export const BurndownGraph = ({ data, totalPoints }: BurndownGraphProps) => (
             <caption>Burndown: story points left each day, against the ideal</caption>
             <thead><tr><th>Day</th><th>Left</th><th>Ideal</th></tr></thead>
             <tbody>
-                {data.map((day) => <tr key={day.day}><td>Day {day.day}</td><td>{day.remainingWork}</td><td>{day.idealBurndown}</td></tr>)}
+                {data.map((day) => <tr key={day.day}><td>Day {day.day}</td><td>{day.remainingWork ?? "–"}</td><td>{day.idealBurndown}</td></tr>)}
             </tbody>
         </table>
     </div>

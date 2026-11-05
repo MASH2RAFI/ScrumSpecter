@@ -4,6 +4,7 @@ import { timingSafeEqual } from "crypto";
 import { generateRoutineTasks } from "@/lib/routines";
 import { runReminders } from "@/lib/reminders";
 import { moveOverdueToBacklog } from "@/lib/overdue";
+import { deleteStaleRows } from "@/lib/cleanup";
 
 // Vercel Cron calls this with "Authorization: Bearer $CRON_SECRET"
 const isAuthorized = (header: string | undefined) => {
@@ -23,8 +24,13 @@ const app = new Hono()
         }
 
         const created = await generateRoutineTasks();
+        // Housekeeping must not make a finished routines run look failed
+        const cleaned = await deleteStaleRows().catch((error) => {
+            console.error("Cleanup of stale rows failed:", error);
+            return null;
+        });
 
-        return c.json({ data: { created } });
+        return c.json({ data: { created, cleaned } });
     })
     // Called every 5 minutes by the Pi's crontab (Vercel's free cron is daily only): sends due
     // reminders, then moves tasks still in To Do after they ended to Backlog

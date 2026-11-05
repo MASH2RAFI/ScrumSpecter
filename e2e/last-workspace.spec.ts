@@ -31,10 +31,10 @@ test.afterAll(async () => {
 });
 
 const homeLandsOn = async (workspaceId: string) => {
-    // Leaving a workspace sends the app to / by itself; WebKit then reports our own visit as
-    // interrupted by that one, so try once more
+    // Leaving a workspace sends the app to / by itself; WebKit and Firefox then report our own visit as
+    // interrupted by that one ("interrupted by another navigation", "Frame load interrupted"), so try once more
     await page.goto("/", { timeout: 90_000 }).catch(async (error: Error) => {
-        if (!/interrupted by another navigation/.test(error.message)) throw error;
+        if (!/interrupted|NS_BINDING_ABORTED/.test(error.message)) throw error;
         await page.goto("/", { timeout: 90_000 });
     });
     await expect(page).toHaveURL(new RegExp(`/workspaces/${workspaceId}$`), { timeout: 60_000 });

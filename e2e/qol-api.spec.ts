@@ -45,6 +45,109 @@ test("too many wrong passwords lock the account for a while", async ({ baseURL }
     await anon.dispose();
 });
 
+test("parallel wrong passwords can't all be checked before the lock lands", async ({ baseURL }) => {
+    const victim = await registerUser(baseURL!, "Burst Bea");
+    const anon = await request.newContext({ baseURL });
+    const answers = await Promise.all(Array.from({ length: 15 }, () =>
+        anon.post("/api/auth/login", { data: { email: victim.email, password: "wrong-password" } })));
+    const statuses = answers.map((answer) => answer.status());
+    // Ten guesses at most were checked (401); the rest were turned away unchecked (429)
+    expect(statuses.filter((status) => status === 401).length).toBeLessThanOrEqual(10);
+    expect(statuses.filter((status) => status === 429).length).toBeGreaterThanOrEqual(5);
+    expect((await anon.post("/api/auth/login", { data: { email: victim.email, password: victim.password } })).status()).toBe(429);
+    await anon.dispose();
+    // Every test client shares one address: don't leave this burst counted against the other tests
+    await sql("delete from login_attempts where key like 'ip:%'");
+});
+
+test("correct sign-ins never count against the shared address", async ({ baseURL }) => {
+    const user = await registerUser(baseURL!, "Office Olly");
+    // The address Vercel would report (the dev server sets none)
+    const anon = await request.newContext({ baseURL, extraHTTPHeaders: { "x-real-ip": "198.51.100.77" } });
+    await sql("delete from login_attempts where key = 'ip:198.51.100.77'");
+    // More than the per-address limit (30 in 15 minutes): only wrong guesses may count
+    for (let i = 0; i < 35; i++) {
+        expect((await anon.post("/api/auth/login", { data: { email: user.email, password: user.password } })).status(), `sign-in ${i + 1}`).toBe(200);
+    }
+    expect(await sql("select failures from login_attempts where key = 'ip:198.51.100.77'")).toEqual([{ failures: 0 }]);
+    await anon.dispose();
+});
+
+test("two sign-ups with one address at once: one wins, the other gets 409", async ({ baseURL }) => {
+    const email = `e2e-double-${Date.now()}@example.com`;
+    const anon = await request.newContext({ baseURL });
+    const answers = await Promise.all([1, 2].map(() =>
+        anon.post("/api/auth/register", { data: { name: "Double Dee", email, password: "correct-horse-battery" } })));
+    expect(answers.map((answer) => answer.status()).sort()).toEqual([200, 409]);
+    await anon.dispose();
+});
+
+test("the daily cron deletes stale rows and keeps the live ones", async ({ baseURL }) => {
+    const user = await registerUser(baseURL!, "Stale Stu");
+    const [{ id: userId }] = await sql<{ id: string }>("select id from users where email = $1", [user.email]);
+    const stale = `stale-${Date.now()}`;
+    await sql("insert into login_attempts (key, failures, window_start) values ($1, 1, now() - interval '3 days'), ($2, 1, now())", [`email:${stale}-old`, `email:${stale}-new`]);
+    await sql("insert into sessions (id, user_id, expires_at) values ($1, $2, now() - interval '1 day')", [`${stale}-session`, userId]);
+    await sql("insert into email_verifications (id, user_id, expires_at) values ($1, $2, now() - interval '30 days')", [`${stale}-verify`, userId]);
+
+    const anon = await request.newContext({ baseURL });
+    const res = await anon.get("/api/cron/routines", { headers: { authorization: "Bearer e2e-cron-secret" } });
+    expect(res.status()).toBe(200);
+    expect((await res.json()).data.cleaned).toMatchObject({ sessions: expect.any(Number) });
+    await anon.dispose();
+
+    expect(await sql("select key from login_attempts where key like $1 order by key", [`email:${stale}-%`])).toEqual([{ key: `email:${stale}-new` }]);
+    expect(await sql("select id from sessions where id = $1", [`${stale}-session`])).toHaveLength(0);
+    expect(await sql("select id from email_verifications where id = $1", [`${stale}-verify`])).toHaveLength(0);
+    // The live session still works
+    expect((await user.api.get("/api/auth/current")).status()).toBe(200);
+});
+
+test("a password reset ends the secret calendar link", async ({ baseURL }) => {
+    const user = await registerUser(baseURL!, "Feed Fran");
+    const workspace = await createWorkspace(user.api, "Feed WS");
+    const link = (await (await user.api.post("/api/export/calendar-feed", { data: { workspaceId: workspace.$id } })).json()).data.url as string;
+    const path = new URL(link).pathname;
+    const anon = await request.newContext({ baseURL });
+    // No sign-in needed: the key in the link is the check
+    expect((await anon.get(path)).status()).toBe(200);
+
+    const [{ id: userId }] = await sql<{ id: string }>("select id from users where email = $1", [user.email]);
+    const token = randomBytes(32).toString("base64url");
+    await sql("insert into password_resets (id, user_id, expires_at) values ($1, $2, now() + interval '30 minutes')",
+        [createHash("sha256").update(token).digest("hex"), userId]);
+    expect((await anon.post("/api/auth/reset-password", { data: { token, password: "a-brand-new-password" } })).status()).toBe(200);
+
+    // The old link is dead
+    expect((await anon.get(path)).status()).toBe(404);
+    await anon.dispose();
+});
+
+test("routine tasks stop at the workspace's task cap", async ({ baseURL }) => {
+    const admin = await registerUser(baseURL!, "Cap Cal");
+    const workspace = await createWorkspace(admin.api, "Cap WS");
+    const project = await createProject(admin.api, workspace.$id, "Capped", 14);
+    const full = await createWorkspace(admin.api, "Not Full WS");
+    const fullProject = await createProject(admin.api, full.$id, "Roomy", 14);
+    // 20,000 tasks is the per-workspace cap
+    await sql("insert into tasks (id, name, status, workspace_id, position) select 'cap-' || i, 'Filler', 'TODO', $1, i from generate_series(1, 20000) as i", [workspace.$id]);
+
+    const routine = async (projectId: string, workspaceId: string) => admin.api.post("/api/routines", {
+        data: { workspaceId, name: "Daily", projectId, assigneeIds: [(await getMembers(admin.api, workspaceId))[0].$id], weekdays: [1, 2, 3, 4, 5, 6, 7] },
+    });
+    expect((await routine(project.$id, workspace.$id)).status()).toBe(200);
+    expect((await routine(fullProject.$id, full.$id)).status()).toBe(200);
+    const anon = await request.newContext({ baseURL });
+    expect((await anon.get("/api/cron/routines", { headers: { authorization: "Bearer e2e-cron-secret" } })).status()).toBe(200);
+    await anon.dispose();
+
+    const count = async (workspaceId: string) =>
+        Number((await sql<{ n: string }>("select count(*) as n from tasks where workspace_id = $1 and routine_id is not null", [workspaceId]))[0].n);
+    expect(await count(workspace.$id)).toBe(0);
+    // A workspace with room is unaffected
+    expect(await count(full.$id)).toBe(14);
+});
+
 test("forgot password: same answer for unknown emails; a reset link works once and signs others out", async ({ baseURL }) => {
     const user = await registerUser(baseURL!, "Reset Rae");
     const anon = await request.newContext({ baseURL });
@@ -236,6 +339,17 @@ test("placeholder assignees: assign before joining, hand over on join or by hand
         return request.newContext({ baseURL, extraHTTPHeaders: { cookie } });
     })();
     expect((await newcomer.post(`/api/workspaces/${workspace.$id}/join`, { data: { code: workspace.inviteCode } })).status()).toBe(200);
+    // Anyone can sign up with someone else's address: until it is verified the tasks stay put
+    expect((await getMembers(admin.api, workspace.$id)).map((m) => m.name)).toContain("Designer (TBD)");
+    expect((await (await admin.api.get(`/api/tasks/${designTask}`)).json()).data.assignee).toMatchObject({ name: "Designer (TBD)", isPlaceholder: true });
+    // The emailed link proves the inbox: now they are handed over
+    const [{ id: niaUserId }] = await sql<{ id: string }>("select id from users where email = $1", [newcomerEmail]);
+    const verifyToken = randomBytes(32).toString("base64url");
+    await sql("insert into email_verifications (id, user_id, expires_at) values ($1, $2, now() + interval '1 hour')",
+        [createHash("sha256").update(verifyToken).digest("hex"), niaUserId]);
+    const anonymous = await request.newContext({ baseURL });
+    expect((await anonymous.post("/api/auth/verify-email", { data: { token: verifyToken } })).status()).toBe(200);
+    await anonymous.dispose();
     const afterJoin = await getMembers(admin.api, workspace.$id);
     const nia = afterJoin.find((m) => m.name === "New Nia")!;
     expect(afterJoin.map((m) => m.name)).not.toContain("Designer (TBD)");
@@ -254,6 +368,75 @@ test("placeholder assignees: assign before joining, hand over on join or by hand
     expect((await admin.api.delete(`/api/members/${temp.$id}`)).status()).toBe(200);
     expect((await (await admin.api.get(`/api/tasks/${tempTask}`)).json()).data.assignee.name).toBe("Place Admin");
     await newcomer.dispose();
+});
+
+test("a removed or departed member's bell no longer shows that workspace's reminders", async ({ baseURL }) => {
+    const admin = await registerUser(baseURL!, "Bell Boss");
+    const kept = await registerUser(baseURL!, "Bell Kept");
+    const fired = await registerUser(baseURL!, "Bell Fired");
+    const quitter = await registerUser(baseURL!, "Bell Quit");
+    const workspace = await createWorkspace(admin.api, "Bell WS");
+    const other = await createWorkspace(admin.api, "Other Bell WS");
+    for (const user of [kept, fired, quitter]) {
+        expect((await user.api.post(`/api/workspaces/${workspace.$id}/join`, { data: { code: workspace.inviteCode } })).status()).toBe(200);
+        expect((await user.api.post(`/api/workspaces/${other.$id}/join`, { data: { code: other.inviteCode } })).status()).toBe(200);
+    }
+    const userId = async (email: string) => (await sql<{ id: string }>("select id from users where email = $1", [email]))[0].id;
+    for (const user of [kept, fired, quitter]) {
+        for (const workspaceId of [workspace.$id, other.$id]) {
+            await sql("insert into notifications (id, user_id, workspace_id, kind, title, body, scheduled_for, dedupe_key) values ($1, $2, $3, 'before_end', 'Ends in 30 min: Secret', '', now(), $1)",
+                [`bell-${workspaceId}-${await userId(user.email)}`, await userId(user.email), workspaceId]);
+        }
+    }
+
+    const members = await getMembers(admin.api, workspace.$id);
+    expect((await admin.api.delete(`/api/members/${members.find((m) => m.name === fired.name)!.$id}`)).status()).toBe(200);
+    expect((await quitter.api.post("/api/members/leave-workspace", { data: { workspaceId: workspace.$id } })).status()).toBe(200);
+
+    const bell = async (user: typeof kept) => (await sql<{ workspace_id: string }>("select workspace_id from notifications where user_id = $1 and title like 'Ends in 30 min: Secret'", [await userId(user.email)])).map((row) => row.workspace_id);
+    // Gone for that workspace only; the other workspace and the people who stayed keep theirs
+    expect(await bell(fired)).toEqual([other.$id]);
+    expect(await bell(quitter)).toEqual([other.$id]);
+    expect((await bell(kept)).sort()).toEqual([workspace.$id, other.$id].sort());
+});
+
+test("placeholders are also handed over when a password reset or a Google link verifies the address", async ({ baseURL }) => {
+    const admin = await registerUser(baseURL!, "Verify Vera");
+    const workspace = await createWorkspace(admin.api, "Verify WS");
+    const project = await createProject(admin.api, workspace.$id, "Verify project");
+    const taskOf = async (email: string) => {
+        const placeholder = (await (await admin.api.post("/api/members/placeholders", { data: { workspaceId: workspace.$id, name: `Placeholder ${email}`, email } })).json()).data;
+        const task = (await (await createTask(admin.api, { workspaceId: workspace.$id, projectId: project.$id, assigneeId: placeholder.$id, name: `Task for ${email}` })).json()).data.$id as string;
+        return task;
+    };
+    const assignee = async (taskId: string) => (await (await admin.api.get(`/api/tasks/${taskId}`)).json()).data.assignee as { name: string; isPlaceholder?: boolean };
+
+    // Two people join with unverified addresses a placeholder was made for: nothing moves yet
+    const resetter = await registerUser(baseURL!, "Resetting Rex");
+    const linker = await registerUser(baseURL!, "Linking Lia");
+    const resetterTask = await taskOf(resetter.email);
+    const linkerTask = await taskOf(linker.email);
+    for (const user of [resetter, linker]) {
+        expect((await user.api.post(`/api/workspaces/${workspace.$id}/join`, { data: { code: workspace.inviteCode } })).status()).toBe(200);
+    }
+    expect((await assignee(resetterTask)).isPlaceholder).toBe(true);
+    expect((await assignee(linkerTask)).isPlaceholder).toBe(true);
+
+    // A password reset proves the inbox: the address is verified and the tasks are handed over
+    const [{ id: resetterId }] = await sql<{ id: string }>("select id from users where email = $1", [resetter.email]);
+    const token = randomBytes(32).toString("base64url");
+    await sql("insert into password_resets (id, user_id, expires_at) values ($1, $2, now() + interval '30 minutes')",
+        [createHash("sha256").update(token).digest("hex"), resetterId]);
+    const anon = await request.newContext({ baseURL });
+    expect((await anon.post("/api/auth/reset-password", { data: { token, password: "a-brand-new-password" } })).status()).toBe(200);
+    expect((await assignee(resetterTask)).name).toBe("Resetting Rex");
+
+    // Signing in with the password while a Google link waits: Google vouched for the address
+    const ctx = await request.newContext({ baseURL, extraHTTPHeaders: { cookie: `google-pending-link=${pendingLink("g-linker-1", linker.email)}` } });
+    expect((await ctx.post("/api/auth/login", { data: { email: linker.email, password: linker.password } })).status()).toBe(200);
+    expect((await assignee(linkerTask)).name).toBe("Linking Lia");
+    await ctx.dispose();
+    await anon.dispose();
 });
 
 test("a lone admin with only placeholders can still delete their account", async ({ baseURL }) => {

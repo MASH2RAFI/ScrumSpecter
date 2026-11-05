@@ -10,7 +10,7 @@ import { useGetTasks } from "@/features/tasks/api/use-get-tasks";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { usePermissions } from "@/features/members/hooks/use-permissions";
-import { BurndownDay, calculateVelocity, generateBurndownData, getProjectPointStats } from "@/lib/sprint-utils";
+import { buildBurndown, calculateVelocity, DEFAULT_SPRINT_DURATION, getProjectPointStats, projectSprintDays } from "@/lib/sprint-utils";
 
 import { ChartDownloads } from "@/features/export/components/chart-downloads";
 import { downloadChartPng, downloadCsv } from "@/features/export/download";
@@ -25,17 +25,35 @@ export const BurndownChart = () => {
     const [selectedProject, setSelectedProject] = useState<string>("");
     // Just the chosen project's tasks
     const { data: tasks } = useGetTasks({ workspaceId, projectId: selectedProject, enabled: Boolean(selectedProject) });
-    const [sprintDuration, setSprintDuration] = useState(14);
-    const [sprintDays, setSprintDays] = useState<BurndownDay[]>([]);
+    // A length typed for one project; otherwise the project's own sprint dates give it
+    const [typedDays, setTypedDays] = useState<{ project: string; days: number } | null>(null);
+    // The project the chart was last generated for (it then follows the project's tasks)
+    const [generatedFor, setGeneratedFor] = useState<string | null>(null);
 
-    const { totalStoryPoints, completedStoryPoints } = selectedProject && tasks?.documents
+    const project = projects?.documents.find((candidate) => candidate.$id === selectedProject);
+    const sprintDuration = (typedDays?.project === selectedProject ? typedDays.days : null)
+        ?? projectSprintDays(project) ?? DEFAULT_SPRINT_DURATION;
+
+    const { completedTasks, totalStoryPoints, completedStoryPoints } = selectedProject && tasks?.documents
         ? getProjectPointStats(tasks.documents, selectedProject)
-        : { totalStoryPoints: 0, completedStoryPoints: 0 };
+        : { completedTasks: [], totalStoryPoints: 0, completedStoryPoints: 0 };
 
     const progressPercentage = calculateVelocity(completedStoryPoints, totalStoryPoints);
 
+    const burndown = generatedFor === selectedProject && selectedProject
+        ? buildBurndown({
+            totalPoints: totalStoryPoints,
+            start: project?.currentSprintStartDate,
+            days: sprintDuration,
+            done: completedTasks.map((task) => ({ points: task.storyPoints ?? 0, doneAt: task.doneAt ?? task.$updatedAt })),
+        })
+        : null;
+    const sprintDays = burndown?.days ?? [];
+
+    // Against how far into the sprint it is, not against the whole sprint
     const getStatusColor = () => {
-        const expectedProgress = (sprintDays.length / sprintDuration) * 100;
+        if (burndown?.elapsed == null) return "text-primary";
+        const expectedProgress = (burndown.elapsed / sprintDuration) * 100;
 
         if (progressPercentage >= expectedProgress) return "text-green-600";
         if (progressPercentage >= expectedProgress * 0.8) return "text-yellow-600";
@@ -69,7 +87,7 @@ export const BurndownChart = () => {
                                     id="sprint-duration"
                                     type="number"
                                     value={sprintDuration}
-                                    onChange={(e) => setSprintDuration(Number(e.target.value))}
+                                    onChange={(e) => setTypedDays({ project: selectedProject, days: Math.max(1, Math.floor(Number(e.target.value)) || 1) })}
                                     min="1"
                                     disabled={!canEditWork}
                                 />
@@ -99,7 +117,7 @@ export const BurndownChart = () => {
                     )}
 
                     <Button
-                        onClick={() => setSprintDays(generateBurndownData(totalStoryPoints, completedStoryPoints, sprintDuration))}
+                        onClick={() => setGeneratedFor(selectedProject)}
                         className="w-full"
                     >
                         Generate Burndown Chart
@@ -147,6 +165,7 @@ export const BurndownChart = () => {
                                             filename: "burndown.png",
                                         })}
                                         onCsv={() => downloadCsv([
+                                            // Days that haven't happened yet have no actual value (left empty)
                                             ["Day", "Ideal remaining (pts)", "Actual remaining (pts)"],
                                             ...sprintDays.map((day) => [day.day, Math.round(day.idealBurndown * 100) / 100, day.remainingWork]),
                                         ], "burndown.csv")}

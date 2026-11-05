@@ -55,7 +55,8 @@ export type SessionDevice = { userAgent?: string | null; ipAddress?: string | nu
 // What a sign-in request says about the device, for the signed-in devices list. On Vercel the
 // client IP and an approximate location come in its own headers.
 export const deviceFromHeaders = (header: (name: string) => string | undefined): SessionDevice => {
-    const ip = (header("x-real-ip") ?? header("x-forwarded-for")?.split(",")[0])?.trim() || null;
+    // x-real-ip only: Vercel sets it, while x-forwarded-for can be forged anywhere else
+    const ip = header("x-real-ip")?.trim() || null;
     const city = header("x-vercel-ip-city");
     const country = header("x-vercel-ip-country");
     let location: string | null = null;

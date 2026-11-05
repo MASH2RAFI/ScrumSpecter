@@ -5,9 +5,9 @@ import { createHash, randomBytes } from "crypto";
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { sessionMiddleware } from "@/lib/session-middleware";
-import { createSession, deleteSession, deviceFromHeaders, forgetCachedSessions, getUserFromToken, hashPassword, SECURE_COOKIES, SESSION_COOKIE_OPTIONS, sessionIdFromToken, verifyPassword } from "@/lib/auth";
+import { createSession, deleteSession, deviceFromHeaders, forgetCachedSessions, getUserFromToken, hashPassword, mergePreferences, SECURE_COOKIES, SESSION_COOKIE_OPTIONS, sessionIdFromToken, verifyPassword } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
-import { attemptKeys, clearFailures, lockedMinutes, recordFailure, resetRequestKeys, tooManyAttempts } from "@/lib/login-limit";
+import { attemptKeys, clearFailures, reserveAttempt, resetRequestKeys, succeeded, tooManyAttempts } from "@/lib/login-limit";
 import { PENDING_GOOGLE_COOKIE, PENDING_GOOGLE_MAX_AGE, readPendingLink, signPendingLink } from "@/lib/pending-google-link";
 import { safeNextPath } from "@/lib/safe-next";
 import { db } from "@/lib/db";
@@ -22,6 +22,7 @@ import {
 import { AUTH_COOKIE } from "../constants";
 import { loginSchema, registerSchema } from "../schemas";
 import { rateLimited } from "@/lib/rate-limit";
+import { claimPlaceholders } from "@/features/members/utils";
 
 // Lax: a link opened from email or chat arrives signed in. Cross-site POST/PATCH/DELETE still
 // go without the cookie, and every change in the API uses one of those.
@@ -42,7 +43,7 @@ const GOOGLE_NEXT_COOKIE = "google-oauth-next";
 const RESET_TOKEN_MINUTES = 30;
 const VERIFY_TOKEN_HOURS = 48;
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
-const appOrigin = (url: string) => process.env.NEXT_PUBLIC_APP_URL ?? new URL(url).origin;
+const appOrigin = (url: string) => process.env.NEXT_PUBLIC_APP_URL || new URL(url).origin;
 
 // Emails a single-use "verify your email" link. Never throws: a mail outage mustn't fail sign-up.
 const sendVerificationEmail = async (userId: string, email: string, origin: string) => {
@@ -105,8 +106,9 @@ const app = new Hono()
             const device = deviceFromHeaders((name) => c.req.header(name));
             const keys = attemptKeys(email, device.ipAddress);
 
-            // Checked before the password, so a locked account doesn't reveal whether a guess was right
-            const locked = await lockedMinutes(keys);
+            // Counted before the password is checked, so a locked account doesn't reveal whether a
+            // guess was right and parallel guesses can't all get through
+            const locked = await reserveAttempt(keys);
             if (locked) {
                 return c.json({ error: tooManyAttempts(locked) }, 429);
             }
@@ -119,10 +121,9 @@ const app = new Hono()
 
             // Google-only accounts have no password to check
             if (!user?.passwordHash || !(await verifyPassword(user.passwordHash, password))) {
-                await recordFailure(keys);
                 return c.json({ error: "Invalid credentials" }, 401);
             }
-            await clearFailures(keys.filter((key) => key.kind === "email"));
+            await succeeded(keys);
 
             // Signing in with the password proves the account's owner: finish a waiting Google link
             const pending = readPendingLink(getCookie(c, PENDING_GOOGLE_COOKIE));
@@ -131,6 +132,7 @@ const app = new Hono()
                 if (!owner) {
                     // Google vouched for this address, so it's verified too
                     await db.update(users).set({ googleId: pending.sub, emailVerifiedAt: user.emailVerifiedAt ?? new Date() }).where(eq(users.id, user.id));
+                    await claimPlaceholders(user.id);
                 }
             }
             if (pending) {
@@ -173,7 +175,13 @@ const app = new Hono()
                     passwordHash: await hashPassword(password),
                     preferences: { showTutorial: true },
                 })
+                // A double click sends two sign-ups at once: the second loses to the unique email
+                .onConflictDoNothing()
                 .returning({ id: users.id });
+
+            if (!user) {
+                return c.json({ error: "A user with this email already exists" }, 409);
+            }
 
             const [, token] = await Promise.all([
                 sendVerificationEmail(user.id, email.toLowerCase(), appOrigin(c.req.url)),
@@ -297,12 +305,11 @@ const app = new Hono()
         const keys = resetRequestKeys(email);
         const answer = { message: "If an account exists for that email, we've sent a link to reset the password." };
 
-        const locked = await lockedMinutes(keys);
+        // Each request counts, so the inbox can't be flooded
+        const locked = await reserveAttempt(keys);
         if (locked) {
             return c.json({ error: tooManyAttempts(locked) }, 429);
         }
-        // Each request counts, so the inbox can't be flooded
-        await recordFailure(keys);
 
         const [user] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
         if (user) {
@@ -347,6 +354,12 @@ const app = new Hono()
                 .where(eq(users.id, reset.userId))
                 .returning({ id: users.id, email: users.email });
 
+            await claimPlaceholders(user.id);
+
+            // The secret calendar link works without signing in, so it can't survive a recovery
+            // (an empty key means "no link"; the next "Subscribe" makes a new one)
+            await mergePreferences(user.id, { calendarFeedKey: "" });
+
             // Everyone signed in with the old password is signed out
             await db.delete(sessions).where(eq(sessions.userId, user.id));
             forgetCachedSessions(user.id);
@@ -388,6 +401,7 @@ const app = new Hono()
             return c.json({ error: "This link is invalid or has expired. Sign in and ask for a new one." }, 400);
         }
         await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, claimed.userId));
+        await claimPlaceholders(claimed.userId);
         return c.json({ success: true });
     })
 

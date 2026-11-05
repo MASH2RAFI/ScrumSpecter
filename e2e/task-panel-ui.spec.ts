@@ -52,9 +52,12 @@ const expectClosed = async (how: string) => {
 
 // Clicks a task, returning where (the panel then hides the page from the accessibility tree)
 const clickAt = async (target: Locator): Promise<Point> => {
-    const box = (await target.boundingBox())!;
+    // The page refetches now and then (a version check every minute) and may swap the element
+    // just as it is measured: measure again until it is there
+    let box: Awaited<ReturnType<Locator["boundingBox"]>> = null;
+    await expect.poll(async () => (box = await target.boundingBox()) !== null).toBe(true);
     await target.click();
-    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    return { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 };
 };
 
 // Opens the panel with `open`, then closes it each way
