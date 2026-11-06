@@ -233,6 +233,13 @@ Next.js 16 (App Router, React 19), TypeScript, Tailwind CSS with shadcn/ui, a [H
 
 The kanban and calendar views and the popup forms load on first use (`src/components/lazy-parts.tsx`), and are prefetched in the background once a page is idle (in production builds).
 
+**First load.** The first screen asks the server for its data in as few round trips as it can:
+- `POST /api/batch` runs up to 24 GET requests in one call. Only the endpoints listed in `src/lib/batch.ts` are allowed, each runs exactly as if asked alone (same session and checks), and the browser groups GETs made within a few milliseconds (`src/lib/batch-fetch.ts`); if a batch fails, each request is made on its own.
+- Signing in returns where the person lands and starts that page's requests on the way (`use-login.ts`). Opening a workspace's Home from a link starts them from a small inline script in the HTML (`src/features/workspaces/early-data.tsx`), with the week worked out in the person's saved time zone.
+- Hovering a sidebar link starts that page's requests (`use-prefetch-page.ts`), unless Data Saver is on.
+- The browser keeps a saved copy of the data for 7 days (`src/lib/query-cache.ts`) and refreshes it in the background after an hour.
+- `scripts/perf/` times first loads against a database that is made to be far away (`up.sh` has the steps); the local database can't show gains that depend on queries running side by side.
+
 Views load only the tasks they show, so large workspaces stay fast (`src/features/tasks/server/task-list.ts`):
 - the table loads 25 per page, sorted on the server;
 - kanban loads every open task and the 100 most recently finished;

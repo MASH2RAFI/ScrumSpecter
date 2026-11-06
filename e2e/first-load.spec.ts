@@ -145,6 +145,25 @@ test("opening Home from a link in another time zone: the early requests are the 
     await context.close();
 });
 
+// A failed batch (the early one from the HTML, then the page's own) must not leave the page empty: the requests are made on their own
+// (this does not tell the early fallback from the page's own retry; it guards that the page opens)
+test("opening Home from a link when every batch fails: the page still opens with its data", async ({ browser, baseURL }) => {
+    const user = await registerUser(baseURL!, "Fail Fay");
+    const workspace = await createWorkspace(user.api, "Fail WS");
+    await createProject(user.api, workspace.$id, "Fail project");
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await signInBrowser(page, user, baseURL!);
+    await page.route("**/api/batch", (route) => route.fulfill({ status: 500, body: "" }));
+    const calls = watchApi(page);
+    await page.goto(`/workspaces/${workspace.$id}`, { timeout: 90_000 });
+    await expect(page.getByRole("main").getByText("Fail project").first()).toBeVisible({ timeout: 30_000 });
+    await page.waitForLoadState("networkidle");
+    // Made on their own after the batches failed
+    expect(calls, calls.join("\n")).toContain("GET /api/projects");
+    expect(calls, calls.join("\n")).toContain("GET /api/members");
+    await page.close();
+});
+
 // The sidebar is a narrow strip until the pointer is on it. WebKit checks where a link will be hit
 // before the pointer moves, so put the pointer on the strip first, as a person's hand would
 const onSidebar = (page: import("@playwright/test").Page) => page.getByRole("complementary").first().hover({ position: { x: 20, y: 200 } });
