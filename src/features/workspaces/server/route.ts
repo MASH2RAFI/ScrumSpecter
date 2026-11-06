@@ -534,6 +534,8 @@ const app = new Hono()
 
             const outcome = await db.transaction(async (tx) => {
                 if (viaViewerLink) {
+                    // The workspace's size limit holds for this link too
+                    await assertRoom("members", workspaceId, 1, tx);
                     const [joined] = await tx.insert(members).values({ userId: user.$id, workspaceId, role: joinRole })
                         .onConflictDoNothing().returning({ id: members.id });
                     if (!joined) tx.rollback();

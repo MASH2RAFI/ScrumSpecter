@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 
 import { FormSkeleton, Loading, TableSkeleton } from "@/components/page-skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
+import { lowData } from "@/lib/low-data";
 import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 
@@ -50,12 +51,6 @@ const EDITING_FORMS = [
     () => import("@/features/routines/components/routine-form"),
 ];
 
-// Data Saver on, or a 2G connection: wait until a part is actually used
-const lowData = () => {
-    const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
-    return Boolean(connection?.saveData || connection?.effectiveType?.includes("2g"));
-};
-
 // Fetches the parts above once the browser has nothing else to do
 export const PrefetchOnIdle = () => {
     const workspaceId = useWorkspaceId();
@@ -86,3 +81,44 @@ export const PrefetchOnIdle = () => {
 
     return null;
 };
+
+// The dashboard's own code (its shell, the home page, the modals every page mounts). Signing in or
+// signing up is the one moment we know a visitor is about to land there, and they spend seconds
+// typing, so it downloads in the meantime. After that the first page opens without waiting for it.
+const DASHBOARD = [
+    () => import("@/components/dashboard-shell"),
+    () => import("@/app/(dashboard)/workspaces/[workspaceId]/client"),
+    () => import("@/features/auth/components/preferences-sync"),
+    () => import("@/features/tasks/components/task-panel"),
+    () => import("@/features/tasks/components/create-task-modal"),
+    () => import("@/features/tasks/components/edit-task-modal"),
+    () => import("@/features/projects/components/create-project-modal"),
+    () => import("@/features/projects/components/edit-project-modal"),
+    () => import("@/features/routines/components/routine-modal"),
+    () => import("@/features/workspaces/components/workspace-panel-modal"),
+    () => import("@/features/workspaces/components/create-workspace-with-project-modal"),
+    () => import("@/features/notifications/components/notification-settings-modal"),
+];
+
+export const PreloadDashboard = () => {
+    useEffect(() => {
+        if (process.env.NODE_ENV !== "production" || lowData()) return;
+        let cancelled = false;
+        const run = async () => {
+            for (const load of DASHBOARD) {
+                if (cancelled) return;
+                await load().catch(() => {});
+            }
+        };
+        const start = () => void run();
+        if ("requestIdleCallback" in window) {
+            const id = window.requestIdleCallback(start, { timeout: 3000 });
+            return () => { cancelled = true; window.cancelIdleCallback(id); };
+        }
+        const timer = setTimeout(start, 1500);
+        return () => { cancelled = true; clearTimeout(timer); };
+    }, []);
+
+    return null;
+};
+

@@ -106,6 +106,20 @@ test("push: an account can turn notifications on for at most 10 devices", async 
     expect(await devices()).toBe(10);
 });
 
+// Several turned on at once (two tabs, two browsers) can't pass the cap between them
+test("push: subscribing from several devices at once stays within the cap", async ({ baseURL }) => {
+    test.skip(!!process.env.E2E_PROD, "the local fake push service is allowed only outside production (notifications/schemas.ts)");
+    const user = await registerUser(baseURL!, "Race Ray");
+    const subscribe = (n: number) => user.api.post("/api/notifications/subscriptions", { data: {
+        endpoint: `https://127.0.0.1:1/push/race-${n}`, keys: { p256dh: "p256dh-key", auth: "auth-key" },
+    } });
+    for (let n = 1; n <= 9; n++) expect((await subscribe(n)).status()).toBe(200);
+    const results = await Promise.all([10, 11, 12, 13, 14, 15].map(subscribe));
+    expect(results.filter((result) => result.status() === 200)).toHaveLength(1);
+    const devices = ((await (await user.api.get("/api/notifications/subscriptions")).json()).data as { devices: number }).devices;
+    expect(devices).toBe(10);
+});
+
 // Devices that are gone can be removed one by one, and only from the account's own list
 test("push: the device list shows the account's devices and removes one by id", async ({ baseURL }) => {
     test.skip(!!process.env.E2E_PROD, "the local fake push service is allowed only outside production (notifications/schemas.ts)");

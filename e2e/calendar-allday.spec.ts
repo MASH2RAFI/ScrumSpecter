@@ -121,8 +121,17 @@ test("a timed block dragged to another day keeps its time and length", async ({ 
 
 test("dragging across the all-day row creates an all-day task", async () => {
     await expect(allDayCell(1)).toBeVisible();
-    const from = (await allDayCell(1).boundingBox())!;
-    const to = (await allDayCell(3).boundingBox())!;
+    await expect(allDayCell(3)).toBeVisible();
+    // Measured together, again if the row was redrawn in between (the previous test's edit refreshes it)
+    let from!: { x: number; y: number; width: number; height: number };
+    let to!: { x: number; y: number; width: number; height: number };
+    await expect(async () => {
+        const first = await allDayCell(1).boundingBox();
+        const third = await allDayCell(3).boundingBox();
+        expect(first && third).toBeTruthy();
+        from = first!;
+        to = third!;
+    }).toPass({ timeout: 10_000 });
     // Below the events, on the row's background
     const y = from.y + from.height - 3;
     await page.mouse.move(from.x + from.width / 2, y);

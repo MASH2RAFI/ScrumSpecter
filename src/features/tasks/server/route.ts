@@ -13,7 +13,7 @@ import { MemberRole } from "@/features/members/types";
 import { requireMember, requireRole } from "@/features/members/utils";
 import { Project } from "@/features/projects/types";
 import { bulkEditSchema, createTaskSchema, restoreTasksSchema } from "../schemas";
-import { baseFilters, countTasks, savedFilters, taskFacets, toTaskDoc, hiddenRoutineCount, listQuerySchema, orderFor, routineRule, selectTasks, taskSummary } from "./task-list";
+import { baseFilters, countTasks, savedFilters, taskFacets, toListDoc, toTaskDoc, hiddenRoutineCount, listQuerySchema, orderFor, routineRule, selectTasks, taskSummary } from "./task-list";
 import { PopulatedAssignee, TaskStatus } from "../types";
 import { idString } from "@/lib/limits";
 import { assertRoom } from "@/lib/volume-caps";
@@ -24,11 +24,34 @@ const MEMBER_NOT_FOUND = "Member not found in the workspace";
 const loadAssignees = async (taskRows: { assigneeIds: string[] }[]) => {
     const ids = Array.from(new Set(taskRows.flatMap((task) => task.assigneeIds)));
     if (ids.length === 0) return new Map<string, PopulatedAssignee>();
-    const rows = await db
+    return toPeople(await db
         .select({ member: members, name: users.name, email: users.email })
         .from(members)
         .leftJoin(users, eq(users.id, members.userId))
-        .where(inArray(members.id, ids));
+        .where(inArray(members.id, ids)));
+};
+
+// Everyone in a workspace with their names (at most the members cap), for lists: asked for together
+// with the tasks instead of after them, which saves a round trip to the database. Requests of the
+// same page load that arrive together share the one query.
+const pendingPeople = new Map<string, Promise<Map<string, PopulatedAssignee>>>();
+const loadWorkspacePeople = (workspaceId: string, shared: boolean) => {
+    const load = async () => toPeople(await db
+        .select({ member: members, name: users.name, email: users.email })
+        .from(members)
+        .leftJoin(users, eq(users.id, members.userId))
+        .where(eq(members.workspaceId, workspaceId)));
+    if (!shared) return load();
+    let pending = pendingPeople.get(workspaceId);
+    if (!pending) {
+        pending = load().finally(() => pendingPeople.delete(workspaceId));
+        pendingPeople.set(workspaceId, pending);
+    }
+    return pending;
+};
+
+type PersonRow = { member: typeof members.$inferSelect; name: string | null; email: string | null };
+const toPeople = (rows: PersonRow[]) => {
     return new Map(rows.flatMap(({ member, name, email }) => {
         const shownName = name ?? member.placeholderName;
         if (shownName === null) return [];
@@ -166,6 +189,9 @@ const app = new Hono()
             const capDone = q.scope === "kanban" && q.doneLimit && !q.status;
             const page = q.limit !== undefined;
 
+            // The names start loading with the membership check; they are only used once it passes
+            const peopleLoad = loadWorkspacePeople(q.workspaceId, true);
+            peopleLoad.catch(() => {});
             const member = await requireMember(c, q.workspaceId, { error: MEMBER_NOT_FOUND });
             if (member instanceof Response) {
                 return member;
@@ -190,9 +216,9 @@ const app = new Hono()
             ]);
 
             const all = [...rows, ...doneRows];
-            const people = await loadAssignees(all.map(({ task }) => task));
+            const people = await peopleLoad;
             const documents = all.map(({ task, project }) => ({
-                ...toTaskDoc(task),
+                ...toListDoc(task),
                 project: project ? toDoc(project) as Project : undefined,
                 ...withAssignees(task, people),
             }));

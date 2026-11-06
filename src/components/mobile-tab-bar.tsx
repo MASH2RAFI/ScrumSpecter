@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
+import { usePrefetchPage } from "@/features/workspaces/hooks/use-prefetch-page";
 
 import { routes, useWaitingRequests } from "./navigation";
 
@@ -17,6 +18,7 @@ export const MobileTabBar = () => {
     // Not rendered at all on wider screens, where the sidebar shows the same pages and badge
     const phone = useMediaQuery("(max-width: 767px)", false);
     const { isViewer, waiting } = useWaitingRequests(phone ? workspaceId : "");
+    const prefetch = usePrefetchPage();
     if (!workspaceId || !phone) return null;
 
     const hrefs = ["", "/tasks", "/routines", isViewer ? "/analytics" : "/requests"];
@@ -37,6 +39,8 @@ export const MobileTabBar = () => {
                             <Link
                                 href={fullHref}
                                 aria-current={active ? "page" : undefined}
+                                // A touch starts the page's data loading before the finger lifts
+                                onPointerEnter={() => prefetch(workspaceId, href)}
                                 className={cn(
                                     "relative flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors duration-200 ease-out",
                                     active ? "text-primary" : "text-muted-foreground hover:text-foreground",

@@ -11,13 +11,25 @@ test("a signed-out answer isn't saved, so the next visit shows admin controls", 
     const workspace = await createWorkspace(admin.api, "Cache WS");
     await signInBrowser(page, admin, baseURL!);
 
-    // The server says nobody is signed in (as a session that ended elsewhere would)
+    // The server says nobody is signed in (as a session that ended elsewhere would): for a request
+    // of its own, and for the one inside a batch (the page's requests travel together)
     const nobody = (route: import("@playwright/test").Route) =>
         route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "Unauthorized" }) });
+    const nobodyInBatch = async (route: import("@playwright/test").Route) => {
+        const response = await route.fetch();
+        const requests = (JSON.parse(route.request().postData() ?? "{}") as { requests: string[] }).requests;
+        const { results } = await response.json() as { results: object[] };
+        await route.fulfill({
+            response,
+            json: { results: results.map((result, index) => requests[index].endsWith("/api/auth/current")
+                ? { status: 401, type: "application/json", body: JSON.stringify({ error: "Unauthorized" }) } : result) },
+        });
+    };
     await page.route("**/api/auth/current", nobody);
-    const asked = page.waitForResponse((response) => response.url().endsWith("/api/auth/current"));
+    await page.route("**/api/batch", nobodyInBatch);
+    const asked = page.waitForResponse((response) => response.url().endsWith("/api/batch") || response.url().endsWith("/api/auth/current"));
     await page.goto(`/workspaces/${workspace.$id}?workspace-panel=settings`, { timeout: 90_000 });
-    expect((await asked).status()).toBe(401);
+    await asked;
     // The saved copy is written a moment after a change
     await page.waitForTimeout(2_500);
     const saved = await page.evaluate(() => {
@@ -28,6 +40,7 @@ test("a signed-out answer isn't saved, so the next visit shows admin controls", 
 
     // Signed in again: the admin's controls are there
     await page.unroute("**/api/auth/current", nobody);
+    await page.unroute("**/api/batch", nobodyInBatch);
     await page.reload({ timeout: 90_000 });
     const settings = page.getByRole("dialog", { name: "Workspace settings" });
     await expect(settings.getByRole("tab", { name: "Danger zone" })).toBeEnabled();

@@ -176,6 +176,22 @@ body {
   scrollbar-color: hsl(var(--muted-foreground) / 0.4) transparent;
 }
 
+/* Once the app is running, a skeleton fades in only if the load takes more than ~150 ms: a page
+   that opens from saved data never flashes one. (The first load, before the app starts, shows its
+   skeleton at once: the page is otherwise blank.) The pulse comes first so the fade-in wins while
+   it plays. */
+@keyframes skeleton-late {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+html[data-started] .skeleton-late {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite, skeleton-late 0.2s ease-out 0.15s backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-started] .skeleton-late { animation: skeleton-late 0.01ms linear 0.15s backwards; }
+}
+html[data-reduce-motion][data-started] .skeleton-late { animation: skeleton-late 0.01ms linear 0.15s backwards; }
+
 /* Everything settles instantly for people who ask for less motion (Motion itself follows the same
    setting through MotionConfig) */
 @media (prefers-reduced-motion: reduce) {

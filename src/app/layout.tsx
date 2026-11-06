@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import { Suspense } from "react";
 import { Plus_Jakarta_Sans } from "next/font/google";
 
 import { cn } from "@/lib/utils";
@@ -10,6 +11,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { QueryProvider } from "@/components/query-providor";
 import { ThemeProvider } from "@/components/theme-provider";
 import { MotionProvider } from "@/components/motion";
+import { EarlyData } from "@/features/workspaces/early-data";
 
 import "./globals.css";
 
@@ -62,6 +64,9 @@ export default async function RootLayout(
   return (
     <html lang="en" className={jakarta.variable} suppressHydrationWarning>
       <body className={cn("antialiased min-h-screen")}>
+        {/* Starts a workspace Home's data requests with the HTML, before the page's code has
+            downloaded; streamed in after the shell, so it never delays it (early-data.tsx) */}
+        <Suspense fallback={null}><EarlyData /></Suspense>
         <ThemeProvider
           nonce={nonce}
           attribute="class"

@@ -18,10 +18,7 @@ interface GetMemberProps {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type UserContext = Context<SessionEnv, any, any>;
 
-export const getMember = async ({
-    workspaceId,
-    userId,
-}: GetMemberProps) => {
+const lookUpMember = async ({ workspaceId, userId }: GetMemberProps) => {
     const [member] = await db
         .select()
         .from(members)
@@ -29,6 +26,22 @@ export const getMember = async ({
         .limit(1);
 
     return member ? toDoc(member) : undefined;
+};
+
+// Reads that arrive while the same lookup is still running share it: a page load asks "is this
+// person a member here?" a dozen times at once. Only for reads (`shared`), and gone as soon as the
+// lookup ends, so nothing is ever older than the request itself; a change always looks it up fresh.
+const pendingMembers = new Map<string, Promise<Awaited<ReturnType<typeof lookUpMember>>>>();
+
+export const getMember = (props: GetMemberProps, { shared = false } = {}) => {
+    if (!shared) return lookUpMember(props);
+    const key = `${props.userId}:${props.workspaceId}`;
+    let lookup = pendingMembers.get(key);
+    if (!lookup) {
+        lookup = lookUpMember(props).finally(() => pendingMembers.delete(key));
+        pendingMembers.set(key, lookup);
+    }
+    return lookup;
 };
 
 export const isAdmin = async (props: GetMemberProps) => {
@@ -44,7 +57,7 @@ export const requireMember = async (
     workspaceId: string,
     { error = "Unauthorized", adminOnly = false }: { error?: string; adminOnly?: boolean } = {},
 ) => {
-    const member = await getMember({ workspaceId, userId: c.get("user").$id });
+    const member = await getMember({ workspaceId, userId: c.get("user").$id }, { shared: c.req.method === "GET" });
 
     if (!member || (adminOnly && !canManageWorkspace(member.role))) {
         return c.json({ error }, 401);

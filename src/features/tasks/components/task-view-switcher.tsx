@@ -11,6 +11,7 @@ import { CalendarDaysIcon, KanbanSquareIcon, PlusIcon, RepeatIcon, TableIcon } f
 import { useCreateTaskModal } from "../hooks/use-create-task-modal";
 import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { useCurrentWeek, useGetTasks, type UseGetTasksProps } from "../api/use-get-tasks";
+import { DEFAULT_SORTS } from "../default-sorts";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { useQueryState } from "nuqs";
 import { DataFilters } from "./data-filters";
@@ -49,13 +50,6 @@ type BaseQuery = Pick<UseGetTasksProps, "workspaceId" | "status" | "assigneeId" 
 
 const SORTABLE = ["name", "project", "assignee", "dueDate", "storyPoints", "status"] as const;
 
-// The account's starting sort (Account settings), used until a column header is clicked
-const DEFAULT_SORTS: Record<UserPreferences["taskSort"], { sortBy: UseGetTasksProps["sortBy"]; sortDir: "asc" | "desc" } | undefined> = {
-    newest: undefined,
-    dueDate: { sortBy: "dueDate", sortDir: "asc" },
-    name: { sortBy: "name", sortDir: "asc" },
-    storyPoints: { sortBy: "storyPoints", sortDir: "desc" },
-};
 
 const RoutineNote = ({ count }: { count: number }) => count > 0 ? (
     <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">

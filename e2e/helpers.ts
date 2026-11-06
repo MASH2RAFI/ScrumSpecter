@@ -126,6 +126,8 @@ export const watchConsole = (page: Page) => {
 // DataTransfer, dropped at the target's centre (Playwright's mouse-based dragTo is unreliable here).
 // Like a browser, each event goes to whatever is under the pointer at that moment.
 export const html5Drag = async (page: Page, source: Locator, target: Locator) => {
+    // A cell can be re-drawn just as it is measured: wait until it has a box
+    await expect.poll(() => target.boundingBox(), { timeout: 5_000 }).not.toBeNull();
     const box = await target.boundingBox();
     expect(box).not.toBeNull();
     const point = { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 };

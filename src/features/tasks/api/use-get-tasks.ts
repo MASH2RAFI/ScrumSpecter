@@ -42,15 +42,17 @@ export interface UseGetTasksProps {
 };
 
 // The viewer's current week, [weekFrom, weekTo), as the list scopes need it
+export const currentWeek = (weekStart: 0 | 1 | 6, now = new Date()) => {
+    const { start, end } = weekRange(now, weekStart);
+    return { weekFrom: start.toISOString(), weekTo: end.toISOString() };
+};
+
 export const useCurrentWeek = () => {
     const { weekStart } = usePreferences();
     // Recomputed when the day changes, not on every render
     const day = new Date().toDateString();
-    return useMemo(() => {
-        const { start, end } = weekRange(new Date(), weekStart);
-        return { weekFrom: start.toISOString(), weekTo: end.toISOString() };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [weekStart, day]);
+    return useMemo(() => currentWeek(weekStart), [weekStart, day]);
 };
 
 const joined = (values: string[] | undefined, sort = true) =>
@@ -58,7 +60,7 @@ const joined = (values: string[] | undefined, sort = true) =>
 const bool = (value: boolean | undefined) => (value === undefined ? undefined : String(value) as "true" | "false");
 
 // The list query's parameters as the API takes them (also the key that caches them)
-const listQuery = ({ workspaceId, ids, excludeProjects, assignees, statuses, ...params }: Omit<UseGetTasksProps, "enabled">) => ({
+export const listQuery = ({ workspaceId, ids, excludeProjects, assignees, statuses, ...params }: Omit<UseGetTasksProps, "enabled">) => ({
     workspaceId,
     projectId: params.projectId ?? undefined,
     status: params.status ?? undefined,
@@ -84,13 +86,26 @@ const listQuery = ({ workspaceId, ids, excludeProjects, assignees, statuses, ...
     doneLimit: params.doneLimit?.toString(),
 });
 
+// Every parameter is part of the key; "tasks" first, so task changes refresh them all.
+// (The third part keeps the original fields, e.g. starred, which the star toggle looks for.)
+export const taskListKey = (props: Omit<UseGetTasksProps, "enabled">) =>
+    ["tasks", props.workspaceId, { ...listQuery(props), starred: props.starred || undefined }] as const;
+
+export const taskFacetsKey = (props: Omit<UseGetTasksProps, "enabled">) =>
+    ["tasks", props.workspaceId, "facets", { ...listQuery({ ...props, limit: undefined, offset: undefined, sortBy: undefined, sortDir: undefined }), starred: props.starred || undefined }] as const;
+
+// Home's numbers come from the clock as well as from edits (a task becomes overdue as time passes,
+// and no edit says so), so they are re-asked after this long when the page opens or the tab is
+// used again. Everything else is kept until a data version changes.
+export const TIME_DEPENDENT_STALE_MS = 5 * 60_000;
+const timeDependent = { staleTime: TIME_DEPENDENT_STALE_MS, refetchOnWindowFocus: true } as const;
+
 export const useGetTasks = ({ enabled = true, ...props }: UseGetTasksProps) => {
     const query = listQuery(props);
     const { workspaceId, ids } = props;
     return useAppQuery({
-        // Every parameter is part of the key; "tasks" first, so task changes refresh them all.
-        // (The third part keeps the original fields, e.g. starred, which the star toggle looks for.)
-        queryKey: ["tasks", workspaceId, { ...query, starred: props.starred || undefined }],
+        queryKey: taskListKey(props),
+        ...(props.scope === "home" ? timeDependent : {}),
         // Skip the request until the route has an id (e.g. no workspace selected yet)
         enabled: Boolean(workspaceId) && enabled && (ids === undefined || Boolean(query.ids)),
         // Keep showing the current list while a new filter, page or range loads, but never
@@ -112,7 +127,7 @@ export const useGetTasks = ({ enabled = true, ...props }: UseGetTasksProps) => {
 export const useGetTaskFacets = ({ enabled = true, ...props }: UseGetTasksProps) => {
     const query = listQuery({ ...props, limit: undefined, offset: undefined, sortBy: undefined, sortDir: undefined });
     return useAppQuery({
-        queryKey: ["tasks", props.workspaceId, "facets", { ...query, starred: props.starred || undefined }],
+        queryKey: taskFacetsKey(props),
         enabled: Boolean(props.workspaceId) && enabled,
         placeholderData: keepPreviousData,
         queryFn: async () => {
@@ -127,16 +142,27 @@ export const useGetTaskFacets = ({ enabled = true, ...props }: UseGetTasksProps)
 
 // Home's counts for this week (server-side, so they stay quick however many tasks there are).
 // filter: the saved My Tasks filter and hidden projects, which Home follows
+type SummaryFilter = Pick<UseGetTasksProps, "assignees" | "statuses" | "starred" | "overdue" | "excludeProjects">;
+
+// The filter part of the summary's request, as the API takes it
+export const summarySaved = (workspaceId: string, filter: SummaryFilter = {}) => {
+    const { assignees, statuses, starred, overdue, excludeProjects } = listQuery({ workspaceId, ...filter });
+    return { assignees, statuses, starred, overdue, excludeProjects };
+};
+
+// Under "tasks", so any task change refreshes it too
+export const taskSummaryKey = (workspaceId: string, weekFrom: string, filter: SummaryFilter = {}) =>
+    ["tasks", workspaceId, "summary", weekFrom, summarySaved(workspaceId, filter)] as const;
+
 export const useGetTaskSummary = ({ workspaceId, filter = {} }: {
     workspaceId: string;
-    filter?: Pick<UseGetTasksProps, "assignees" | "statuses" | "starred" | "overdue" | "excludeProjects">;
+    filter?: SummaryFilter;
 }) => {
     const { weekFrom, weekTo } = useCurrentWeek();
-    const { assignees, statuses, starred, overdue, excludeProjects } = listQuery({ workspaceId, ...filter });
-    const saved = { assignees, statuses, starred, overdue, excludeProjects };
+    const saved = summarySaved(workspaceId, filter);
     return useAppQuery({
-        // Under "tasks", so any task change refreshes it too
-        queryKey: ["tasks", workspaceId, "summary", weekFrom, saved],
+        queryKey: taskSummaryKey(workspaceId, weekFrom, filter),
+        ...timeDependent,
         enabled: Boolean(workspaceId),
         queryFn: async () => {
             const response = await client.api.tasks.summary.$get({ query: { workspaceId, weekFrom, weekTo, ...saved } });

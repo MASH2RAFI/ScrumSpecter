@@ -42,7 +42,9 @@
     ".next-local/dev/types/**/*.ts",
     ".next-build/dev/types/**/*.ts",
     ".next-ab/types/**/*.ts",
-    ".next-ab/dev/types/**/*.ts"
+    ".next-ab/dev/types/**/*.ts",
+    ".next-bench/types/**/*.ts",
+    ".next-bench/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

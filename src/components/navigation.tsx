@@ -14,6 +14,7 @@ import { SIDEBAR_FADE, SIDEBAR_ROW } from "./sidebar-context";
 import { useWorkspacePanel, type WorkspacePanel } from "@/features/workspaces/hooks/use-workspace-panel";
 import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { useGetChangeRequests } from "@/features/change-requests/api/use-change-requests";
+import { usePrefetchPage } from "@/features/workspaces/hooks/use-prefetch-page";
 
 // Members and Settings open as popups over the current page (workspace-panel-modal.tsx)
 export const routes: { label: string; href: string; panel?: WorkspacePanel; icon: React.ElementType }[] = [
@@ -43,6 +44,7 @@ export const Navigation = () => {
     const { panel, open: openPanel } = useWorkspacePanel();
 
     const { isViewer, waiting } = useWaitingRequests(workspaceId);
+    const prefetch = usePrefetchPage();
     const filteredRoutes = isViewer ? routes.filter((route) => route.href !== "/requests") : routes;
 
     const renderItem = (item: (typeof routes)[number]) => {
@@ -91,7 +93,15 @@ export const Navigation = () => {
                         {content}
                     </button>
                 ) : (
-                    <Link href={fullHref} title={collapsed ? item.label : undefined} aria-label={collapsed ? item.label : undefined} aria-current={isActive ? "page" : undefined}>
+                    <Link
+                        href={fullHref}
+                        title={collapsed ? item.label : undefined}
+                        aria-label={collapsed ? item.label : undefined}
+                        aria-current={isActive ? "page" : undefined}
+                        // The page's data starts loading as the pointer arrives, not at the click
+                        onPointerEnter={() => prefetch(workspaceId, item.href)}
+                        onFocus={() => prefetch(workspaceId, item.href)}
+                    >
                         {content}
                     </Link>
                 )}

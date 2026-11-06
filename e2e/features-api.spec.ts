@@ -440,6 +440,10 @@ test("a workspace holds at most 500 members, placeholders included", async ({ ba
     const newcomer = await registerUser(baseURL!, "Late Lena");
     const join = await newcomer.api.post(`/api/workspaces/${workspace.$id}/join`, { data: { code: workspace.inviteCode } });
     expect(join.status()).toBe(409);
+    // ...and through the read-only link too
+    const full = (await (await admin.api.get(`/api/workspaces/${workspace.$id}`)).json()).data;
+    const viewerJoin = await newcomer.api.post(`/api/workspaces/${workspace.$id}/join`, { data: { code: full.viewerInviteCode } });
+    expect(viewerJoin.status(), await viewerJoin.text()).toBe(409);
     expect((await getMembers(admin.api, workspace.$id))).toHaveLength(500);
 });
 
@@ -468,4 +472,86 @@ test("holidays: a made-up date is a 400, and a workspace holds at most 1000 days
     const over = await admin.api.post(url, { data: { date: day(5000), name: "One too many", kind: "custom" } });
     expect(over.status()).toBe(409);
     expect((await over.json()).error).toMatch(/at most 1,000 holidays/);
+});
+
+test("batch: several GETs in one request, each answered as if it came alone, and nothing else runs", async ({ baseURL }) => {
+    const user = await registerUser(baseURL!, "Batch Bo");
+    const outsider = await registerUser(baseURL!, "Batch Outsider");
+    const workspace = await createWorkspace(user.api, "Batch WS");
+    await createProject(user.api, workspace.$id, "Batch project");
+    const batch = async (who: TestUser, requests: unknown) => who.api.post("/api/batch", { data: { requests } });
+    const paths = [`/api/projects?workspaceId=${workspace.$id}`, `/api/members?workspaceId=${workspace.$id}`, `/api/workspaces/${workspace.$id}`, "/api/auth/current"];
+
+    // The same answers as asking one by one
+    const res = await batch(user, paths);
+    expect(res.status(), await res.text()).toBe(200);
+    const { results } = await res.json() as { results: { status: number; type: string; body: string }[] };
+    expect(results).toHaveLength(paths.length);
+    for (const [index, path] of paths.entries()) {
+        const alone = await user.api.get(path);
+        expect(results[index].status, path).toBe(alone.status());
+        expect(JSON.parse(results[index].body), path).toEqual(await alone.json());
+    }
+
+    // A full batch (more than the few that run at once) comes back whole and in order
+    const full = Array.from({ length: 24 }, (_, index) => (index % 2 ? "/api/auth/current" : `/api/projects?workspaceId=${workspace.$id}`));
+    const fullRes = await batch(user, full);
+    expect(fullRes.status(), await fullRes.text()).toBe(200);
+    const fullResults = (await fullRes.json()).results as { status: number; body: string }[];
+    expect(fullResults).toHaveLength(24);
+    fullResults.forEach((result, index) => {
+        expect(result.status).toBe(200);
+        expect(result.body.includes("\"documents\""), `result ${index}`).toBe(index % 2 === 0);
+    });
+
+    // A long list of hidden projects makes a long address: the batch still runs
+    const longPath = `/api/projects?workspaceId=${workspace.$id}&${Array.from({ length: 100 }, () => `excludeProjects=${workspace.$id}`).join("&")}`;
+    expect(longPath.length).toBeGreaterThan(2000);
+    const long = await batch(user, [longPath, "/api/auth/current"]);
+    expect(long.status(), await long.text()).toBe(200);
+
+    // Someone who isn't a member gets the same refusal as asking alone
+    const refused = (await (await batch(outsider, [`/api/projects?workspaceId=${workspace.$id}`])).json()).results[0];
+    expect(refused.status).toBe(401);
+
+    // Only the listed GET endpoints: everything else is refused and not run
+    const forbidden = ["/api/auth/logout", "/api/auth/login", "/api/batch", "/api/cron/reminders", "/api/export/tasks?workspaceId=x", "/api/health",
+        "/api/../api/auth/logout", "https://evil.example/api/projects", "//evil.example/api/projects", "/api/projects/../auth/logout"];
+    const blocked = (await (await batch(user, forbidden)).json()).results as { status: number }[];
+    expect(blocked.map((r) => r.status)).toEqual(forbidden.map(() => 400));
+    expect((await user.api.get("/api/auth/current")).status()).toBe(200);
+
+    // Needs a session, a sane body, and a sane size
+    const anon = await request.newContext({ baseURL });
+    expect((await anon.post("/api/batch", { data: { requests: ["/api/auth/current"] } })).status()).toBe(401);
+    expect((await batch(user, [])).status()).toBe(400);
+    expect((await batch(user, "nope")).status()).toBe(400);
+    expect((await batch(user, Array.from({ length: 25 }, () => "/api/auth/current"))).status()).toBe(400);
+    expect((await batch(user, Array.from({ length: 24 }, () => "/api/auth/current"))).status()).toBe(200);
+});
+
+test("lists carry only the start of a long description; the task itself has all of it", async ({ baseURL }) => {
+    const user = await registerUser(baseURL!, "Long Lena");
+    const workspace = await createWorkspace(user.api, "Long WS");
+    const project = await createProject(user.api, workspace.$id, "Long project");
+    const [me] = await getMembers(user.api, workspace.$id);
+    const long = "word ".repeat(300).trim();
+    const make = async (name: string, description: string) => {
+        const res = await createTask(user.api, { workspaceId: workspace.$id, projectId: project.$id, assigneeId: me.$id, name, description });
+        expect(res.status(), await res.text()).toBe(200);
+        return (await res.json()).data.$id as string;
+    };
+    const longId = await make("Long one", long);
+    // An emoji (two characters) that straddles the cut is left out, not cut in half
+    const emojiId = await make("Emoji one", `${"a".repeat(399)}😀 and more words after it`);
+    const shortId = await make("Short one", "just a line");
+
+    const list = (await (await user.api.get(`/api/tasks?workspaceId=${workspace.$id}`)).json()).data.documents as { $id: string; description: string }[];
+    const inList = (id: string) => list.find((task) => task.$id === id)!.description;
+    expect(inList(longId)).toBe(`${long.slice(0, 400)}…`);
+    expect(inList(shortId)).toBe("just a line");
+    expect(inList(emojiId)).toBe(`${"a".repeat(399)}…`);
+    // The task itself, and what its form edits, is whole
+    const whole = (await (await user.api.get(`/api/tasks/${longId}`)).json()).data;
+    expect(whole.description).toBe(long);
 });

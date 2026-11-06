@@ -6,7 +6,14 @@ export const CACHE_STORAGE_KEY = "scrumspecter-cache";
 // A schema change alone doesn't move any workspace's data_version, so caches wouldn't refresh.
 export const CACHE_BUSTER = "2026-11-04.no-signed-out-copy";
 
-export const CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
+// How long the saved copy may be shown. It opens instantly while it is checked in the background
+// (the data versions say whether anything changed), so a longer life means fewer cold opens. Signing
+// out always removes it.
+export const CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+
+// A copy older than this is refreshed in the background right after it is shown: some answers
+// depend on the time, not only on edits (Home's overdue count), and no version change tells of those.
+export const CACHE_REFRESH_AFTER = 60 * 60 * 1000;
 
 // Last data_version seen per workspace; see use-data-versions.ts
 export const VERSIONS_QUERY_KEY = ["data-versions"] as const;

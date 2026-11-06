@@ -290,16 +290,19 @@ test("cached data renders on reload without refetching unchanged tasks", async (
     // Let the persister write
     await page.waitForTimeout(1500);
 
+    // Requests for tasks, on their own or inside a batch (the page's requests travel together)
     const taskRequests: string[] = [];
-    const listener = (url: string) => {
-        if (/\/api\/tasks\?/.test(url)) taskRequests.push(url);
-    };
-    page.on("request", (req) => listener(req.url()));
-    const versionCheck = page.waitForResponse((res) => res.url().includes("/api/workspaces/versions"));
+    const urlsOf = (req: import("@playwright/test").Request) =>
+        req.url().endsWith("/api/batch") ? ((JSON.parse(req.postData() ?? "{}") as { requests?: string[] }).requests ?? []) : [req.url()];
+    page.on("request", (req) => {
+        for (const url of urlsOf(req)) if (/\/api\/tasks\?/.test(url)) taskRequests.push(url);
+    });
+    const versionCheck = page.waitForResponse((res) => urlsOf(res.request()).some((url) => url.includes("/api/workspaces/versions")));
     await page.reload();
     await expect(page.getByRole("button", { name: "Busy 1", exact: true })).toBeVisible();
     await versionCheck;
-    await page.waitForTimeout(1000);
+    // (a check right after another one shares it, so wait out that second)
+    await page.waitForTimeout(1500);
     expect(taskRequests).toEqual([]);
 
     // A change from somewhere else is picked up on the next check

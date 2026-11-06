@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useIsRestoring, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
+import { resumeReading, stopReading } from "@/lib/batch-fetch";
 import { client } from "@/lib/rpc";
 import { VERSIONS_QUERY_KEY } from "@/lib/query-cache";
 
@@ -26,14 +27,37 @@ let checkTimer: ReturnType<typeof setTimeout> | undefined;
 export const stopVersionChecks = () => {
     stopped = true;
     clearTimeout(checkTimer);
+    stopReading();
 };
 
 export const resumeVersionChecks = () => {
     stopped = false;
+    resumeReading();
 };
 
-// Compares the server's data versions with the last ones seen and refetches only what changed
-export const syncVersions = async (queryClient: QueryClient) => {
+// Compares the server's data versions with the last ones seen and refetches only what changed.
+// A page opening triggers several checks at once (restored data, focus, visibility): they share the
+// one that is running, and a check made moments ago counts. After your own change (`force`) a new
+// one always runs, once the current one is over, because that one may have started before the
+// change was saved.
+const MIN_GAP = 1_000;
+let running: Promise<void> | undefined;
+let lastRun = 0;
+
+export const syncVersions = (queryClient: QueryClient, { force = false } = {}): Promise<void> => {
+    if (!force) {
+        if (running) return running;
+        if (Date.now() - lastRun < MIN_GAP) return Promise.resolve();
+    }
+    const run = (running ?? Promise.resolve()).then(() => compareVersions(queryClient)).catch(() => {}).finally(() => {
+        lastRun = Date.now();
+        if (running === run) running = undefined;
+    });
+    running = run;
+    return run;
+};
+
+const compareVersions = async (queryClient: QueryClient) => {
     if (stopped) return;
     const latest = await fetchVersions().catch(() => null);
     // Signing out may have started while the request was away
@@ -75,7 +99,7 @@ export const syncVersions = async (queryClient: QueryClient) => {
 // price is one more refetch of what is on screen after an edit.
 export const checkAfterOwnChange = (queryClient: QueryClient) => {
     clearTimeout(checkTimer);
-    checkTimer = setTimeout(() => void syncVersions(queryClient), 500);
+    checkTimer = setTimeout(() => void syncVersions(queryClient, { force: true }), 500);
 };
 
 // Mounted once in the dashboard: check on load, on tab focus and every minute while visible

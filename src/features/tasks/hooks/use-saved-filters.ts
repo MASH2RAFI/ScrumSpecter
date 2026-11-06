@@ -27,12 +27,3 @@ export const useRoutineFilter = (workspaceId: string) => {
         save({ routineFilters: { [workspaceId]: { ...filter, ...changes } } });
     return { filter, setFilter };
 };
-
-// The saved filter as list-query parameters
-export const taskFilterQuery = (filter: TaskFilter, hiddenProjects: string[]) => ({
-    assignees: filter.people,
-    statuses: filter.statuses,
-    starred: filter.starred || undefined,
-    overdue: filter.overdue || undefined,
-    excludeProjects: hiddenProjects,
-});

@@ -14,6 +14,21 @@ import { idString } from "@/lib/limits";
 import { isValidTimeZone } from "@/lib/time-zone";
 
 // A task row as the API sends it (dates as ISO strings); also the shape /api/tasks/restore takes back
+// Lists carry only the start of a description (the hover card shows a few lines); the task's own
+// page, panel and form ask for the whole task. 2,000 open tasks with long descriptions would
+// otherwise be megabytes on every Kanban load.
+export const LIST_DESCRIPTION_CHARS = 400;
+const startOf = (text: string) => {
+    const cut = text.slice(0, LIST_DESCRIPTION_CHARS);
+    // Not in the middle of an emoji or another character written as a pair
+    const last = cut.charCodeAt(cut.length - 1);
+    return `${last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut}…`;
+};
+export const toListDoc = (task: typeof tasks.$inferSelect) => ({
+    ...toTaskDoc(task),
+    description: task.description && task.description.length > LIST_DESCRIPTION_CHARS ? startOf(task.description) : task.description,
+}) as Task;
+
 export const toTaskDoc = (task: typeof tasks.$inferSelect) => ({
     ...toDoc(task),
     dueDate: task.dueDate?.toISOString() ?? null,
@@ -202,11 +217,11 @@ export const notInProjects = (excludeProjects: string | null | undefined) => {
 
 // filters: the saved My Tasks filter (savedFilters), which Home follows
 export const taskSummary = async (workspaceId: string, weekFrom: string, weekTo: string, filters: SQL[], timeZone: string, now = new Date()) => {
-    const [workspace] = await db.select({ dayEnd: workspaces.workDayEnd }).from(workspaces).where(eq(workspaces.id, workspaceId));
-    const dayEnd = workspace?.dayEnd ?? "18:00";
     const scope = and(eq(tasks.workspaceId, workspaceId), or(isNull(tasks.routineId), inRoutineWeek(weekFrom, weekTo)), ...filters);
     const open = ne(tasks.status, TaskStatus.DONE);
-    const endsAt = endsAtSql(timeZone, sql`${dayEnd}`);
+    // The workspace's working-day end comes in the same statements (no extra round trip first)
+    // (looked up once for the statement, not per task: it names the workspace itself)
+    const endsAt = endsAtSql(timeZone, sql`coalesce((select ${workspaces.workDayEnd} from ${workspaces} where ${workspaces.id} = ${workspaceId}), '18:00')`);
 
     const [totals, perProject, perMember] = await Promise.all([
         db.select({

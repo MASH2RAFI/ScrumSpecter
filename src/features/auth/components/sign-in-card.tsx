@@ -12,6 +12,7 @@ import { loginSchema } from "../schemas";
 import { useLogin } from "../api/use-login";
 import { AuthCard, AuthInputField, AuthSubmitButton } from "./auth-card";
 import { MAX_EMAIL } from "@/lib/limits";
+import { PreloadDashboard } from "@/components/lazy-parts";
 
 type FormValues = z.infer<typeof loginSchema>;
 
@@ -39,6 +40,8 @@ export const SignInCard = ({ googleEnabled, error, next, linkGoogleEmail }: Sign
     };
 
     return (
+        <>
+        <PreloadDashboard />
         <AuthCard
             active="/sign-in"
             googleEnabled={googleEnabled}
@@ -63,5 +66,6 @@ export const SignInCard = ({ googleEnabled, error, next, linkGoogleEmail }: Sign
                 </form>
             </Form>
         </AuthCard>
+        </>
     );
 };

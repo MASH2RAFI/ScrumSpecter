@@ -83,8 +83,14 @@ export const createSession = async (userId: string, device: SessionDevice = {}) 
     return token;
 };
 
+type Found = { user: SessionUser; refreshed: boolean } | null;
+
+// A page load fires a dozen requests at once; the ones that arrive while a lookup of the same
+// session is still running share it, instead of asking the Pi a dozen times. Gone as soon as it ends.
+const pendingLookups = new Map<string, Promise<Found>>();
+
 // refreshed: the session's expiry just moved forward, so the cookie's should too
-export const getUserFromToken = async (token: string): Promise<{ user: SessionUser; refreshed: boolean } | null> => {
+export const getUserFromToken = async (token: string): Promise<Found> => {
     const id = hashToken(token);
     const cached = sessionCache.get(id);
 
@@ -92,6 +98,15 @@ export const getUserFromToken = async (token: string): Promise<{ user: SessionUs
         return { user: cached.user, refreshed: false };
     }
 
+    let lookup = pendingLookups.get(id);
+    if (!lookup) {
+        lookup = lookUpSession(id).finally(() => pendingLookups.delete(id));
+        pendingLookups.set(id, lookup);
+    }
+    return lookup;
+};
+
+const lookUpSession = async (id: string): Promise<Found> => {
     const [row] = await db
         .select({ $id: users.id, name: users.name, email: users.email, preferences: users.preferences, sessionExpiresAt: sessions.expiresAt, lastSeenAt: sessions.lastSeenAt })
         .from(sessions)

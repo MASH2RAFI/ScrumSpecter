@@ -39,7 +39,20 @@ export const useMarkNotificationsRead = () => {
                 throw new ApiError("Failed to mark notifications read", response.status);
             }
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+        // The bell's badge clears at once; the list's own markers follow with the refetch
+        onMutate: async (ids) => {
+            await queryClient.cancelQueries({ queryKey: ["notifications"] });
+            const previous = queryClient.getQueryData<{ documents: AppNotification[]; unread: number }>(["notifications"]);
+            if (previous) {
+                const cleared = ids ? previous.documents.filter((n) => ids.includes(n.$id) && !n.read).length : previous.unread;
+                queryClient.setQueryData(["notifications"], { ...previous, unread: Math.max(0, previous.unread - cleared) });
+            }
+            return { previous };
+        },
+        onError: (_error, _ids, context) => {
+            if (context?.previous) queryClient.setQueryData(["notifications"], context.previous);
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
     });
 };
 

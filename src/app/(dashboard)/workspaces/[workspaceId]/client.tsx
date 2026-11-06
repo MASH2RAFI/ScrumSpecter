@@ -17,7 +17,8 @@ import { useGetMembers } from "@/features/members/api/use-get-members";
 import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useCreateProjectModal } from "@/features/projects/hooks/use-create-project-modal";
-import { useCurrentWeek, useGetTaskSummary, useGetTasks } from "@/features/tasks/api/use-get-tasks";
+import { useGetTaskSummary, useGetTasks } from "@/features/tasks/api/use-get-tasks";
+import { homeTaskParams } from "@/features/workspaces/home-requests";
 import { Task } from "@/features/tasks/types";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { calculateVelocity, formatDateDDMMYYYY, sprintLengthInDays } from "@/lib/sprint-utils";
@@ -31,7 +32,7 @@ import { useGetWorkspace } from "@/features/workspaces/api/use-get-workspace";
 import { EnableRemindersCard } from "@/features/notifications/components/enable-reminders-card";
 import Link from "next/link";
 import { useTaskPanel } from "@/features/tasks/hooks/use-task-panel";
-import { taskFilterQuery, useTaskFilter } from "@/features/tasks/hooks/use-saved-filters";
+import { useTaskFilter } from "@/features/tasks/hooks/use-saved-filters";
 import { STATUS_CHIPS } from "@/features/tasks/components/data-filters";
 import type { TaskFilter } from "@/features/auth/preferences";
 import type { Member } from "@/features/members/types";
@@ -217,27 +218,19 @@ export const WorkspaceIdClient = () => {
 
     // Only what Home shows, however large the workspace: counts from the server, this week's
     // tasks for the chart, and the signed-in person's open tasks due by the end of tomorrow
-    const week = useCurrentWeek();
-    // Home follows the saved My Tasks filter (people, statuses, Starred, Overdue, hidden projects)
-    const { weekStart } = usePreferences();
+    // (what Home asks for is defined in home-requests.ts, which sign-in also uses to start the same
+    // requests before this page opens)
+    const preferences = usePreferences();
+    const { weekStart } = preferences;
     const { filter, hiddenProjects } = useTaskFilter(workspaceId);
-    const followed = taskFilterQuery(filter, hiddenProjects);
+    const { followed, weekTasks: weekTasksParams, myTasks: myTasksParams } = homeTaskParams(workspaceId, preferences);
     const { data: summary, isLoading: isLoadingSummary, error: summaryError } = useGetTaskSummary({ workspaceId, filter: followed });
     const { data: projects, isLoading: isLoadingProjects, error: projectsError } = useGetProjects({ workspaceId });
     const { data: members, isLoading: isLoadingMembers, error: membersError } = useGetMembers({ workspaceId });
     const { data: currentUser } = useCurrent();
     const memberId = members?.documents.find((member) => member.userId === currentUser?.$id)?.$id;
-    const { data: weekTasks } = useGetTasks({ workspaceId, scope: "home", ...week, from: week.weekFrom, to: week.weekTo, ...followed });
-    const dayAfterTomorrow = new Date();
-    dayAfterTomorrow.setHours(0, 0, 0, 0);
-    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
-    const { data: myTasks } = useGetTasks({
-        // "me" lets it start with the other requests instead of after the members list
-        workspaceId, scope: "home", ...week, assigneeId: "me", openOnly: true,
-        to: dayAfterTomorrow.toISOString(),
-        // Always your own tasks: the rest of the filter applies, the people choice doesn't
-        ...followed, assignees: undefined,
-    });
+    const { data: weekTasks } = useGetTasks(weekTasksParams);
+    const { data: myTasks } = useGetTasks(myTasksParams);
 
     useRedirectOnAccessError(summaryError, projectsError, membersError);
 

@@ -2,8 +2,12 @@ import { Hono } from "hono";
 import { handle } from "hono/vercel";
 import { HTTPException } from "hono/http-exception";
 import { sql } from "drizzle-orm";
+import { getCookie } from "hono/cookie";
+import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { AUTH_COOKIE } from "@/features/auth/constants";
+import { isBatchablePath, MAX_BATCH } from "@/lib/batch";
 
 import account from "@/features/account/server/route";
 import auth from "@/features/auth/server/route";
@@ -44,6 +48,59 @@ app.get("/health", async (c) => {
     } finally {
         clearTimeout(timer);
     }
+});
+
+// Several GET requests in one round trip: a page load asks for a dozen things at once, and each
+// separate request pays for its own trip to the browser and its own checks. Every request runs
+// through the app exactly as if it had arrived alone (same session cookie, same checks, same
+// limits); only GETs of the JSON endpoints in lib/batch.ts are allowed, so this opens nothing new.
+const batchSchema = z.object({ requests: z.array(z.string().max(8000)).min(1).max(MAX_BATCH) });
+// The few request headers a handler reads (the session, and the device behind a sign-in)
+const BATCH_CONCURRENCY = 4;
+const FORWARDED_HEADERS = ["cookie", "user-agent", "accept-language", "x-real-ip", "x-forwarded-for", "x-vercel-ip-city", "x-vercel-ip-country"];
+
+app.post("/batch", async (c) => {
+    c.header("Cache-Control", "no-store");
+    if (!getCookie(c, AUTH_COOKIE)) return c.json({ error: "Unauthorized" }, 401);
+    const parsed = batchSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "Invalid batch" }, 400);
+
+    const origin = new URL(c.req.url).origin;
+    const headers = new Headers();
+    for (const name of FORWARDED_HEADERS) {
+        const value = c.req.header(name);
+        if (value) headers.set(name, value);
+    }
+
+    const cookies = new Set<string>();
+    const run = async (path: string) => {
+        let url: URL;
+        try {
+            url = new URL(path, origin);
+        } catch {
+            return { status: 400, type: "application/json", body: JSON.stringify({ error: "Not a batchable request" }) };
+        }
+        if (url.origin !== origin || !isBatchablePath(url.pathname)) {
+            return { status: 400, type: "application/json", body: JSON.stringify({ error: "Not a batchable request" }) };
+        }
+        const response = await app.request(url, { method: "GET", headers });
+        for (const cookie of response.headers.getSetCookie()) cookies.add(cookie);
+        return { status: response.status, type: response.headers.get("content-type") ?? "application/json", body: await response.text() };
+    };
+    // A few at a time, not all at once: each needs a database connection (3 per server copy), and one that
+    // waits longer than the pool allows (10 s) fails. A page load's dozen finish well inside that this way.
+    const results: Awaited<ReturnType<typeof run>>[] = [];
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(BATCH_CONCURRENCY, parsed.data.requests.length) }, async () => {
+        while (next < parsed.data.requests.length) {
+            const index = next++;
+            results[index] = await run(parsed.data.requests[index]);
+        }
+    }));
+
+    // A refreshed session cookie from any of them
+    for (const cookie of cookies) c.header("Set-Cookie", cookie, { append: true });
+    return c.json({ results });
 });
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -40,6 +40,12 @@ test("viewers get 403", async () => {
     expect(res.status()).toBe(403);
 });
 
+test("a year that isn't a real one is refused, not stored a century off", async () => {
+    const checked = await json(await run(admin, [`task add "Far back" project:"Ops" due:0026-05-01`, `task add "Fine" project:"Ops" due:2031-05-01`].join("\n")));
+    expect(checked.results.map((r: { ok: boolean }) => r.ok)).toEqual([false, true]);
+    expect(checked.results[0].error).toMatch(/isn't a date/);
+});
+
 test("an assignee's own lines are saved, others' become requests with one notification", async () => {
     const script = [
         `task add "Mine A" project:"Ops"`,

@@ -48,6 +48,10 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
             // Workspace data is never answered; the signed-in user still is
             await page.route("**/api/**", (route) =>
                 /\/api\/auth\/current/.test(route.request().url()) ? route.continue() : undefined);
+            // The page's requests would travel together and be held together, the signed-in user's
+            // included. A failed batch makes the app ask for each on its own (by design), which is
+            // what is held above. (Registered last, so it is tried first.)
+            await page.route("**/api/batch", (route) => route.fulfill({ status: 503, body: "" }));
 
             await page.goto(`/workspaces/${workspaceId}${path()}`);
             const status = page.getByRole("status").filter({ hasText: "Loading…" }).first();

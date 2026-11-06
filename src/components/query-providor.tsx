@@ -10,7 +10,7 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 
 import { isClientError } from '@/lib/api-error'
-import { CACHE_BUSTER, CACHE_MAX_AGE, CACHE_STORAGE_KEY, cacheStorage } from '@/lib/query-cache'
+import { CACHE_BUSTER, CACHE_MAX_AGE, CACHE_REFRESH_AFTER, CACHE_STORAGE_KEY, cacheStorage } from '@/lib/query-cache'
 import { checkAfterOwnChange } from '@/features/workspaces/hooks/use-data-versions'
 
 function makeQueryClient() {
@@ -65,6 +65,20 @@ const persister = typeof window === 'undefined'
       throttleTime: 1000,
     })
 
+// How old the saved copy is as found, before restoring it starts saving over it (0 when there is none)
+const savedCopyAge = () => {
+  try {
+    const head = window.localStorage.getItem(CACHE_STORAGE_KEY)?.slice(0, 400)
+    const stamp = head?.match(/"timestamp":(\d+)/)
+    return stamp ? Date.now() - Number(stamp[1]) : 0
+  } catch {
+    return 0
+  }
+}
+
+// Read when this code loads, which is before anything is restored or saved
+const foundAge = typeof window === 'undefined' ? 0 : savedCopyAge()
+
 interface QueryProviderProps {
   children: React.ReactNode;
 }
@@ -79,6 +93,10 @@ export const QueryProvider = ({ children }: QueryProviderProps) => {
   return (
     <PersistQueryClientProvider
       client={queryClient}
+      // The copy is shown at once; an old one is then refreshed behind it
+      onSuccess={() => {
+        if (foundAge > CACHE_REFRESH_AFTER) void queryClient.invalidateQueries()
+      }}
       persistOptions={{
         persister,
         maxAge: CACHE_MAX_AGE,

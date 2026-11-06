@@ -47,6 +47,8 @@ export function proxy(request: NextRequest) {
     const csp = contentSecurityPolicy(nonce);
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set("x-nonce", nonce);
+    // For the dashboard layout, which starts a page's data requests with the HTML (early-data.tsx)
+    requestHeaders.set("x-pathname", request.nextUrl.pathname);
     requestHeaders.set("Content-Security-Policy", csp);
     const response = NextResponse.next({ request: { headers: requestHeaders } });
     response.headers.set("Content-Security-Policy", csp);

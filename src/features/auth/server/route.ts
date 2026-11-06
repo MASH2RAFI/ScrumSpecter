@@ -20,10 +20,12 @@ import {
     GOOGLE_VERIFIER_COOKIE,
     isGoogleAuthEnabled,
 } from "@/lib/google-oauth";
-import { AUTH_COOKIE } from "../constants";
+import { AUTH_COOKIE, LAST_WORKSPACE_COOKIE } from "../constants";
 import { loginSchema, registerSchema } from "../schemas";
 import { rateLimited } from "@/lib/rate-limit";
 import { claimPlaceholders } from "@/features/members/utils";
+import { homePath } from "@/features/workspaces/home-path";
+import { resolvePreferences } from "../preferences";
 
 // Lax: a link opened from email or chat arrives signed in. Cross-site POST/PATCH/DELETE still
 // go without the cookie, and every change in the API uses one of those.
@@ -108,23 +110,20 @@ const app = new Hono()
             const keys = attemptKeys(email, device.ipAddress);
 
             // Counted before the password is checked, so a locked account doesn't reveal whether a
-            // guess was right and parallel guesses can't all get through
-            const locked = await reserveAttempt(keys);
+            // guess was right and parallel guesses can't all get through. The account is looked up
+            // meanwhile (the answer isn't used until the count is in).
+            const [locked, [user]] = await Promise.all([
+                reserveAttempt(keys),
+                db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1),
+            ]);
             if (locked) {
                 return c.json({ error: tooManyAttempts(locked) }, 429);
             }
-
-            const [user] = await db
-                .select()
-                .from(users)
-                .where(eq(users.email, email.toLowerCase()))
-                .limit(1);
 
             // Google-only accounts have no password to check
             if (!user?.passwordHash || !(await verifyPassword(user.passwordHash, password))) {
                 return c.json({ error: "Invalid credentials" }, 401);
             }
-            await succeeded(keys);
 
             // Signing in with the password proves the account's owner: finish a waiting Google link
             const pending = readPendingLink(getCookie(c, PENDING_GOOGLE_COOKIE));
@@ -140,11 +139,26 @@ const app = new Hono()
                 deleteCookie(c, PENDING_GOOGLE_COOKIE, { path: pendingGoogleCookieOptions.path, secure: SECURE_COOKIES });
             }
 
-            const token = await createSession(user.id, device);
+            // Independent of each other, so together: clearing the counters, the session, and where
+            // this person lands (handed to the browser, which goes there directly and starts that
+            // page's data on the way)
+            const preferences = resolvePreferences(user.preferences);
+            const [, token, home] = await Promise.all([
+                succeeded(keys),
+                createSession(user.id, device),
+                homePath(user.id, getCookie(c, LAST_WORKSPACE_COOKIE), preferences.landingPage).catch(() => null),
+            ]);
 
             setCookie(c, AUTH_COOKIE, token, cookieOptions);
 
-            return c.json({ success: true, googleLinked: Boolean(pending && pending.email === user.email) });
+            return c.json({
+                success: true,
+                googleLinked: Boolean(pending && pending.email === user.email),
+                home: home?.path ?? null,
+                workspaceId: home?.workspaceId ?? null,
+                // Only what the browser needs to ask for that page's data (see sign-in in use-login.ts)
+                preferences: { weekStart: preferences.weekStart, taskFilters: preferences.taskFilters, hiddenProjects: preferences.hiddenProjects },
+            });
         }
     )
     .post(

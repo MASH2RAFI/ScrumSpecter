@@ -4,7 +4,7 @@ import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
-import { notifications, pushSubscriptions } from "@/lib/db/schema";
+import { notifications, pushSubscriptions, users } from "@/lib/db/schema";
 import { pushToUser } from "@/lib/push";
 import { rateLimited } from "@/lib/rate-limit";
 import { sessionMiddleware } from "@/lib/session-middleware";
@@ -72,22 +72,28 @@ const app = new Hono()
 
         // At most MAX_PUSH_DEVICES per account: every reminder is sent to each of them, and the
         // address only has to look like a push service's, so there is no other limit on how many
-        // someone could add. A device already on this account can always renew.
-        const [known] = await db.select({ userId: pushSubscriptions.userId }).from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint)).limit(1);
-        if (known?.userId !== userId) {
-            const [{ value: devices }] = await db.select({ value: count() }).from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
-            if (devices >= MAX_PUSH_DEVICES) {
-                return c.json({ error: `You can turn notifications on for at most ${MAX_PUSH_DEVICES} devices. Turn them off on one you no longer use, or press "Send a test" in Account settings: it removes devices that no longer exist.` }, 400);
+        // someone could add. A device already on this account can always renew. Counted and added
+        // under a lock on the person's row, so two at once can't both find room for the last one.
+        const full = await db.transaction(async (tx) => {
+            await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("update");
+            const [known] = await tx.select({ userId: pushSubscriptions.userId }).from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint)).limit(1);
+            if (known?.userId !== userId) {
+                const [{ value: devices }] = await tx.select({ value: count() }).from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+                if (devices >= MAX_PUSH_DEVICES) return true;
             }
-        }
 
-        // An endpoint belongs to one browser; if someone else signs in there, it follows them
-        await db.insert(pushSubscriptions)
-            .values({ userId, endpoint, p256dh: keys.p256dh, auth: keys.auth, userAgent })
-            .onConflictDoUpdate({
-                target: pushSubscriptions.endpoint,
-                set: { userId, p256dh: keys.p256dh, auth: keys.auth, userAgent },
-            });
+            // An endpoint belongs to one browser; if someone else signs in there, it follows them
+            await tx.insert(pushSubscriptions)
+                .values({ userId, endpoint, p256dh: keys.p256dh, auth: keys.auth, userAgent })
+                .onConflictDoUpdate({
+                    target: pushSubscriptions.endpoint,
+                    set: { userId, p256dh: keys.p256dh, auth: keys.auth, userAgent },
+                });
+            return false;
+        });
+        if (full) {
+            return c.json({ error: `You can turn notifications on for at most ${MAX_PUSH_DEVICES} devices. Turn them off on one you no longer use, or press "Send a test" in Account settings: it removes devices that no longer exist.` }, 400);
+        }
 
         return c.json({ data: { success: true } });
     })
