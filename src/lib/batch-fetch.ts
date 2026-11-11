@@ -1,4 +1,6 @@
-import { isBatchablePath, MAX_BATCH } from "@/lib/batch";
+// Relative, not "@/lib/batch": e2e/batch-fetch.spec.ts loads this file straight from Node, where on some versions the
+// @/ alias fails the first time (seen in CI on Node 22: "Cannot find module '@/lib/batch'")
+import { isBatchablePath, MAX_BATCH } from "./batch";
 
 // A page load asks for a dozen things at once. In the browser, GETs that are made within a few
 // milliseconds of each other travel together in one POST /api/batch, and every caller still gets
