@@ -83,6 +83,12 @@
     @apply text-[10px] font-semibold text-destructive;
 }
 
+/* The strip's cells share the width equally whatever is in them: a long day-off name is cut with "…" (its title
+   has the whole name) instead of widening its cell past the columns above and below */
+.calendar-container .rbc-row-bg .rbc-day-bg {
+    min-width: 0;
+}
+
 /* In the week/day all-day strip; clicks and drops go through to the cell */
 .calendar-container .day-off-label {
     @apply pointer-events-none block truncate px-1 pt-1 text-center text-[11px];

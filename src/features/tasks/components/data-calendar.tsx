@@ -68,12 +68,10 @@ interface CalendarEvent {
 
 const DnDCalendar = withDragAndDrop<CalendarEvent>(Calendar);
 
-// Untimed tasks (the whole working day) share a day's column among themselves, behind the timed ones,
-// which keep the full width on top: laid out together, a busy day squeezed every card to a sliver
-const layoutDay: DayLayoutFunction<CalendarEvent> = (args) => [
-    ...overlap({ ...args, events: args.events.filter((event) => event.untimed) }),
-    ...overlap({ ...args, events: args.events.filter((event) => !event.untimed) }),
-];
+// A day's cards cascade together: each later one starts a little further right and sits on top of the one before, so
+// every card shows (a card hovered pops to the front: data-calendar.css). All-day tasks, which fill the working day,
+// are cards like the rest; on a day with a lot of them the cards get narrow, as there is no room for more.
+const layoutDay: DayLayoutFunction<CalendarEvent> = (args) => overlap(args);
 
 // Grid row height for one time slot in week/day views
 const SLOT_HEIGHT_PX = 44;

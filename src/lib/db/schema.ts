@@ -234,6 +234,21 @@ export const routines = pgTable(
     (t) => [index("routines_workspace_idx").on(t.workspaceId)]
 );
 
+// A routine's days that someone deleted or moved away from: the generator doesn't make them again
+// (it only knows a day is covered by finding a task due at that exact time)
+export const routineSkips = pgTable(
+    "routine_skips",
+    {
+        id: id(),
+        routineId: text("routine_id")
+            .notNull()
+            .references(() => routines.id, { onDelete: "cascade" }),
+        date: date("date").notNull(),
+    },
+    (t) => [uniqueIndex("routine_skips_day_idx").on(t.routineId, t.date)]
+);
+
+
 // One row per device/browser that allowed notifications (Web Push)
 export const pushSubscriptions = pgTable(
     "push_subscriptions",

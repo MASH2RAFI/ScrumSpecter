@@ -3,7 +3,7 @@ import "server-only";
 import { and, isNull, lt, or } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { emailVerifications, loginAttempts, notifications, passwordResets, sessions } from "@/lib/db/schema";
+import { emailVerifications, loginAttempts, notifications, passwordResets, routineSkips, sessions } from "@/lib/db/schema";
 
 const DAY = 24 * 60 * 60_000;
 
@@ -14,7 +14,7 @@ export const deleteStaleRows = async () => {
     const now = new Date();
     const ago = (days: number) => new Date(now.getTime() - days * DAY);
 
-    const [expiredSessions, counters, oldNotifications, resets, verifications] = await Promise.all([
+    const [expiredSessions, counters, oldNotifications, resets, verifications, oldSkips] = await Promise.all([
         db.delete(sessions).where(lt(sessions.expiresAt, now)).returning({ id: sessions.id }),
         db.delete(loginAttempts)
             .where(and(lt(loginAttempts.windowStart, ago(1)), or(isNull(loginAttempts.lockedUntil), lt(loginAttempts.lockedUntil, now))))
@@ -22,6 +22,8 @@ export const deleteStaleRows = async () => {
         db.delete(notifications).where(lt(notifications.createdAt, ago(90))).returning({ id: notifications.id }),
         db.delete(passwordResets).where(lt(passwordResets.expiresAt, ago(7))).returning({ id: passwordResets.id }),
         db.delete(emailVerifications).where(lt(emailVerifications.expiresAt, ago(7))).returning({ id: emailVerifications.id }),
+        // The generator never looks back, so a skipped day in the past has nothing left to stop
+        db.delete(routineSkips).where(lt(routineSkips.date, ago(2).toISOString().slice(0, 10))).returning({ id: routineSkips.id }),
     ]);
 
     return {
@@ -30,5 +32,6 @@ export const deleteStaleRows = async () => {
         notifications: oldNotifications.length,
         passwordResets: resets.length,
         emailVerifications: verifications.length,
+        routineSkips: oldSkips.length,
     };
 };

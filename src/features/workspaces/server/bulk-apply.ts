@@ -6,7 +6,7 @@ import { db, type Tx } from "@/lib/db";
 import { removeAssignee } from "@/lib/db/assignees";
 import { members, projects, routines, tasks, users, workspaceHolidays } from "@/lib/db/schema";
 import { toTaskDoc } from "@/features/tasks/server/task-list";
-import { generateRoutineTasks, removeRoutineTasksOn, removeUpcomingOnOtherDays, retimeUpcomingRoutineTasks } from "@/lib/routines";
+import { generateRoutineTasks, removeRoutineTasksOn, removeUpcomingOnOtherDays, retimeUpcomingRoutineTasks, skipRoutineDays } from "@/lib/routines";
 import { localDate } from "@/lib/time-zone";
 import { MemberRole } from "@/features/members/types";
 
@@ -179,6 +179,11 @@ export const writePlan = async (tx: Tx, workspaceId: string, plan: Planned[]) =>
 
     for (const step of plan) {
         if (step.kind === "taskUpdate") {
+            // A routine task moved to another day: its old day is not made again (see skipRoutineDays)
+            if (step.set.dueDate !== undefined) {
+                const [before] = await tx.select({ routineId: tasks.routineId, dueDate: tasks.dueDate }).from(tasks).where(and(eq(tasks.id, step.id), eq(tasks.workspaceId, workspaceId)));
+                if (before && step.set.dueDate?.getTime() !== before.dueDate?.getTime()) await skipRoutineDays([before], tx);
+            }
             await tx.update(tasks).set(step.set).where(and(eq(tasks.id, step.id), eq(tasks.workspaceId, workspaceId)));
         } else if (step.kind === "routineUpdate") {
             await tx.update(routines).set(step.set).where(and(eq(routines.id, step.id), eq(routines.workspaceId, workspaceId)));
@@ -191,6 +196,8 @@ export const writePlan = async (tx: Tx, workspaceId: string, plan: Planned[]) =>
     const removed = removeIds.length
         ? await tx.delete(tasks).where(and(inArray(tasks.id, removeIds), eq(tasks.workspaceId, workspaceId))).returning()
         : [];
+    // Removed routine tasks are not made again either
+    await skipRoutineDays(removed, tx);
     for (const step of plan) {
         if (step.kind === "routineRemove") {
             // Tasks it already created are kept (routine_id is set to null)

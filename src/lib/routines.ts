@@ -2,8 +2,8 @@ import "server-only";
 
 import { and, count, eq, gte, inArray, isNotNull, isNull, lt, max, or, sql, type SQL } from "drizzle-orm";
 
-import { db } from "@/lib/db";
-import { projects, routines, tasks, workspaces } from "@/lib/db/schema";
+import { db, type Tx } from "@/lib/db";
+import { projects, routines, routineSkips, tasks, workspaces } from "@/lib/db/schema";
 import { getHolidays } from "@/lib/holidays";
 import { TaskStatus } from "@/features/tasks/types";
 import { isValidTimeZone, zonedTimeToUtc } from "@/lib/time-zone";
@@ -54,6 +54,29 @@ export const routineDueDates = (weekdays: number[], from = new Date(), days = RO
         .filter((date) => wanted.has(date.getUTCDay() || 7));
 };
 
+// A routine task due at exactly 12:00 UTC is one the generator made, for the day of that date. Anything else was moved by a person.
+const isGenerated = (dueDate: Date | null) =>
+    dueDate !== null && dueDate.getUTCHours() === 12 && dueDate.getUTCMinutes() === 0 && dueDate.getUTCSeconds() === 0 && dueDate.getUTCMilliseconds() === 0;
+
+type RoutineTaskDay = { routineId: string | null; dueDate: Date | null };
+
+// The generator only knows a day is covered by finding a task due at that exact time, so a routine task someone deletes or
+// moves away would be made again at the next run. Recording its day stops that. Only for tasks the generator made.
+export const skipRoutineDays = async (tasksGone: RoutineTaskDay[], executor: typeof db | Tx = db) => {
+    const values = tasksGone
+        .filter((task): task is { routineId: string; dueDate: Date } => Boolean(task.routineId) && isGenerated(task.dueDate))
+        .map((task) => ({ routineId: task.routineId, date: isoDate(task.dueDate) }));
+    if (values.length) await executor.insert(routineSkips).values(values).onConflictDoNothing();
+};
+
+// Undo of a delete: those days are covered again
+export const unskipRoutineDays = async (tasksBack: RoutineTaskDay[], executor: typeof db | Tx = db) => {
+    const days = tasksBack
+        .filter((task): task is { routineId: string; dueDate: Date } => Boolean(task.routineId) && isGenerated(task.dueDate))
+        .map((task) => and(eq(routineSkips.routineId, task.routineId), eq(routineSkips.date, isoDate(task.dueDate))));
+    if (days.length) await executor.delete(routineSkips).where(or(...days));
+};
+
 // Creates any missing tasks for active routines through the end of each project's current
 // sprint (a week ahead when the project has no sprint end; two weeks, rolling, for personal routines). Safe to run repeatedly:
 // the (routine_id, due_date) unique index turns repeats into no-ops.
@@ -98,9 +121,14 @@ export const generateRoutineTasks = async (filter?: SQL) => {
         .groupBy(tasks.projectId, tasks.workspaceId);
     const nextPosition = new Map(positions.map((row) => [positionKey(row.projectId, row.workspaceId), (row.position ?? 0) + 1000]));
 
+    // Days someone deleted or moved away (only today onwards matters: the generator never looks back)
+    const skipped = new Set((await db.select().from(routineSkips).where(gte(routineSkips.date, isoDate(now))))
+        .map((skip) => `${skip.routineId}:${skip.date}`));
+
     const rows = active.flatMap((routine) =>
         routineDueDates(routine.weekdays, now, routine.projectId ? daysUntilSprintEnd(routine.sprintEnd, now) : PERSONAL_HORIZON_DAYS)
             .filter((dueDate) => !holidayDates.get(routine.workspaceId)?.has(isoDate(dueDate)))
+            .filter((dueDate) => !skipped.has(`${routine.id}:${isoDate(dueDate)}`))
             .map((dueDate) => {
             const key = positionKey(routine.projectId, routine.workspaceId);
             const position = nextPosition.get(key) ?? 1000;

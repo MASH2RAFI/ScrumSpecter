@@ -16,6 +16,7 @@ import { bulkEditSchema, createTaskSchema, restoreTasksSchema } from "../schemas
 import { baseFilters, countTasks, savedFilters, taskFacets, toListDoc, toTaskDoc, hiddenRoutineCount, listQuerySchema, orderFor, routineRule, selectTasks, taskSummary } from "./task-list";
 import { PopulatedAssignee, TaskStatus } from "../types";
 import { idString } from "@/lib/limits";
+import { skipRoutineDays, unskipRoutineDays } from "@/lib/routines";
 import { assertRoom } from "@/lib/volume-caps";
 
 const MEMBER_NOT_FOUND = "Member not found in the workspace";
@@ -144,11 +145,13 @@ const app = new Hono()
                 return c.json({ data: toTaskDoc(existingTask) });
             }
 
-            const [task] = await db
-                .update(tasks)
-                .set(updateData)
-                .where(eq(tasks.id, taskId))
-                .returning();
+            // Moving a routine task off its day: that day is not made again (see skipRoutineDays)
+            const movedOff = dueDate !== undefined && dueDate?.getTime() !== existingTask.dueDate?.getTime();
+            const task = await db.transaction(async (tx) => {
+                if (movedOff) await skipRoutineDays([existingTask], tx);
+                const [updated] = await tx.update(tasks).set(updateData).where(eq(tasks.id, taskId)).returning();
+                return updated;
+            });
 
             return c.json({ data: toTaskDoc(task) });
         }
@@ -170,7 +173,11 @@ const app = new Hono()
                 return member;
             }
 
-            await db.delete(tasks).where(eq(tasks.id, taskId));
+            // A routine task's day is remembered, or the next run of the routine would make it again
+            await db.transaction(async (tx) => {
+                await skipRoutineDays([task], tx);
+                await tx.delete(tasks).where(eq(tasks.id, taskId));
+            });
 
             return c.json({ data: { $id: task.id } });
         }
@@ -470,6 +477,12 @@ const app = new Hono()
                 doneAt: task.doneAt ? new Date(task.doneAt) : undefined,
             // Skips a task that exists again meanwhile (same id, or its routine re-created that day)
             }))).onConflictDoNothing().returning({ id: tasks.id });
+
+            // Their days are covered again
+            const back = new Set(restored.map((row) => row.id));
+            await unskipRoutineDays(snapshots
+                .filter((task) => back.has(task.$id) && task.routineId && liveRoutines.has(task.routineId))
+                .map((task) => ({ routineId: task.routineId ?? null, dueDate: task.dueDate ? new Date(task.dueDate) : null })));
 
             return c.json({ data: { restored: restored.length } });
         }
