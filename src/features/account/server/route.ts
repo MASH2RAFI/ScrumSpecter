@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { deleteCookie } from "hono/cookie";
 import { and, count, desc, eq, gt, inArray, isNotNull, ne } from "drizzle-orm";
 
@@ -28,6 +28,23 @@ import { deleteAccountSchema, passwordSchema, preferencesUpdateSchema, profileSc
 const findUser = async (userId: string) => {
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     return user;
+};
+
+// Asks for the current password under the same lockout as sign-in (10 wrong guesses, then 15 minutes), so a stolen
+// session can't be used to guess it through any of the routes that ask for it. Returns the response to send when the
+// account is locked or the password is wrong, else null. An account with no password (Google only) has none to guess.
+const requirePassword = async (c: Context, user: typeof users.$inferSelect, password: string | undefined, wrong: string) => {
+    if (!user.passwordHash) return null;
+    const keys = attemptKeys(user.email, null);
+    const locked = await reserveAttempt(keys);
+    if (locked) {
+        return c.json({ error: tooManyAttempts(locked) }, 429);
+    }
+    if (!password || !(await verifyPassword(user.passwordHash, password))) {
+        return c.json({ error: wrong }, 400);
+    }
+    await clearFailures(keys);
+    return null;
 };
 
 const app = new Hono()
@@ -62,9 +79,8 @@ const app = new Hono()
             if (!user.passwordHash) {
                 return c.json({ error: "Set a password before changing your email" }, 400);
             }
-            if (!currentPassword || !(await verifyPassword(user.passwordHash, currentPassword))) {
-                return c.json({ error: "Current password is incorrect" }, 400);
-            }
+            const refused = await requirePassword(c, user, currentPassword, "Current password is incorrect");
+            if (refused) return refused;
             const [taken] = await db.select({ id: users.id }).from(users).where(and(eq(users.email, email), ne(users.id, $id))).limit(1);
             if (taken) {
                 return c.json({ error: "That email is already used by another account" }, 400);
@@ -88,16 +104,8 @@ const app = new Hono()
         const { currentPassword, newPassword } = c.req.valid("json");
         const user = await findUser($id);
 
-        // Same lockout as sign-in, so a stolen session can't be used to guess the password
-        const keys = attemptKeys(user.email, null);
-        const locked = await reserveAttempt(keys);
-        if (locked) {
-            return c.json({ error: tooManyAttempts(locked) }, 429);
-        }
-        if (user.passwordHash && (!currentPassword || !(await verifyPassword(user.passwordHash, currentPassword)))) {
-            return c.json({ error: "Current password is incorrect" }, 400);
-        }
-        await clearFailures(keys);
+        const refused = await requirePassword(c, user, currentPassword, "Current password is incorrect");
+        if (refused) return refused;
 
         await db.update(users).set({ passwordHash: await hashPassword(newPassword) }).where(eq(users.id, $id));
 
@@ -199,9 +207,8 @@ const app = new Hono()
         if (confirmEmail.toLowerCase() !== user.email) {
             return c.json({ error: "Type your email to confirm" }, 400);
         }
-        if (user.passwordHash && (!password || !(await verifyPassword(user.passwordHash, password)))) {
-            return c.json({ error: "Password is incorrect" }, 400);
-        }
+        const refused = await requirePassword(c, user, password, "Password is incorrect");
+        if (refused) return refused;
 
         // Every workspace the user is in, with all of its members
         const memberships = await db.select().from(members).where(eq(members.userId, $id));

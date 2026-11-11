@@ -10,7 +10,7 @@ import { createSession, deleteSession, deviceFromHeaders, forgetCachedSessions, 
 import { sendEmail } from "@/lib/email";
 import { attemptKeys, clearFailures, reserveAttempt, resetRequestKeys, succeeded, tooManyAttempts } from "@/lib/login-limit";
 import { PENDING_GOOGLE_COOKIE, PENDING_GOOGLE_MAX_AGE, readPendingLink, signPendingLink } from "@/lib/pending-google-link";
-import { safeNextPath } from "@/lib/safe-next";
+import { continuePage, safeNextPath } from "@/lib/safe-next";
 import { db } from "@/lib/db";
 import { emailVerifications, passwordResets, sessions, users } from "@/lib/db/schema";
 import {
@@ -84,12 +84,6 @@ const GOOGLE_LINK_COOKIE = "google-oauth-link";
 
 const safeReturnPath = (path: string | undefined) =>
     path && (path === "/account" || /^\/workspaces\/[\w-]+(\/[\w/-]*)?$/.test(path)) ? path : "/account";
-
-// Finishes the Google callback with a same-site navigation (older sessions used a Strict cookie,
-// which a redirect straight after Google's cross-site one wouldn't carry)
-const continueTo = (path: string) =>
-    `<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${path}">` +
-    `<script>location.replace(${JSON.stringify(path)})</script>`;
 
 const app = new Hono()
     .get(
@@ -250,11 +244,11 @@ const app = new Hono()
         deleteCookie(c, GOOGLE_LINK_COOKIE, { path: oauthCookieOptions.path, secure: SECURE_COOKIES });
 
         if (error) {
-            return c.html(continueTo("/sign-in?error=google_cancelled"));
+            return continuePage(c, "/sign-in?error=google_cancelled");
         }
 
         if (!code || !state || !expectedState || !codeVerifier || state !== expectedState) {
-            return c.html(continueTo("/sign-in?error=google_failed"));
+            return continuePage(c, "/sign-in?error=google_failed");
         }
 
         let profile;
@@ -262,20 +256,20 @@ const app = new Hono()
             profile = await fetchGoogleProfile(code, codeVerifier);
         } catch (e) {
             console.error(e);
-            return c.html(continueTo("/sign-in?error=google_failed"));
+            return continuePage(c, "/sign-in?error=google_failed");
         }
 
         if (!profile.email_verified) {
-            return c.html(continueTo("/sign-in?error=google_unverified"));
+            return continuePage(c, "/sign-in?error=google_unverified");
         }
 
         if (link) {
             const [sessionId, returnTo] = link.split("|");
-            const back = (result: string) => c.html(continueTo(`${safeReturnPath(returnTo)}?tab=security&google=${result}`));
+            const back = (result: string) => continuePage(c, `${safeReturnPath(returnTo)}?tab=security&google=${result}`);
             const [session] = await db.select({ userId: sessions.userId }).from(sessions)
                 .where(and(eq(sessions.id, sessionId), gt(sessions.expiresAt, new Date()))).limit(1);
             if (!session) {
-                return c.html(continueTo("/sign-in"));
+                return continuePage(c, "/sign-in");
             }
             const [owner] = await db.select({ id: users.id }).from(users).where(eq(users.googleId, profile.sub)).limit(1);
             if (owner && owner.id !== session.userId) {
@@ -298,7 +292,7 @@ const app = new Hono()
                 // it. Link only after the account's password is entered (finished in /login).
                 setCookie(c, PENDING_GOOGLE_COOKIE, signPendingLink(profile.sub, email), pendingGoogleCookieOptions);
                 const params = new URLSearchParams({ link: "google", email, ...(next !== "/" ? { next } : {}) });
-                return c.html(continueTo(`/sign-in?${params}`));
+                return continuePage(c, `/sign-in?${params}`);
             } else {
                 const [created] = await db
                     .insert(users)
@@ -311,7 +305,7 @@ const app = new Hono()
         const token = await createSession(userId, deviceFromHeaders((name) => c.req.header(name)));
         setCookie(c, AUTH_COOKIE, token, cookieOptions);
 
-        return c.html(continueTo(next));
+        return continuePage(c, next);
     })
     // Emails a single-use reset link. The answer is the same whether or not the address has an
     // account, so it can't be used to find out who is registered.
