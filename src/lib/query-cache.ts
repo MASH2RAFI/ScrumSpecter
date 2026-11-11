@@ -4,6 +4,8 @@ export const CACHE_STORAGE_KEY = "scrumspecter-cache";
 
 // Bump when the shape of cached API data changes (e.g. a new column), so old copies are discarded.
 // A schema change alone doesn't move any workspace's data_version, so caches wouldn't refresh.
+// Change this whenever a saved copy from before would be wrong now, including when a preference's allowed values
+// change (see preferences-core.ts: the browser doesn't re-validate preferences)
 export const CACHE_BUSTER = "2026-11-04.no-signed-out-copy";
 
 // How long the saved copy may be shown. It opens instantly while it is checked in the background

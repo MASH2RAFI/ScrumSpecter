@@ -182,6 +182,14 @@
         @apply text-[10px] px-0;
     }
 
+    /* "+N more" in a narrow month cell: one line ending in "…", never running into the next cell's */
+    .calendar-container .rbc-show-more {
+        @apply mx-0 block px-0.5 text-[10px];
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     /* Week: seven columns don't fit a phone; the grid scrolls sideways instead (gutter + 7 × 5.5rem) */
     .calendar-view-week .rbc-time-view { overflow-x: auto; }
     .calendar-view-week .rbc-time-view > .rbc-time-header,

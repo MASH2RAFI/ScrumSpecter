@@ -8,7 +8,7 @@ import { findById } from "@/lib/db/find-by-id";
 import { routines } from "@/lib/db/schema";
 import { toDoc } from "@/lib/db/types";
 import { findForeignReference } from "@/lib/db/workspace-refs";
-import { generateRoutineTasks, retimeUpcomingRoutineTasks } from "@/lib/routines";
+import { generateRoutineTasks, removeUpcomingOnOtherDays, retimeUpcomingRoutineTasks } from "@/lib/routines";
 import { isValidTimeZone } from "@/lib/time-zone";
 import { requireMember, requireRole } from "@/features/members/utils";
 import { canEditWork } from "@/features/members/permissions";
@@ -70,9 +70,12 @@ const app = new Hono()
             }
 
             await assertRoom("routines", workspaceId);
+            // A start time is a time in some zone: without one it would be read as UTC, hours off for
+            // the person who set it. Default to their own.
+            const timeZone = fields.timeZone ?? (fields.startTime ? c.get("user").preferences.timeZone : undefined);
             const [routine] = await db
                 .insert(routines)
-                .values({ ...fields, workspaceId, weekdays: normalizeWeekdays(weekdays) })
+                .values({ ...fields, timeZone, workspaceId, weekdays: normalizeWeekdays(weekdays) })
                 .returning();
 
             // Put this week's occurrences on the board right away
@@ -109,7 +112,13 @@ const app = new Hono()
                 return c.json({ error: foreignReference }, 400);
             }
 
-            const updateData = { ...fields, ...(weekdays ? { weekdays: normalizeWeekdays(weekdays) } : {}) };
+            // Same default when a start time is set on a routine that has no zone yet (older routines)
+            const needsZone = fields.timeZone === undefined && !existing.timeZone && (fields.startTime ?? existing.startTime);
+            const updateData = {
+                ...fields,
+                ...(needsZone ? { timeZone: c.get("user").preferences.timeZone } : {}),
+                ...(weekdays ? { weekdays: normalizeWeekdays(weekdays) } : {}),
+            };
 
             // Drizzle rejects an update with nothing to set
             if (Object.values(updateData).every((value) => value === undefined)) {
@@ -126,6 +135,9 @@ const app = new Hono()
             // A new time also moves the upcoming tasks it already created
             if (fields.startTime !== undefined || fields.durationMinutes !== undefined || fields.timeZone !== undefined) {
                 await retimeUpcomingRoutineTasks(routineId, routine);
+            }
+            if (weekdays) {
+                await removeUpcomingOnOtherDays(routineId, routine.weekdays);
             }
             await generateRoutineTasks(eq(routines.id, routineId));
 

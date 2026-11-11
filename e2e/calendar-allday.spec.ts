@@ -119,6 +119,44 @@ test("a timed block dragged to another day keeps its time and length", async ({ 
     expect(moved.durationMinutes).toBe(60);
 });
 
+// A task that runs past midnight is drawn to the end of its day (the calendar would otherwise make it a two-day bar in the
+// all-day row): moving that block must not hand its drawn length to the task
+test("a task running past midnight keeps its length when its block is moved", async ({ browserName }) => {
+    test.fixme(browserName === "webkit", "grid drags don't reliably end in Playwright's WebKit (see the tests above)");
+    // Today 23:00 for two hours in Dhaka: ends at 01:00 tomorrow. Visible hours 20:00 to midnight put it on screen
+    const dhaka = new Date(Date.now() + 6 * 3_600_000);
+    const start = new Date(Date.UTC(dhaka.getUTCFullYear(), dhaka.getUTCMonth(), dhaka.getUTCDate(), 17));
+    const created = await createTask(user.api, { workspaceId, projectId, assigneeId: memberId, name: "Past midnight move", dueDate: start.toISOString(), startAt: start.toISOString(), durationMinutes: 120 });
+    expect(created.status(), await created.text()).toBe(200);
+    expect((await user.api.patch("/api/account/preferences", { data: { calendarStartHour: 20, calendarEndHour: 24 } })).status()).toBe(200);
+    await page.goto(`/workspaces/${workspaceId}/tasks?task-view=calendar&cal=week`, { timeout: 90_000 });
+    await expect(page.locator(".rbc-time-content .rbc-day-slot").first()).toBeVisible();
+    await expect(page.locator(".rbc-time-content .rbc-day-slot").first().locator(".rbc-time-slot")).toHaveCount(8);
+    await page.locator(".rbc-time-content").evaluate((element) => { element.scrollTop = element.scrollHeight; });
+
+    const block = page.locator(".rbc-time-content .rbc-event:not(.rbc-addons-dnd-drag-preview)", { hasText: "Past midnight move" });
+    await expect(block).toBeVisible();
+    const box = (await block.boundingBox())!;
+    // Another day's column (the last, or the one before if the block is already there)
+    const columns = page.locator(".rbc-time-content .rbc-day-slot");
+    const last = (await columns.last().boundingBox())!;
+    const target = box.x >= last.x ? (await columns.nth((await columns.count()) - 2).boundingBox())! : last;
+    const y = box.y + Math.min(box.height / 2, 30);
+    await page.mouse.move(box.x + box.width / 2, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 10, y, { steps: 3 });
+    await page.mouse.move(target.x + target.width / 2, y, { steps: 10 });
+    await page.waitForTimeout(300);
+    await page.mouse.up();
+
+    await expect.poll(async () => (await taskNamed("Past midnight move")).startAt).not.toBe(start.toISOString());
+    const moved = await taskNamed("Past midnight move");
+    expect(Math.abs(new Date(moved.startAt!).getTime() - start.getTime()) % 86_400_000).toBe(0);
+    expect(moved.durationMinutes).toBe(120);
+    expect((await user.api.patch("/api/account/preferences", { data: { calendarStartHour: null, calendarEndHour: null } })).status()).toBe(200);
+    await page.reload();
+});
+
 test("dragging across the all-day row creates an all-day task", async () => {
     await expect(allDayCell(1)).toBeVisible();
     await expect(allDayCell(3)).toBeVisible();
@@ -167,6 +205,9 @@ test("selecting a whole day in the time slots keeps the task in the time slots",
     await page.goto(`/workspaces/${workspaceId}/tasks?task-view=calendar&cal=week`, { timeout: 90_000 });
     const column = page.locator(".rbc-time-content .rbc-day-slot").nth(3);
     await expect(column).toBeVisible();
+    // The page may first draw the grid with the hours it had saved, then switch to these: 20:00 to midnight is
+    // 8 half-hour slots. Dragging before that leaves the selection a slot short, so wait for the final grid
+    await expect(column.locator(".rbc-time-slot")).toHaveCount(8);
     const box = (await column.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + 4);
     await page.mouse.down();
@@ -176,10 +217,13 @@ test("selecting a whole day in the time slots keeps the task in the time slots",
     // selection covers all of it, then release
     const x = box.x + box.width / 2;
     const lastSlot = column.locator(".rbc-time-slot").last();
+    let tries = 0;
     await expect(async () => {
-        // The middle of the last slot, not the column's edge, which WebKit can hit-test as outside
+        // The middle of the last slot, not the column's edge, which WebKit can hit-test as outside.
+        // A few pixels either way on each try: a move to the very spot the pointer is already at sends
+        // nothing new (Firefox), so the selection would stay a slot short however often we aimed
         const slot = (await lastSlot.boundingBox())!;
-        await page.mouse.move(x, slot.y + slot.height / 2, { steps: 4 });
+        await page.mouse.move(x, slot.y + slot.height / 2 + (tries++ % 2 ? 4 : -4), { steps: 4 });
         const live = (await column.boundingBox())!;
         const selection = await page.locator(".rbc-slot-selection").first().boundingBox();
         expect(selection?.height ?? 0).toBeGreaterThanOrEqual(live.height - 6);

@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 import { StarButton } from "@/features/stars/components/star-button";
 import { useGetStarIds } from "@/features/stars/api/use-stars";
 import { useCurrent } from "@/features/auth/api/use-current";
-import { EMPTY_ROUTINE_FILTER, ROUTINE_TAGS, type RoutineFilter } from "@/features/auth/preferences";
+import { EMPTY_ROUTINE_FILTER, ROUTINE_TAGS, type RoutineFilter } from "@/features/auth/preferences-core";
 import { MemberAvatar } from "@/features/members/components/member-avatar";
 import { FilterChip, FilterRow } from "@/features/tasks/components/data-filters";
 import { useRoutineFilter } from "@/features/tasks/hooks/use-saved-filters";

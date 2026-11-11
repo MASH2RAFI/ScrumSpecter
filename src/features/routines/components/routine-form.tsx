@@ -69,7 +69,8 @@ export const RoutineForm = ({ initialValues, isPending, onSubmit, onCancel, proj
 
     const viewerTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     // Keep an existing routine's zone so its time doesn't shift when edited from elsewhere
-    const timeZone = initialValues?.timeZone ?? viewerTimeZone;
+    // (an older routine without one has been running at UTC, so that is the zone its time is in)
+    const timeZone = initialValues ? initialValues.timeZone ?? "UTC" : viewerTimeZone;
 
     const submit = ({ startTime, durationMinutes, ...values }: FormValues) => onSubmit({
         ...values,

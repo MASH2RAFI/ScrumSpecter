@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import { EMPTY_TASK_FILTER, type UserPreferences } from "@/features/auth/preferences";
+import { EMPTY_TASK_FILTER, type UserPreferences } from "@/features/auth/preferences-core";
 import { currentWeek, listQuery, taskListKey, taskSummaryKey } from "@/features/tasks/api/use-get-tasks";
 import { DEFAULT_SORTS } from "@/features/tasks/default-sorts";
 import { client } from "@/lib/rpc";

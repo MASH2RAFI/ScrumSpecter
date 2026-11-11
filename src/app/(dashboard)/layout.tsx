@@ -2,16 +2,11 @@ import { ClientOnly } from "@/components/client-only";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { DashboardSkeleton } from "@/components/page-skeletons";
 import { PrefetchOnIdle } from "@/components/lazy-parts";
-import { NotificationSettingsModal } from "@/features/notifications/components/notification-settings-modal";
+import {
+    CreateProjectModal, CreateTaskModal, CreateWorkspaceWithProjectModal, EditProjectModal, EditTaskModal,
+    NotificationSettingsModal, RoutineModal, TaskPanel, WorkspacePanelModal,
+} from "@/components/lazy-modals";
 import { AccountMotion, PreferencesSync } from "@/features/auth/components/preferences-sync";
-import { CreateProjectModal } from "@/features/projects/components/create-project-modal";
-import { EditProjectModal } from "@/features/projects/components/edit-project-modal";
-import { WorkspacePanelModal } from "@/features/workspaces/components/workspace-panel-modal";
-import { CreateTaskModal } from "@/features/tasks/components/create-task-modal";
-import { EditTaskModal } from "@/features/tasks/components/edit-task-modal";
-import { RoutineModal } from "@/features/routines/components/routine-modal";
-import { TaskPanel } from "@/features/tasks/components/task-panel";
-import { CreateWorkspaceWithProjectModal } from "@/features/workspaces/components/create-workspace-with-project-modal";
 
 interface DashboardLayoutProps {
     children: React.ReactNode;

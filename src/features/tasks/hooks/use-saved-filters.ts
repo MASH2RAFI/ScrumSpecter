@@ -4,7 +4,7 @@ import { usePreferences, useSavePreferences } from "@/features/auth/hooks/use-pr
 import {
     EMPTY_ROUTINE_FILTER, EMPTY_TASK_FILTER,
     type RoutineFilter, type TaskFilter,
-} from "@/features/auth/preferences";
+} from "@/features/auth/preferences-core";
 
 // The My Tasks filter for this workspace, saved on the account (Home follows it); on a project's
 // page, that project's own filter instead

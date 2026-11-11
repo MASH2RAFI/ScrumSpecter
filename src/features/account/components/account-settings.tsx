@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CALENDAR_VIEW_LABELS, CALENDAR_VIEWS, DATE_FORMATS, MAX_SLOT, MIN_SLOT, SLOT_STEP, type UserPreferences } from "@/features/auth/preferences";
+import { CALENDAR_VIEW_LABELS, CALENDAR_VIEWS, DATE_FORMATS, MAX_SLOT, MIN_SLOT, SLOT_STEP, type UserPreferences } from "@/features/auth/preferences-core";
 import { formatDuration } from "@/features/tasks/task-time";
 
 import {

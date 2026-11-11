@@ -6,7 +6,7 @@ import { db, type Tx } from "@/lib/db";
 import { removeAssignee } from "@/lib/db/assignees";
 import { members, projects, routines, tasks, users, workspaceHolidays } from "@/lib/db/schema";
 import { toTaskDoc } from "@/features/tasks/server/task-list";
-import { generateRoutineTasks, removeRoutineTasksOn, retimeUpcomingRoutineTasks } from "@/lib/routines";
+import { generateRoutineTasks, removeRoutineTasksOn, removeUpcomingOnOtherDays, retimeUpcomingRoutineTasks } from "@/lib/routines";
 import { localDate } from "@/lib/time-zone";
 import { MemberRole } from "@/features/members/types";
 
@@ -220,9 +220,11 @@ export const finishPlan = async (workspaceId: string, plan: Planned[]) => {
     for (const step of plan) {
         if (step.kind === "holiday") await removeRoutineTasksOn(workspaceId, step.date);
     }
-    for (const step of ofKind(plan, "routineUpdate").filter((step) => step.retime)) {
+    for (const step of ofKind(plan, "routineUpdate").filter((step) => step.retime || step.set.weekdays)) {
         const [routine] = await db.select().from(routines).where(eq(routines.id, step.id));
-        if (routine) await retimeUpcomingRoutineTasks(routine.id, routine);
+        if (!routine) continue;
+        if (step.retime) await retimeUpcomingRoutineTasks(routine.id, routine);
+        if (step.set.weekdays) await removeUpcomingOnOtherDays(routine.id, routine.weekdays);
     }
     const regenerate: Planned["kind"][] = ["routine", "holiday", "routineUpdate", "holidayRemove", "projectUpdate"];
     if (plan.some((step) => regenerate.includes(step.kind))) {

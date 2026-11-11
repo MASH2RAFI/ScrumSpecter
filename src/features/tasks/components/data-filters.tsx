@@ -11,7 +11,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
 import { useCurrent } from "@/features/auth/api/use-current";
 import { usePreferences, useSavePreferences } from "@/features/auth/hooks/use-preferences";
-import { EMPTY_TASK_FILTER, TASK_SORTS, type UserPreferences } from "@/features/auth/preferences";
+import { EMPTY_TASK_FILTER, TASK_SORTS, type UserPreferences } from "@/features/auth/preferences-core";
 import { useGetMembers } from "@/features/members/api/use-get-members";
 import { MemberAvatar } from "@/features/members/components/member-avatar";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";

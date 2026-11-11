@@ -6,15 +6,15 @@ import { format } from "date-fns";
 import { useUpdatePreferences } from "@/features/account/api/use-account";
 
 import { useCurrent } from "../api/use-current";
-import { DATE_FORMATS, DEFAULT_PREFERENCES, mergePreferenceChanges, resolvePreferences, type PreferenceChanges, type UserPreferences } from "../preferences";
+import { DATE_FORMATS, DEFAULT_PREFERENCES, mergePreferenceChanges, withDefaults, type PreferenceChanges, type UserPreferences } from "../preferences-core";
 
-// Parsing the ~40 settings is done once per stored copy, not on every call: dozens of components
-// ask for the preferences on every render. A change makes a new stored object, so it is parsed again.
+// Filling in the defaults is done once per stored copy, not on every call: dozens of components
+// ask for the preferences on every render. A change makes a new stored object, so it is done again.
 const resolved = new WeakMap<object, UserPreferences>();
 const resolveOnce = (stored: object): UserPreferences => {
     let preferences = resolved.get(stored);
     if (!preferences) {
-        preferences = resolvePreferences(stored);
+        preferences = withDefaults(stored);
         resolved.set(stored, preferences);
     }
     return preferences;
@@ -25,7 +25,7 @@ export const usePreferences = () => {
     const { data: user } = useCurrent();
     if (!user) return DEFAULT_PREFERENCES;
     // (a stored value that isn't an object has nothing to remember it by; it just gets the defaults)
-    return typeof user.preferences === "object" && user.preferences ? resolveOnce(user.preferences) : resolvePreferences(user.preferences);
+    return typeof user.preferences === "object" && user.preferences ? resolveOnce(user.preferences) : DEFAULT_PREFERENCES;
 };
 
 // Background save (no toast) of a setting changed in place, like a project's eye

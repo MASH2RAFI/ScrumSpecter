@@ -9,8 +9,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDuration } from "../task-time";
 import type { CalendarPrefs } from "@/features/auth/hooks/use-calendar-prefs";
-import { MAX_SLOT, MIN_SLOT, SLOT_STEP } from "@/features/auth/preferences";
-import { CALENDAR_VIEW_LABELS, CALENDAR_VIEWS } from "@/features/auth/preferences";
+import { MAX_SLOT, MIN_SLOT, SLOT_STEP } from "@/features/auth/preferences-core";
+import { CALENDAR_VIEW_LABELS, CALENDAR_VIEWS } from "@/features/auth/preferences-core";
 
 export type CalendarView = (typeof CALENDAR_VIEWS)[number];
 

@@ -5,8 +5,9 @@ import { sql } from "drizzle-orm";
 import { getCookie } from "hono/cookie";
 import { z } from "zod";
 
-import { db } from "@/lib/db";
+import { db, POOL_MAX } from "@/lib/db";
 import { AUTH_COOKIE } from "@/features/auth/constants";
+import { sharingMembers } from "@/features/members/utils";
 import { isBatchablePath, MAX_BATCH } from "@/lib/batch";
 
 import account from "@/features/account/server/route";
@@ -56,7 +57,8 @@ app.get("/health", async (c) => {
 // limits); only GETs of the JSON endpoints in lib/batch.ts are allowed, so this opens nothing new.
 const batchSchema = z.object({ requests: z.array(z.string().max(8000)).min(1).max(MAX_BATCH) });
 // The few request headers a handler reads (the session, and the device behind a sign-in)
-const BATCH_CONCURRENCY = 4;
+// As many at a time as there are database connections: more would only wait in the pool's queue, which gives up after 10 s
+const BATCH_CONCURRENCY = POOL_MAX;
 const FORWARDED_HEADERS = ["cookie", "user-agent", "accept-language", "x-real-ip", "x-forwarded-for", "x-vercel-ip-city", "x-vercel-ip-country"];
 
 app.post("/batch", async (c) => {
@@ -91,12 +93,13 @@ app.post("/batch", async (c) => {
     // waits longer than the pool allows (10 s) fails. A page load's dozen finish well inside that this way.
     const results: Awaited<ReturnType<typeof run>>[] = [];
     let next = 0;
-    await Promise.all(Array.from({ length: Math.min(BATCH_CONCURRENCY, parsed.data.requests.length) }, async () => {
+    // Within one batch a person's membership is looked up once (a read-only batch can't change it)
+    await sharingMembers(() => Promise.all(Array.from({ length: Math.min(BATCH_CONCURRENCY, parsed.data.requests.length) }, async () => {
         while (next < parsed.data.requests.length) {
             const index = next++;
             results[index] = await run(parsed.data.requests[index]);
         }
-    }));
+    })));
 
     // A refreshed session cookie from any of them
     for (const cookie of cookies) c.header("Set-Cookie", cookie, { append: true });

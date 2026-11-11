@@ -66,7 +66,8 @@ const spill = (runs: Occurrence[]): Occurrence[] => runs.flatMap((run) =>
     ]);
 
 const runsOf = (routine: Routine, workDay: WorkDay): Occurrence[] => {
-    const zone = routine.timeZone;
+    // A routine saved without a zone has its tasks made at UTC (lib/routines.ts), so it is drawn that way
+    const zone = routine.startTime ? routine.timeZone ?? "UTC" : null;
     if (!routine.startTime || !zone || !isValidTimeZone(zone) || zone === Intl.DateTimeFormat().resolvedOptions().timeZone) {
         const { start, end } = routineSpan(routine, workDay);
         return routine.weekdays.map((day) => ({ routine, day, start, end }));

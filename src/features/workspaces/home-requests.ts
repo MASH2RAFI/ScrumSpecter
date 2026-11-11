@@ -1,6 +1,6 @@
 import { addDays, startOfWeek } from "date-fns";
 
-import { EMPTY_TASK_FILTER, type UserPreferences } from "@/features/auth/preferences";
+import { EMPTY_TASK_FILTER, type UserPreferences } from "@/features/auth/preferences-core";
 import { currentWeek, listQuery, summarySaved } from "@/features/tasks/api/use-get-tasks";
 import { taskFilterQuery } from "@/features/tasks/task-filter-query";
 import { client } from "@/lib/rpc";

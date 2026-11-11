@@ -52,6 +52,11 @@ const EDITING_FORMS = [
 ];
 
 // Fetches the parts above once the browser has nothing else to do
+// Phones compile a downloaded chunk on the same slow thread that draws and handles touches: a few hundred KB
+// fetched "for later" (measured: over a second of blocked time right after the page appears) costs more than it saves.
+// Those parts load when they are first opened instead.
+const onPhone = () => window.matchMedia("(max-width: 767px)").matches;
+
 export const PrefetchOnIdle = () => {
     const workspaceId = useWorkspaceId();
     const { isViewer, isLoading } = usePermissions({ workspaceId: workspaceId ?? "" });
@@ -59,7 +64,7 @@ export const PrefetchOnIdle = () => {
     useEffect(() => {
         // Production only: in development each import compiles on demand, and that burst of
         // compiling right after a page loads can cancel a navigation in progress
-        if (process.env.NODE_ENV !== "production" || isLoading || lowData()) return;
+        if (process.env.NODE_ENV !== "production" || isLoading || lowData() || onPhone()) return;
         let cancelled = false;
         const parts = [...VIEWS, ...SHARED_PANELS, ...(isViewer ? [] : EDITING_FORMS)];
         // One at a time, so the downloads never compete with what the page itself is fetching.

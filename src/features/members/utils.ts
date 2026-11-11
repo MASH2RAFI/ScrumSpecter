@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import type { Context } from "hono";
 import { and, asc, eq, inArray, isNotNull, isNull, ne } from "drizzle-orm";
 
@@ -33,9 +35,23 @@ const lookUpMember = async ({ workspaceId, userId }: GetMemberProps) => {
 // lookup ends, so nothing is ever older than the request itself; a change always looks it up fresh.
 const pendingMembers = new Map<string, Promise<Awaited<ReturnType<typeof lookUpMember>>>>();
 
+// Inside one POST /api/batch (its reads run a few at a time, so they miss each other's in-flight lookups) the
+// answer is kept until the batch ends: seconds at most, and only for the reads inside it
+const batchMembers = new AsyncLocalStorage<Map<string, ReturnType<typeof lookUpMember>>>();
+export const sharingMembers = <T>(run: () => Promise<T>) => batchMembers.run(new Map(), run);
+
 export const getMember = (props: GetMemberProps, { shared = false } = {}) => {
     if (!shared) return lookUpMember(props);
     const key = `${props.userId}:${props.workspaceId}`;
+    const inBatch = batchMembers.getStore();
+    if (inBatch) {
+        let lookup = inBatch.get(key);
+        if (!lookup) {
+            lookup = lookUpMember(props);
+            inBatch.set(key, lookup);
+        }
+        return lookup;
+    }
     let lookup = pendingMembers.get(key);
     if (!lookup) {
         lookup = lookUpMember(props).finally(() => pendingMembers.delete(key));

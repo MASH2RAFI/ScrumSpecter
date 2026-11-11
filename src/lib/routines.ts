@@ -173,6 +173,21 @@ export const retimeUpcomingRoutineTasks = async (routineId: string, time: Routin
         where ${tasks.id} = v.id`);
 };
 
+// After a routine's weekdays change, its upcoming not-started tasks on a day it no longer runs on are removed (the
+// ones it already made stay otherwise: they would sit on the board on days nobody asked for, up to the sprint's end).
+// Work that has started is kept, like everywhere else here. `weekdays` are ISO numbers 1-7, so safe to write out.
+export const removeUpcomingOnOtherDays = async (routineId: string, weekdays: number[]) => {
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12));
+    const days = sql.raw(`array[${weekdays.map(Number).join(",")}]::int[]`);
+    await db.delete(tasks).where(and(
+        eq(tasks.routineId, routineId),
+        eq(tasks.status, TaskStatus.TODO),
+        gte(tasks.dueDate, today),
+        sql`extract(isodow from ${tasks.dueDate} at time zone 'UTC')::int <> all(${days})`,
+    ));
+};
+
 // A new day off removes the routine tasks already generated for it, unless work has started
 export const removeRoutineTasksOn = async (workspaceId: string, date: string) => {
     const start = new Date(`${date}T00:00:00.000Z`);

@@ -1,6 +1,6 @@
 import { addDays, startOfWeek } from "date-fns";
 
-import { DEFAULT_PREFERENCES, type UserPreferences } from "@/features/auth/preferences";
+import { DEFAULT_PREFERENCES, type UserPreferences } from "@/features/auth/preferences-core";
 
 export type WeekStart = UserPreferences["weekStart"];
 

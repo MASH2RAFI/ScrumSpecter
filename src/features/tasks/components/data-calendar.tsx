@@ -28,7 +28,7 @@ import { weekRange } from "@/lib/week";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrent } from "@/features/auth/api/use-current";
 import { usePreferences } from "@/features/auth/hooks/use-preferences";
-import { CALENDAR_VIEWS as VIEW_LIST } from "@/features/auth/preferences";
+import { CALENDAR_VIEWS as VIEW_LIST } from "@/features/auth/preferences-core";
 import { usePermissions } from "@/features/members/hooks/use-permissions";
 import { holidayNotice, useGetHolidays, type Holiday } from "@/features/workspaces/api/use-holidays";
 import { useGetWorkspace } from "@/features/workspaces/api/use-get-workspace";
@@ -159,6 +159,18 @@ const ReadyCalendar = ({ data, onRangeChange, unscheduledTotal }: DataCalendarPr
     const [view, setView] = useQueryState("cal", parseAsStringEnum<CalendarView>(CALENDAR_VIEWS).withDefault(phone ? "agenda" : calendarView));
     // Week and day: the time grid, where tasks are dragged and resized
     const grid = view === "week" || view === "day";
+    // Week on a phone scrolls sideways (data-calendar.css): bring today's column into view, not Saturday's
+    useEffect(() => {
+        if (!phone || view !== "week") return;
+        const frame = requestAnimationFrame(() => {
+            const timeView = gridScope.current?.querySelector<HTMLElement>(".rbc-time-view");
+            const today = timeView?.querySelector<HTMLElement>(".rbc-header.rbc-today");
+            if (!timeView || !today) return;
+            const gutter = timeView.querySelector(".rbc-time-header-gutter")?.getBoundingClientRect().width ?? 0;
+            timeView.scrollLeft += today.getBoundingClientRect().left - timeView.getBoundingClientRect().left - gutter;
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [phone, view, value, gridScope]);
     const { prefs, update: updatePrefs } = useCalendarPrefs();
     useEffect(() => {
         if (!onRangeChange) return;
@@ -278,8 +290,12 @@ const ReadyCalendar = ({ data, onRangeChange, unscheduledTotal }: DataCalendarPr
             const { start } = range;
             // Ending exactly at the next midnight, the calendar would move it to the all-day row;
             // drawn a minute short, it stays in the time slots (the task keeps its real end)
-            const end = range.end.getHours() === 0 && range.end.getMinutes() === 0 && range.end > start
+            let end = range.end.getHours() === 0 && range.end.getMinutes() === 0 && range.end > start
                 ? new Date(range.end.getTime() - 60_000) : range.end;
+            // Running past midnight, the calendar would also move it to the all-day row as a two-day bar, unlike every
+            // other timed task; in the time grid it is drawn to the end of its own day (month and list show it as is)
+            const endOfDay = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1).getTime() - 60_000;
+            if ((view === "week" || view === "day") && end.getTime() > endOfDay) end = new Date(endOfDay);
             // Month view places events by their day; keep timed ones on the due date's cell
             return { id: task.$id, title: task.name, start, end, task, allDay: false };
         }
@@ -315,8 +331,15 @@ const ReadyCalendar = ({ data, onRangeChange, unscheduledTotal }: DataCalendarPr
             return;
         }
         // To 5 minutes: a task ending at midnight is drawn a minute short (see events), and a move
-        // keeps its real length
-        const minutes = Math.max(prefs.slotMinutes, Math.round((new Date(end).getTime() - startDate.getTime()) / 300_000) * 5);
+        // keeps its real length. A block drawn shorter than the task (one that runs past midnight is drawn to
+        // the end of its day) must not pass that length on: when its length is unchanged it was only moved,
+        // so the task's own stays; a resize changes the length and takes the new one.
+        const drawn = event.end.getTime() - event.start.getTime();
+        const dropped = new Date(end).getTime() - startDate.getTime();
+        const real = event.task.durationMinutes;
+        const minutes = real && Math.abs(dropped - drawn) < 60_000
+            ? real
+            : Math.max(prefs.slotMinutes, Math.round(dropped / 300_000) * 5);
         reschedule(event.task, {
             dueDate: day,
             startAt: startDate.toISOString(),

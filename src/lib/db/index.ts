@@ -12,16 +12,19 @@ const globalForDb = globalThis as unknown as { pgPool?: Pool };
 // Opening a connection costs ~4 round trips to the Pi (TLS + SCRAM), so keep them warm.
 // attachDatabasePool closes idle clients before Fluid suspends the instance,
 // so a resumed instance never queries a dead socket.
+export const POOL_MAX = Number(process.env.DB_POOL_MAX) || 6;
+
 const isNewPool = !globalForDb.pgPool;
 const pool =
     globalForDb.pgPool ??
     new Pool({
         ...poolConfig(process.env.DATABASE_URL!),
-        // Per server copy; Vercel adds copies under load, so keep each small to spare the Pi (the app role
-        // is limited to 50 connections: scripts/pi/app-role-limits.sql). Raise it only once the number of
-        // copies Vercel really runs is counted: the copy that finds the role full gets an error, not a queue.
+        // Per server copy; Vercel adds copies under load, and the app role is limited on the Pi
+        // (scripts/pi/app-role-limits.sql: 80, so about 13 copies of 6). A page load makes ~25 queries, each a
+        // round trip to the Pi: with 3 connections they queue in waves (measured: 6 is a third faster to load).
+        // The copy that finds the role full gets an error, not a queue, so raise this only with that limit.
         // The e2e suite sets 1: PGlite shares one session, so parallel connections can interleave.
-        max: Number(process.env.DB_POOL_MAX) || 3,
+        max: POOL_MAX,
         idleTimeoutMillis: 5 * 60_000,
         // Fail fast when the Pi or the Funnel is down, instead of hanging the request
         connectionTimeoutMillis: 10_000,

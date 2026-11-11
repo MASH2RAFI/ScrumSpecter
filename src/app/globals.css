@@ -190,6 +190,12 @@ html[data-started] .skeleton-late {
 @media (prefers-reduced-motion: reduce) {
   html[data-started] .skeleton-late { animation: skeleton-late 0.01ms linear 0.15s backwards; }
 }
+/* Something that waits a moment before it shows at all (a modal's loading screen): a quick load never flashes it */
+html[data-started] .late-in { animation: skeleton-late 0.2s ease-out 0.3s backwards; }
+@media (prefers-reduced-motion: reduce) {
+  html[data-started] .late-in { animation: skeleton-late 0.01ms linear 0.3s backwards; }
+}
+html[data-reduce-motion][data-started] .late-in { animation: skeleton-late 0.01ms linear 0.3s backwards; }
 html[data-reduce-motion][data-started] .skeleton-late { animation: skeleton-late 0.01ms linear 0.15s backwards; }
 
 /* Everything settles instantly for people who ask for less motion (Motion itself follows the same
